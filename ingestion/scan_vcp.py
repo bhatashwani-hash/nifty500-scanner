@@ -42,17 +42,26 @@ def run(conn, run_date: date | None = None):
     log.info("scan_vcp: loading data …")
 
     close_df = pd.read_sql(
-        "SELECT symbol, time::date AS date, close FROM zerodha_ohlcv ORDER BY date",
+        """SELECT o.symbol, o.time::date AS date, o.close
+           FROM ohlcv o
+           JOIN stocks s ON o.symbol = s.symbol
+           WHERE s.is_active = true ORDER BY date""",
         conn, parse_dates=["date"],
     ).pivot(index="date", columns="symbol", values="close").sort_index()
 
     high_df = pd.read_sql(
-        "SELECT symbol, time::date AS date, high FROM zerodha_ohlcv ORDER BY date",
+        """SELECT o.symbol, o.time::date AS date, o.high
+           FROM ohlcv o
+           JOIN stocks s ON o.symbol = s.symbol
+           WHERE s.is_active = true ORDER BY date""",
         conn, parse_dates=["date"],
     ).pivot(index="date", columns="symbol", values="high").sort_index()
 
     low_df = pd.read_sql(
-        "SELECT symbol, time::date AS date, low FROM zerodha_ohlcv ORDER BY date",
+        """SELECT o.symbol, o.time::date AS date, o.low
+           FROM ohlcv o
+           JOIN stocks s ON o.symbol = s.symbol
+           WHERE s.is_active = true ORDER BY date""",
         conn, parse_dates=["date"],
     ).pivot(index="date", columns="symbol", values="low").sort_index()
 

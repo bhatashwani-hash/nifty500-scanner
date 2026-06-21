@@ -3,7 +3,7 @@ scan_breadth.py
 
 Computes daily market breadth indicators for the full NSE universe and writes
 them to the scanner_breadth table in Supabase. Mirrors the Worden-style
-breadth table but uses zerodha_ohlcv as the data source.
+breadth table but uses the `ohlcv` table (500-stock universe) as the data source.
 
 Indicators computed per trading day:
 
@@ -21,7 +21,7 @@ Indicators computed per trading day:
   up/down_13pct_34d     — return vs close 34 trading days ago ≥ ±13%
   universe              — count of stocks with a close on that date
   pct_above_200ma       — T2108 equivalent: % of stocks above 200-day SMA
-  nifty50_close         — NIFTY 50 close (from zerodha_index_ohlcv if available)
+  nifty50_close         — NIFTY 50 close (^NSEI from index_ohlcv if available)
 
 Run LOCALLY after yf_zerodha_backfill.py:
     python ingestion/scan_breadth.py
@@ -60,10 +60,14 @@ log = logging.getLogger(__name__)
 # ── Data loading ──────────────────────────────────────────────────────────────
 
 def load_ohlcv(conn) -> pd.DataFrame:
-    """Load full zerodha_ohlcv into a wide pivot: index=date, columns=symbol."""
-    log.info("Loading zerodha_ohlcv …")
+    """Load the 500-stock universe from ohlcv into a wide pivot: index=date, columns=symbol."""
+    log.info("Loading ohlcv (500-stock universe) …")
     df = pd.read_sql(
-        "SELECT symbol, time::date AS date, close FROM zerodha_ohlcv ORDER BY date",
+        """SELECT o.symbol, o.time::date AS date, o.close
+           FROM ohlcv o
+           JOIN stocks s ON o.symbol = s.symbol
+           WHERE s.is_active = true
+           ORDER BY date""",
         conn,
         parse_dates=["date"],
     )
@@ -74,15 +78,15 @@ def load_ohlcv(conn) -> pd.DataFrame:
 
 def load_nifty50(conn) -> pd.Series:
     """
-    Load NIFTY 50 daily close from zerodha_index_ohlcv (if populated).
+    Load NIFTY 50 (^NSEI) daily close from index_ohlcv (if populated).
     Returns a Series indexed by date. Empty Series if table is missing.
     """
     try:
         df = pd.read_sql(
             """
             SELECT time::date AS date, close
-            FROM zerodha_index_ohlcv
-            WHERE symbol = 'NIFTY 50'
+            FROM index_ohlcv
+            WHERE symbol = '^NSEI'
             ORDER BY date
             """,
             conn,

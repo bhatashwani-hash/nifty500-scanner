@@ -98,7 +98,7 @@
     <div class="kpi"><div class="kpi-label">Universe</div><div class="kpi-val neu" id="kpi-univ">—</div></div>
     <div class="kpi"><div class="kpi-label">Breakouts</div><div class="kpi-val up" id="kpi-bo">—</div></div>
     <div class="kpi"><div class="kpi-label">Breakdowns</div><div class="kpi-val down" id="kpi-bd">—</div></div>
-    <div class="kpi"><div class="kpi-label">Bullish EPs</div><div class="kpi-val up" id="kpi-bep">—</div></div>
+    <div class="kpi"><div class="kpi-label">Bullish EPs (6M)</div><div class="kpi-val up" id="kpi-bep">—</div></div>
     <div class="kpi"><div class="kpi-label">VCPs</div><div class="kpi-val" style="color:#58a6ff" id="kpi-vcp">—</div></div>
   </div>
 
@@ -181,8 +181,8 @@
         <div class="card-body p-0">
           <table id="tbl-ep" class="table table-sm mb-0 w-100">
             <thead><tr>
-              <th>Symbol</th><th>Type</th><th>Close</th><th>Prev Close</th>
-              <th>Gap %</th><th>Move %</th><th>Vol Ratio</th><th>Volume</th><th>50d Avg Vol</th><th>FNO</th>
+              <th>#</th><th>Symbol</th><th>Type</th><th>Pivot Date</th><th>Pivot Close</th>
+              <th>Last Close</th><th>Return Since Pivot</th><th>Gap %</th><th>Move %</th><th>Vol Ratio</th><th>FNO</th>
             </tr></thead>
             <tbody id="ep-body"></tbody>
           </table>
@@ -369,10 +369,10 @@ function filterBreakouts() {
 
 // ── EPISODIC PIVOT ───────────────────────────────────────────────────────────
 async function loadEP() {
+  // All episodic pivots from the last 6 months, ranked by return since the pivot.
   const { data, error } = await sb.from("scanner_ep")
     .select("*")
-    .eq("run_date", await getLatestDate("scanner_ep"))
-    .order("ep_type").order("vol_ratio", { ascending: false });
+    .order("rnk", { ascending: true });
   if (error || !data) return;
 
   setText("kpi-bep", data.filter(r => r.ep_type === "BULLISH").length, "up");
@@ -381,22 +381,24 @@ async function loadEP() {
   tbody.innerHTML = data.map(r => {
     const isBull = r.ep_type === "BULLISH";
     const isFno  = fnoSymbols.has(r.symbol);
+    const ret    = r.return_since_pivot;
     return `<tr>
+      <td>${r.rnk ?? ""}</td>
       <td><strong>${r.symbol}</strong></td>
       <td><span class="badge ${isBull ? "badge-bull" : "badge-bear"}">${r.ep_type}</span></td>
+      <td>${r.run_date ?? ""}</td>
       <td>${fmt(r.close, 2)}</td>
-      <td>${fmt(r.prev_close, 2)}</td>
+      <td>${fmt(r.last_close, 2)}</td>
+      <td class="${ret >= 0 ? "text-success" : "text-danger"}"><strong>${fmt(ret, 2)}%</strong></td>
       <td class="${r.gap_pct >= 0 ? "text-success" : "text-danger"}">${fmt(r.gap_pct, 2)}%</td>
       <td class="${r.move_pct >= 0 ? "text-success" : "text-danger"}">${fmt(r.move_pct, 2)}%</td>
       <td class="text-warning">${fmt(r.vol_ratio, 1)}×</td>
-      <td>${fmtVol(r.volume)}</td>
-      <td>${fmtVol(r.vol_avg_50d)}</td>
       <td>${isFno ? '<span class="badge bg-warning text-dark">F&O</span>' : ""}</td>
     </tr>`;
   }).join("");
 
   if (dtEP) dtEP.destroy();
-  dtEP = $("#tbl-ep").DataTable({ pageLength: 25, order: [], dom: "ftip" });
+  dtEP = $("#tbl-ep").DataTable({ pageLength: 25, order: [[0, "asc"]], dom: "ftip" });
 }
 
 // ── VCP ──────────────────────────────────────────────────────────────────────

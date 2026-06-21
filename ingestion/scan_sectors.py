@@ -1,7 +1,7 @@
 """
 scan_sectors.py  —  Sector leaders / laggards for day, week, and month.
 
-Requires zerodha_stocks.sector to be populated (run enrich_zerodha_stocks.py first).
+Reads the 500-stock `stocks` table (sector column) joined to `ohlcv`.
 Stocks with NULL sector are grouped under "Unknown".
 
 For each (period, sector) computes:
@@ -51,14 +51,17 @@ PERIODS = {"day": 1, "week": 5, "month": 21}
 def run(conn, run_date: date | None = None):
     log.info("scan_sectors: loading data …")
 
-    # Load sector mapping
+    # Load sector mapping — Nifty 500 only
     sectors = pd.read_sql(
-        "SELECT symbol, COALESCE(sector, 'Unknown') AS sector FROM zerodha_stocks",
+        "SELECT symbol, COALESCE(sector, 'Unknown') AS sector FROM stocks WHERE is_active = true",
         conn,
     ).set_index("symbol")["sector"]
 
     close_df = pd.read_sql(
-        "SELECT symbol, time::date AS date, close FROM zerodha_ohlcv ORDER BY date",
+        """SELECT o.symbol, o.time::date AS date, o.close
+           FROM ohlcv o
+           JOIN stocks s ON o.symbol = s.symbol
+           WHERE s.is_active = true ORDER BY date""",
         conn, parse_dates=["date"],
     ).pivot(index="date", columns="symbol", values="close").sort_index()
 

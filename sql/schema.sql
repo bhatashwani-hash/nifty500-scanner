@@ -89,3 +89,86 @@ BEGIN
 END $$;
 
 CREATE INDEX IF NOT EXISTS idx_index_ohlcv_symbol_time ON index_ohlcv (symbol, time DESC);
+
+-- ============================================================================
+-- 8. Daily scanner output tables
+--    All scanners run over the 500-stock universe: `stocks` (universe) + `ohlcv`
+--    (prices). Symbol columns reference stocks(symbol).
+-- ============================================================================
+
+-- Episodic Pivot — rolling 6-month leaderboard, ranked by return since pivot.
+CREATE TABLE IF NOT EXISTS scanner_ep (
+  run_date            DATE NOT NULL,                       -- the pivot date
+  symbol              TEXT NOT NULL REFERENCES stocks(symbol),
+  ep_type             TEXT,                                -- 'BULLISH' | 'BEARISH'
+  open                NUMERIC,
+  close               NUMERIC,                             -- pivot-day close
+  prev_close          NUMERIC,
+  gap_pct             NUMERIC,
+  move_pct            NUMERIC,
+  vol_ratio           NUMERIC,
+  volume              BIGINT,
+  vol_avg_50d         NUMERIC,
+  last_date           DATE,                                -- latest bar used for return
+  last_close          NUMERIC,                             -- latest close
+  return_since_pivot  NUMERIC,                             -- (last_close/close - 1)*100
+  rnk                 INTEGER,                             -- 1 = best return since pivot
+  PRIMARY KEY (run_date, symbol)
+);
+CREATE INDEX IF NOT EXISTS idx_scanner_ep_rnk ON scanner_ep (rnk);
+
+-- N-period closing highs / lows.
+CREATE TABLE IF NOT EXISTS scanner_breakouts (
+  run_date      DATE NOT NULL,
+  symbol        TEXT NOT NULL REFERENCES stocks(symbol),
+  close         NUMERIC,
+  change_pct    NUMERIC,
+  volume        BIGINT,
+  breakout_type TEXT NOT NULL,                             -- e.g. '1M_HIGH', '1Y_LOW'
+  PRIMARY KEY (run_date, symbol, breakout_type)
+);
+
+-- Volatility Contraction Pattern setups.
+CREATE TABLE IF NOT EXISTS scanner_vcp (
+  run_date      DATE NOT NULL,
+  symbol        TEXT NOT NULL REFERENCES stocks(symbol),
+  close         NUMERIC,
+  return_3m     NUMERIC,
+  high_15d      NUMERIC,
+  low_15d       NUMERIC,
+  range_15d_pct NUMERIC,
+  PRIMARY KEY (run_date, symbol)
+);
+
+-- Sector performance (day / week / month).
+CREATE TABLE IF NOT EXISTS scanner_sectors (
+  run_date    DATE NOT NULL,
+  period      TEXT NOT NULL,                               -- 'day' | 'week' | 'month'
+  sector      TEXT NOT NULL,
+  avg_return  NUMERIC,
+  med_return  NUMERIC,
+  up_count    INTEGER,
+  down_count  INTEGER,
+  stock_count INTEGER,
+  PRIMARY KEY (run_date, period, sector)
+);
+
+-- Market breadth (Worden T2107/T2108-style), one row per trading day.
+CREATE TABLE IF NOT EXISTS scanner_breadth (
+  date            DATE PRIMARY KEY,
+  up_4pct         INTEGER,
+  down_4pct       INTEGER,
+  ratio_5d        NUMERIC,
+  ratio_10d       NUMERIC,
+  up_25pct_3m     INTEGER,
+  down_25pct_3m   INTEGER,
+  up_25pct_1m     INTEGER,
+  down_25pct_1m   INTEGER,
+  up_50pct_1m     INTEGER,
+  down_50pct_1m   INTEGER,
+  up_13pct_34d    INTEGER,
+  down_13pct_34d  INTEGER,
+  universe        INTEGER,
+  pct_above_200ma NUMERIC,
+  nifty50_close   NUMERIC
+);

@@ -2,7 +2,7 @@
 scan_all.py  —  Orchestrator: runs all daily scanners in sequence.
 
 Loads a single DB connection and passes it to each scanner module.
-All scanners default to the most recent trading date in zerodha_ohlcv.
+All scanners default to the most recent trading date in ohlcv.
 
 Usage:
     python ingestion/scan_all.py              # run all scanners
@@ -44,7 +44,6 @@ def main():
     run_date = date.fromisoformat(args.date) if args.date else None
 
     # Import here so each module picks up logging config above
-    from scan_breadth    import run as run_breadth
     from scan_breakouts  import run as run_breakouts
     from scan_ep         import run as run_ep
     from scan_sectors    import run as run_sectors
@@ -55,7 +54,7 @@ def main():
         ("ep",        run_ep),
         ("vcp",       run_vcp),
         ("sectors",   run_sectors),
-        ("breadth",   run_breadth),
+        ("breadth",   None),   # handled separately below via compute_breadth/write_breadth
     ]
 
     conn = psycopg2.connect(os.environ["DATABASE_URL"])
@@ -76,7 +75,11 @@ def main():
                     import pandas as pd
                     nifty50 = _load_nifty50(conn)
                     ohlcv   = pd.read_sql(
-                        "SELECT symbol, time::date AS date, close FROM zerodha_ohlcv ORDER BY date",
+                        """SELECT o.symbol, o.time::date AS date, o.close
+                           FROM ohlcv o
+                           JOIN stocks s ON o.symbol = s.symbol
+                           WHERE s.is_active = true
+                           ORDER BY date""",
                         conn, parse_dates=["date"],
                     )
                     from scan_breadth import compute_breadth, write_breadth, load_existing_dates
@@ -89,10 +92,14 @@ def main():
                     count = fn(conn, run_date=run_date)
                 elapsed = time.time() - t0
                 results[name] = f"{count} rows in {elapsed:.1f}s"
-                log.info("✓ %s: %s", name, results[name])
+                log.info("OK %s: %s", name, results[name])
             except Exception as e:
                 results[name] = f"FAILED: {e}"
-                log.error("✗ %s: %s", name, e, exc_info=True)
+                log.error("FAIL %s: %s", name, e, exc_info=True)
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
     finally:
         conn.close()
 
@@ -108,7 +115,7 @@ def _load_nifty50(conn):
     import pandas as pd
     try:
         df = pd.read_sql(
-            "SELECT time::date AS date, close FROM zerodha_index_ohlcv WHERE symbol='NIFTY 50' ORDER BY date",
+            "SELECT time::date AS date, close FROM index_ohlcv WHERE symbol='^NSEI' ORDER BY date",
             conn, parse_dates=["date"],
         )
         return df.set_index("date")["close"]
