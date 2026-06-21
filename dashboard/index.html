@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NSE Market Scanner</title>
+
+<!-- Bootstrap 5 -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<!-- DataTables -->
+<link href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" rel="stylesheet"/>
+
+<style>
+  :root { --accent: #00c896; --bg: #0d1117; --card: #161b22; --border: #30363d; --muted: #8b949e; }
+  body  { background: var(--bg); color: #e6edf3; font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+
+  /* Nav */
+  .navbar { background: var(--card); border-bottom: 1px solid var(--border); }
+  .navbar-brand { color: var(--accent) !important; font-weight: 700; letter-spacing: .5px; }
+  .nav-tabs  { border-color: var(--border); }
+  .nav-tabs .nav-link          { color: var(--muted); border: none; padding: .5rem 1rem; }
+  .nav-tabs .nav-link:hover    { color: #e6edf3; }
+  .nav-tabs .nav-link.active   { color: var(--accent); border-bottom: 2px solid var(--accent);
+                                  background: transparent; }
+
+  /* Cards */
+  .card  { background: var(--card); border: 1px solid var(--border); border-radius: 8px; }
+  .card-header { background: transparent; border-color: var(--border); font-size:.8rem;
+                  text-transform:uppercase; letter-spacing:.8px; color: var(--muted); }
+
+  /* KPI chips */
+  .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:.75rem; }
+  .kpi { background:var(--card); border:1px solid var(--border); border-radius:8px;
+         padding:.75rem 1rem; text-align:center; }
+  .kpi-label { font-size:.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+  .kpi-val   { font-size:1.5rem; font-weight:700; margin-top:.2rem; }
+  .kpi-val.up   { color: #3fb950; }
+  .kpi-val.down { color: #f85149; }
+  .kpi-val.neu  { color: #e6edf3; }
+
+  /* Tables */
+  table.dataTable thead th { background:var(--card); color:var(--muted); border-color:var(--border);
+                               font-size:.75rem; text-transform:uppercase; letter-spacing:.5px; }
+  table.dataTable tbody tr { background:var(--bg) !important; color:#e6edf3; }
+  table.dataTable tbody tr:hover td { background:#1c2128 !important; }
+  table.dataTable tbody td { border-color:var(--border); font-size:.85rem; }
+  .dataTables_wrapper .dataTables_filter input,
+  .dataTables_wrapper .dataTables_length select {
+    background:var(--card); border:1px solid var(--border); color:#e6edf3; border-radius:4px; }
+  .dataTables_wrapper .dataTables_info,
+  .dataTables_wrapper .dataTables_paginate .paginate_button { color:var(--muted) !important; }
+  .dataTables_wrapper .dataTables_paginate .paginate_button.current { color:var(--accent) !important; }
+
+  /* Badges */
+  .badge-high { background:#1a3a28; color:#3fb950; }
+  .badge-low  { background:#3a1a1a; color:#f85149; }
+  .badge-bull { background:#1a3a28; color:#3fb950; }
+  .badge-bear { background:#3a1a1a; color:#f85149; }
+  .badge-vcp  { background:#1a2a3a; color:#58a6ff; }
+
+  /* Sector heatmap cells */
+  .heat-pos-3 { background:#1a4d28; }
+  .heat-pos-2 { background:#163d20; }
+  .heat-pos-1 { background:#0d2914; }
+  .heat-neg-1 { background:#2d1515; }
+  .heat-neg-2 { background:#3d1a1a; }
+  .heat-neg-3 { background:#4d2020; }
+
+  /* Breadth history table */
+  .breadth-tbl td { font-size:.78rem; white-space:nowrap; }
+
+  /* Spinner */
+  .spinner-border { color: var(--accent); }
+
+  #toast-container { position:fixed; top:1rem; right:1rem; z-index:9999; }
+  .toast { background:var(--card); border:1px solid var(--border); color:#e6edf3; }
+</style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar px-3 py-2 mb-3">
+  <span class="navbar-brand fs-5">⚡ NSE Scanner</span>
+  <span id="last-updated" class="text-muted small"></span>
+  <button class="btn btn-sm btn-outline-secondary ms-2" onclick="loadAll()">↻ Refresh</button>
+</nav>
+
+<div class="container-fluid px-3">
+
+  <!-- KPI row -->
+  <div class="kpi-grid mb-3" id="kpi-row">
+    <div class="kpi"><div class="kpi-label">Up 4%+</div><div class="kpi-val up" id="kpi-up4">—</div></div>
+    <div class="kpi"><div class="kpi-label">Down 4%+</div><div class="kpi-val down" id="kpi-dn4">—</div></div>
+    <div class="kpi"><div class="kpi-label">5d Ratio</div><div class="kpi-val neu" id="kpi-r5">—</div></div>
+    <div class="kpi"><div class="kpi-label">10d Ratio</div><div class="kpi-val neu" id="kpi-r10">—</div></div>
+    <div class="kpi"><div class="kpi-label">T2108 (% >200MA)</div><div class="kpi-val neu" id="kpi-t2108">—</div></div>
+    <div class="kpi"><div class="kpi-label">NIFTY 50</div><div class="kpi-val neu" id="kpi-nifty">—</div></div>
+    <div class="kpi"><div class="kpi-label">Universe</div><div class="kpi-val neu" id="kpi-univ">—</div></div>
+    <div class="kpi"><div class="kpi-label">Breakouts</div><div class="kpi-val up" id="kpi-bo">—</div></div>
+    <div class="kpi"><div class="kpi-label">Breakdowns</div><div class="kpi-val down" id="kpi-bd">—</div></div>
+    <div class="kpi"><div class="kpi-label">Bullish EPs</div><div class="kpi-val up" id="kpi-bep">—</div></div>
+    <div class="kpi"><div class="kpi-label">VCPs</div><div class="kpi-val" style="color:#58a6ff" id="kpi-vcp">—</div></div>
+  </div>
+
+  <!-- Tabs -->
+  <ul class="nav nav-tabs mb-3" id="mainTabs">
+    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-breadth">📊 Breadth</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-breakouts">🚀 Breakouts</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-ep">⚡ Episodic Pivot</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-vcp">🎯 VCP</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-sectors">🌐 Sectors</a></li>
+  </ul>
+
+  <div class="tab-content">
+
+    <!-- ── BREADTH TAB ──────────────────────────────────────────── -->
+    <div class="tab-pane fade show active" id="tab-breadth">
+      <div class="card mb-3">
+        <div class="card-header">Market Breadth — Last 30 Days</div>
+        <div class="card-body p-0 overflow-auto">
+          <table class="table table-sm mb-0 breadth-tbl" id="tbl-breadth">
+            <thead><tr>
+              <th>Date</th>
+              <th>↑4%</th><th>↓4%</th>
+              <th>5d Ratio</th><th>10d Ratio</th>
+              <th>↑25% 3M</th><th>↓25% 3M</th>
+              <th>↑25% 1M</th><th>↓25% 1M</th>
+              <th>↑50% 1M</th><th>↓50% 1M</th>
+              <th>↑13% 34d</th><th>↓13% 34d</th>
+              <th>Universe</th>
+              <th>T2108 %</th>
+              <th>NIFTY 50</th>
+            </tr></thead>
+            <tbody id="breadth-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── BREAKOUTS TAB ────────────────────────────────────────── -->
+    <div class="tab-pane fade" id="tab-breakouts">
+      <div class="row g-3 mb-2">
+        <div class="col-auto">
+          <select id="bo-type-filter" class="form-select form-select-sm"
+                  style="background:var(--card);color:#e6edf3;border-color:var(--border)"
+                  onchange="filterBreakouts()">
+            <option value="">All Types</option>
+            <option value="HIGH">Highs only</option>
+            <option value="LOW">Lows only</option>
+            <option value="2Y">2Y</option>
+            <option value="1Y">1Y</option>
+            <option value="6M">6M</option>
+            <option value="3M">3M</option>
+            <option value="1M">1M</option>
+          </select>
+        </div>
+        <div class="col-auto">
+          <select id="bo-fno-filter" class="form-select form-select-sm"
+                  style="background:var(--card);color:#e6edf3;border-color:var(--border)"
+                  onchange="filterBreakouts()">
+            <option value="">All Stocks</option>
+            <option value="fno">FNO Only</option>
+          </select>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-body p-0">
+          <table id="tbl-breakouts" class="table table-sm mb-0 w-100">
+            <thead><tr>
+              <th>Symbol</th><th>Type</th><th>Close</th><th>Chg%</th><th>Volume</th><th>FNO</th>
+            </tr></thead>
+            <tbody id="bo-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── EP TAB ───────────────────────────────────────────────── -->
+    <div class="tab-pane fade" id="tab-ep">
+      <div class="card">
+        <div class="card-body p-0">
+          <table id="tbl-ep" class="table table-sm mb-0 w-100">
+            <thead><tr>
+              <th>Symbol</th><th>Type</th><th>Close</th><th>Prev Close</th>
+              <th>Gap %</th><th>Move %</th><th>Vol Ratio</th><th>Volume</th><th>50d Avg Vol</th><th>FNO</th>
+            </tr></thead>
+            <tbody id="ep-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── VCP TAB ──────────────────────────────────────────────── -->
+    <div class="tab-pane fade" id="tab-vcp">
+      <div class="card">
+        <div class="card-body p-0">
+          <table id="tbl-vcp" class="table table-sm mb-0 w-100">
+            <thead><tr>
+              <th>Symbol</th><th>Close</th><th>3M Return %</th>
+              <th>15d High</th><th>15d Low</th><th>15d Range %</th><th>FNO</th>
+            </tr></thead>
+            <tbody id="vcp-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SECTORS TAB ──────────────────────────────────────────── -->
+    <div class="tab-pane fade" id="tab-sectors">
+      <div class="row g-2 mb-2">
+        <div class="col-auto">
+          <div class="btn-group btn-group-sm" role="group" id="period-toggle">
+            <button class="btn btn-outline-secondary active" data-period="day"   onclick="setSectorPeriod('day')">Day</button>
+            <button class="btn btn-outline-secondary"        data-period="week"  onclick="setSectorPeriod('week')">Week</button>
+            <button class="btn btn-outline-secondary"        data-period="month" onclick="setSectorPeriod('month')">Month</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-body p-0">
+          <table id="tbl-sectors" class="table table-sm mb-0 w-100">
+            <thead><tr>
+              <th>Sector</th><th>Avg Return %</th><th>Median %</th>
+              <th>↑ Stocks</th><th>↓ Stocks</th><th>Total</th>
+            </tr></thead>
+            <tbody id="sectors-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /tab-content -->
+</div><!-- /container -->
+
+<!-- Toast -->
+<div id="toast-container">
+  <div id="main-toast" class="toast align-items-center" role="alert" aria-live="assertive">
+    <div class="d-flex">
+      <div class="toast-body" id="toast-msg">Loading…</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+// ── Supabase client ─────────────────────────────────────────────────────────
+const SUPABASE_URL = "https://lgsgcccasccxfofxsbge.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxnc2djY2Nhc2NjeGZvZnhzYmdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5NTI5MjMsImV4cCI6MjA5NzUyODkyM30.mUk6etxWdkxttwoHnG9-F2axvj680XXOKWmjaSRYuTA";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── State ───────────────────────────────────────────────────────────────────
+let fnoSymbols    = new Set();
+let latestDate    = null;
+let boData        = [];
+let sectorPeriod  = "day";
+let dtBreakouts, dtEP, dtVCP, dtSectors;
+
+// ── Init ────────────────────────────────────────────────────────────────────
+async function loadAll() {
+  showToast("Refreshing data…");
+  await Promise.all([
+    loadFNO(),
+    loadBreadth(),
+    loadBreakouts(),
+    loadEP(),
+    loadVCP(),
+    loadSectors(),
+  ]);
+  document.getElementById("last-updated").textContent =
+    "Updated " + new Date().toLocaleTimeString("en-IN");
+  showToast("Data refreshed ✓", 2000);
+}
+
+async function loadFNO() {
+  const { data } = await sb.from("zerodha_stocks")
+    .select("symbol").eq("is_fno", true);
+  if (data) fnoSymbols = new Set(data.map(r => r.symbol));
+}
+
+// ── BREADTH ─────────────────────────────────────────────────────────────────
+async function loadBreadth() {
+  const { data, error } = await sb.from("scanner_breadth")
+    .select("*").order("date", { ascending: false }).limit(30);
+  if (error || !data?.length) return;
+
+  latestDate = data[0].date;
+  const d = data[0];
+
+  // KPIs
+  setText("kpi-up4",   d.up_4pct,                      "up");
+  setText("kpi-dn4",   d.down_4pct,                     "down");
+  setText("kpi-r5",    fmt(d.ratio_5d, 2),               ratioCls(d.ratio_5d));
+  setText("kpi-r10",   fmt(d.ratio_10d, 2),              ratioCls(d.ratio_10d));
+  setText("kpi-t2108", fmt(d.pct_above_200ma, 1) + "%",  t2108Cls(d.pct_above_200ma));
+  setText("kpi-nifty", d.nifty50_close ? fmt(d.nifty50_close, 0) : "—", "neu");
+  setText("kpi-univ",  d.universe,                       "neu");
+
+  // Breadth table
+  const tbody = document.getElementById("breadth-body");
+  tbody.innerHTML = data.map(r => `
+    <tr>
+      <td>${r.date}</td>
+      <td class="text-success">${r.up_4pct ?? "—"}</td>
+      <td class="text-danger">${r.down_4pct ?? "—"}</td>
+      <td class="${ratioCls(r.ratio_5d)}">${fmt(r.ratio_5d, 2)}</td>
+      <td class="${ratioCls(r.ratio_10d)}">${fmt(r.ratio_10d, 2)}</td>
+      <td>${r.up_25pct_3m ?? "—"}</td><td class="text-danger">${r.down_25pct_3m ?? "—"}</td>
+      <td>${r.up_25pct_1m ?? "—"}</td><td class="text-danger">${r.down_25pct_1m ?? "—"}</td>
+      <td>${r.up_50pct_1m ?? "—"}</td><td class="text-danger">${r.down_50pct_1m ?? "—"}</td>
+      <td>${r.up_13pct_34d ?? "—"}</td><td class="text-danger">${r.down_13pct_34d ?? "—"}</td>
+      <td>${r.universe ?? "—"}</td>
+      <td class="${t2108Cls(r.pct_above_200ma)}">${fmt(r.pct_above_200ma, 1)}%</td>
+      <td>${r.nifty50_close ? fmt(r.nifty50_close, 0) : "—"}</td>
+    </tr>`).join("");
+}
+
+// ── BREAKOUTS ────────────────────────────────────────────────────────────────
+async function loadBreakouts() {
+  const { data, error } = await sb.from("scanner_breakouts")
+    .select("symbol, close, change_pct, volume, breakout_type")
+    .eq("run_date", await getLatestDate("scanner_breakouts"))
+    .order("breakout_type").order("change_pct", { ascending: false });
+  if (error || !data) return;
+
+  boData = data;
+  setText("kpi-bo", data.filter(r => r.breakout_type.includes("HIGH")).length, "up");
+  setText("kpi-bd", data.filter(r => r.breakout_type.includes("LOW")).length,  "down");
+
+  if (dtBreakouts) { dtBreakouts.destroy(); }
+  renderBreakoutsTable(data);
+}
+
+function renderBreakoutsTable(data) {
+  const tbody = document.getElementById("bo-body");
+  tbody.innerHTML = data.map(r => {
+    const isHigh = r.breakout_type.includes("HIGH");
+    const isFno  = fnoSymbols.has(r.symbol);
+    return `<tr data-type="${r.breakout_type}" data-fno="${isFno}">
+      <td><strong>${r.symbol}</strong></td>
+      <td><span class="badge ${isHigh ? "badge-high" : "badge-low"}">${r.breakout_type}</span></td>
+      <td>${fmt(r.close, 2)}</td>
+      <td class="${r.change_pct >= 0 ? "text-success" : "text-danger"}">${fmt(r.change_pct, 2)}%</td>
+      <td>${fmtVol(r.volume)}</td>
+      <td>${isFno ? '<span class="badge bg-warning text-dark">F&O</span>' : ""}</td>
+    </tr>`;
+  }).join("");
+  dtBreakouts = $("#tbl-breakouts").DataTable({
+    pageLength: 25, order: [], dom: "ftip",
+    language: { search: "Filter:", zeroRecords: "No results" }
+  });
+}
+
+function filterBreakouts() {
+  const typeFilter = document.getElementById("bo-type-filter").value;
+  const fnoFilter  = document.getElementById("bo-fno-filter").value;
+  let filtered = boData;
+  if (typeFilter)           filtered = filtered.filter(r => r.breakout_type.includes(typeFilter));
+  if (fnoFilter === "fno")  filtered = filtered.filter(r => fnoSymbols.has(r.symbol));
+  if (dtBreakouts) dtBreakouts.destroy();
+  renderBreakoutsTable(filtered);
+}
+
+// ── EPISODIC PIVOT ───────────────────────────────────────────────────────────
+async function loadEP() {
+  const { data, error } = await sb.from("scanner_ep")
+    .select("*")
+    .eq("run_date", await getLatestDate("scanner_ep"))
+    .order("ep_type").order("vol_ratio", { ascending: false });
+  if (error || !data) return;
+
+  setText("kpi-bep", data.filter(r => r.ep_type === "BULLISH").length, "up");
+
+  const tbody = document.getElementById("ep-body");
+  tbody.innerHTML = data.map(r => {
+    const isBull = r.ep_type === "BULLISH";
+    const isFno  = fnoSymbols.has(r.symbol);
+    return `<tr>
+      <td><strong>${r.symbol}</strong></td>
+      <td><span class="badge ${isBull ? "badge-bull" : "badge-bear"}">${r.ep_type}</span></td>
+      <td>${fmt(r.close, 2)}</td>
+      <td>${fmt(r.prev_close, 2)}</td>
+      <td class="${r.gap_pct >= 0 ? "text-success" : "text-danger"}">${fmt(r.gap_pct, 2)}%</td>
+      <td class="${r.move_pct >= 0 ? "text-success" : "text-danger"}">${fmt(r.move_pct, 2)}%</td>
+      <td class="text-warning">${fmt(r.vol_ratio, 1)}×</td>
+      <td>${fmtVol(r.volume)}</td>
+      <td>${fmtVol(r.vol_avg_50d)}</td>
+      <td>${isFno ? '<span class="badge bg-warning text-dark">F&O</span>' : ""}</td>
+    </tr>`;
+  }).join("");
+
+  if (dtEP) dtEP.destroy();
+  dtEP = $("#tbl-ep").DataTable({ pageLength: 25, order: [], dom: "ftip" });
+}
+
+// ── VCP ──────────────────────────────────────────────────────────────────────
+async function loadVCP() {
+  const { data, error } = await sb.from("scanner_vcp")
+    .select("*")
+    .eq("run_date", await getLatestDate("scanner_vcp"))
+    .order("range_15d_pct");
+  if (error || !data) return;
+
+  setText("kpi-vcp", data.length, "neu");
+
+  const tbody = document.getElementById("vcp-body");
+  tbody.innerHTML = data.map(r => {
+    const isFno = fnoSymbols.has(r.symbol);
+    return `<tr>
+      <td><strong>${r.symbol}</strong></td>
+      <td>${fmt(r.close, 2)}</td>
+      <td class="text-success">${fmt(r.return_3m, 1)}%</td>
+      <td>${fmt(r.high_15d, 2)}</td>
+      <td>${fmt(r.low_15d, 2)}</td>
+      <td class="text-info">${fmt(r.range_15d_pct, 1)}%</td>
+      <td>${isFno ? '<span class="badge bg-warning text-dark">F&O</span>' : ""}</td>
+    </tr>`;
+  }).join("");
+
+  if (dtVCP) dtVCP.destroy();
+  dtVCP = $("#tbl-vcp").DataTable({ pageLength: 25, order: [], dom: "ftip" });
+}
+
+// ── SECTORS ──────────────────────────────────────────────────────────────────
+async function loadSectors() {
+  const runDate = await getLatestDate("scanner_sectors");
+  const { data, error } = await sb.from("scanner_sectors")
+    .select("*").eq("run_date", runDate).eq("period", sectorPeriod)
+    .order("avg_return", { ascending: false });
+  if (error || !data) return;
+
+  const tbody = document.getElementById("sectors-body");
+  tbody.innerHTML = data.map(r => {
+    const cls = heatClass(r.avg_return);
+    return `<tr class="${cls}">
+      <td><strong>${r.sector}</strong></td>
+      <td class="${r.avg_return >= 0 ? "text-success" : "text-danger"}">${fmt(r.avg_return, 2)}%</td>
+      <td class="${r.med_return >= 0 ? "text-success" : "text-danger"}">${fmt(r.med_return, 2)}%</td>
+      <td class="text-success">${r.up_count}</td>
+      <td class="text-danger">${r.down_count}</td>
+      <td class="text-muted">${r.stock_count}</td>
+    </tr>`;
+  }).join("");
+
+  if (dtSectors) dtSectors.destroy();
+  dtSectors = $("#tbl-sectors").DataTable({ pageLength: 30, order: [], dom: "ftip",
+    paging: false });
+}
+
+function setSectorPeriod(p) {
+  sectorPeriod = p;
+  document.querySelectorAll("#period-toggle button").forEach(b => {
+    b.classList.toggle("active", b.dataset.period === p);
+  });
+  loadSectors();
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+async function getLatestDate(table) {
+  if (latestDate) return latestDate;
+  const { data } = await sb.from(table).select("run_date")
+    .order("run_date", { ascending: false }).limit(1);
+  return data?.[0]?.run_date ?? new Date().toISOString().slice(0, 10);
+}
+
+function setText(id, val, cls) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = val ?? "—";
+  if (cls) { el.className = "kpi-val " + cls; }
+}
+function fmt(v, d = 2) {
+  if (v == null || isNaN(v)) return "—";
+  return Number(v).toLocaleString("en-IN", { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+function fmtVol(v) {
+  if (!v) return "—";
+  if (v >= 1e7) return (v / 1e7).toFixed(1) + "Cr";
+  if (v >= 1e5) return (v / 1e5).toFixed(1) + "L";
+  return v.toLocaleString("en-IN");
+}
+function ratioCls(v) { return !v ? "neu" : v >= 1.5 ? "up" : v >= 1 ? "neu" : "down"; }
+function t2108Cls(v) { return !v ? "neu" : v >= 60 ? "up" : v <= 40 ? "down" : "neu"; }
+function heatClass(v) {
+  if (v >= 2)  return "heat-pos-3";
+  if (v >= 1)  return "heat-pos-2";
+  if (v >= 0)  return "heat-pos-1";
+  if (v >= -1) return "heat-neg-1";
+  if (v >= -2) return "heat-neg-2";
+  return "heat-neg-3";
+}
+
+function showToast(msg, duration = 0) {
+  document.getElementById("toast-msg").textContent = msg;
+  const t = new bootstrap.Toast(document.getElementById("main-toast"),
+    { delay: duration || 99999, autohide: duration > 0 });
+  t.show();
+}
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+loadAll();
+</script>
+</body>
+</html>

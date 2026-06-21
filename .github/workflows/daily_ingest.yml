@@ -1,0 +1,40 @@
+name: Daily Ingestion — Yahoo Finance → Supabase
+
+# Runs at 5:00 PM IST (11:30 UTC) on NSE trading days (Mon–Fri)
+# NSE closes at 3:30 PM IST so data is settled by 5 PM
+on:
+  schedule:
+    - cron: "30 11 * * 1-5"
+  workflow_dispatch:           # allow manual trigger
+
+jobs:
+  ingest:
+    name: Ingest Yahoo Finance OHLCV
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run ingestion
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python ingestion/yf_zerodha_backfill.py
+
+      - name: Upload log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ingest-log-${{ github.run_id }}
+          path: ingestion/yf_zerodha_backfill.log
+          retention-days: 7

@@ -1,0 +1,58 @@
+name: Daily Scanners — Compute & Update Supabase
+
+# Runs at 7:00 PM IST (13:30 UTC) on NSE trading days (Mon–Fri)
+# 2-hour gap after ingestion gives time for data to settle
+on:
+  schedule:
+    - cron: "30 13 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      scan_date:
+        description: "Override date (YYYY-MM-DD). Leave blank for latest."
+        required: false
+        default: ""
+      skip:
+        description: "Comma-separated scanners to skip (breakouts,ep,vcp,sectors,breadth)"
+        required: false
+        default: ""
+
+jobs:
+  scan:
+    name: Run All Scanners
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run scanners
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        working-directory: ingestion
+        run: |
+          ARGS=""
+          if [ -n "${{ github.event.inputs.scan_date }}" ]; then
+            ARGS="$ARGS --date ${{ github.event.inputs.scan_date }}"
+          fi
+          if [ -n "${{ github.event.inputs.skip }}" ]; then
+            ARGS="$ARGS --skip ${{ github.event.inputs.skip }}"
+          fi
+          python scan_all.py $ARGS
+
+      - name: Upload log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scan-log-${{ github.run_id }}
+          path: ingestion/scan_all.log
+          retention-days: 7
