@@ -5,7 +5,12 @@ name: Daily Ingestion — Yahoo Finance → Supabase
 on:
   schedule:
     - cron: "30 11 * * 1-5"
-  workflow_dispatch:           # allow manual trigger
+  workflow_dispatch:
+    inputs:
+      full_backfill:
+        description: "Run full 2-year backfill (true) or 7-day delta (false)"
+        required: false
+        default: "false"
 
 jobs:
   ingest:
@@ -29,7 +34,12 @@ jobs:
       - name: Run ingestion
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python ingestion/yf_zerodha_backfill.py
+        run: |
+          ARGS=""
+          if [ "${{ github.event.inputs.full_backfill }}" = "true" ]; then
+            ARGS="--full"
+          fi
+          python ingestion/yf_zerodha_backfill.py $ARGS
 
       - name: Upload log
         if: always()

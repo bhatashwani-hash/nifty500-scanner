@@ -1,16 +1,19 @@
 """
-Backfill zerodha_ohlcv with 2 years of daily OHLCV from Yahoo Finance.
+Ingest daily OHLCV from Yahoo Finance into zerodha_ohlcv.
 
-Reads all symbols from zerodha_stocks, maps each to SYMBOL.NS (NSE), downloads
-via yfinance in batches of 200, and upserts into zerodha_ohlcv.
+Default (daily mode): fetches the last 7 days — fast incremental update.
+Full backfill:        python ingestion/yf_zerodha_backfill.py --full
+                      Downloads 2 years of data for all symbols. Run once.
 
 Run from the project root (where .env lives):
-    python ingestion/yf_zerodha_backfill.py
+    python ingestion/yf_zerodha_backfill.py          # daily delta
+    python ingestion/yf_zerodha_backfill.py --full   # one-time backfill
 
 Requirements:
     pip install yfinance psycopg2-binary python-dotenv
 """
 
+import argparse
 import os
 import sys
 import time
@@ -30,12 +33,17 @@ load_dotenv(SCRIPT_DIR.parent / ".env")
 
 DB_URL = os.environ["DATABASE_URL"]
 
-END_DATE   = datetime.now(timezone.utc).date()
-START_DATE = END_DATE - timedelta(days=2 * 365)   # ~2 years
-
 BATCH_SIZE   = 100    # tickers per yfinance.download() call
 PAUSE_SECS   = 2      # pause between batches to respect rate limits
 LOG_EVERY    = 10     # log progress every N symbols
+
+parser = argparse.ArgumentParser(description="Yahoo Finance OHLCV ingestion")
+parser.add_argument("--full", action="store_true",
+                    help="Full 2-year backfill instead of 7-day delta")
+args = parser.parse_args()
+
+END_DATE   = datetime.now(timezone.utc).date()
+START_DATE = END_DATE - timedelta(days=2 * 365) if args.full else END_DATE - timedelta(days=7)
 
 logging.basicConfig(
     level=logging.INFO,
