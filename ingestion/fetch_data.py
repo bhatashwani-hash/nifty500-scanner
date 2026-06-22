@@ -48,6 +48,14 @@ def load_indices() -> list[str]:
     return symbols
 
 
+def load_active_stock_symbols(conn) -> list[str]:
+    """Return the active 500-stock universe straight from the stocks table.
+    This keeps the daily ingest in lock-step with what the scanners read."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT symbol FROM stocks WHERE is_active = true ORDER BY symbol")
+        return [r[0] for r in cur.fetchall()]
+
+
 def ensure_stocks_table(conn, tickers_df: pd.DataFrame):
     """Upsert the stock reference table (symbol, name, sector)."""
     rows = list(
@@ -193,7 +201,7 @@ def upsert_index_ohlcv(conn, df: pd.DataFrame):
     return len(rows)
 
 
-def run(mode: str, years: int, universe: str = "both"):
+def run(mode: str, years: int, universe: str = "both", days: int = 1):
     if not DB_URL:
         print("ERROR: DATABASE_URL not set. Copy .env.example to .env and fill it in.")
         sys.exit(1)
@@ -207,19 +215,30 @@ def run(mode: str, years: int, universe: str = "both"):
         period = f"{years}y"
         kwargs = {"period": period}
     else:
-        # Daily mode: just grab the last few days to safely cover weekends/holidays gaps
-        start = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+        # Daily mode: fetch only the last `days` calendar days (default 1 = that day).
+        # end is exclusive in yfinance, so today's bar is covered by end = tomorrow.
+        days = max(1, days)
+        start = (datetime.now() - timedelta(days=days - 1)).strftime("%Y-%m-%d")
         end = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
         kwargs = {"start": start, "end": end}
 
     total_rows = 0
     failed = []
     if do_stocks:
-        tickers_df = pd.read_csv(TICKER_CSV)
-        symbols = tickers_df["Symbol"].str.strip().tolist()
-        print(f"Loaded {len(symbols)} tickers from {TICKER_CSV}")
-
-        ensure_stocks_table(conn, tickers_df)
+        if mode == "daily":
+            # Daily ingest tracks the active 500-stock universe in the stocks table.
+            symbols = load_active_stock_symbols(conn)
+            print(f"Loaded {len(symbols)} active symbols from stocks table")
+            if not symbols:  # safety fallback if the table is empty
+                tickers_df = pd.read_csv(TICKER_CSV)
+                symbols = tickers_df["Symbol"].str.strip().tolist()
+                ensure_stocks_table(conn, tickers_df)
+                print(f"stocks table empty — fell back to {len(symbols)} tickers from CSV")
+        else:
+            tickers_df = pd.read_csv(TICKER_CSV)
+            symbols = tickers_df["Symbol"].str.strip().tolist()
+            print(f"Loaded {len(symbols)} tickers from {TICKER_CSV}")
+            ensure_stocks_table(conn, tickers_df)
 
         for i, symbol in enumerate(symbols, 1):
             try:
@@ -278,5 +297,11 @@ if __name__ == "__main__":
         default="both",
         help="Which dataset to fetch: stocks only, indices only, or both (default).",
     )
+    parser.add_argument(
+        "--days",
+        type=int,
+        default=1,
+        help="Daily mode lookback window in calendar days (default 1 = that day only).",
+    )
     args = parser.parse_args()
-    run(args.mode, args.years, args.universe)
+    run(args.mode, args.years, args.universe, args.days)

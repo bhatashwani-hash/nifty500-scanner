@@ -1,7 +1,7 @@
 name: Daily Scanners — Compute & Update Supabase
 
 # Runs at 7:00 PM IST (13:30 UTC) on NSE trading days (Mon–Fri)
-# 2-hour gap after ingestion gives time for data to settle
+# 1-hour gap after the 6 PM IST ingestion gives data time to settle
 on:
   schedule:
     - cron: "30 13 * * 1-5"

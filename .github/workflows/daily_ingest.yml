@@ -1,20 +1,26 @@
-name: Daily Ingestion — Yahoo Finance → Supabase
+name: Daily Ingestion — Yahoo Finance → ohlcv (500 stocks)
 
-# Runs at 5:00 PM IST (11:30 UTC) on NSE trading days (Mon–Fri)
-# NSE closes at 3:30 PM IST so data is settled by 5 PM
+# Runs at 6:00 PM IST (12:30 UTC) on NSE trading days (Mon–Fri).
+# NSE closes at 3:30 PM IST, so the day's EOD data is well settled by 6 PM.
+# Fetches ONLY that day's bar for the active 500-stock universe (stocks table)
+# and upserts into the ohlcv table.
 on:
   schedule:
-    - cron: "30 11 * * 1-5"
+    - cron: "30 12 * * 1-5"
   workflow_dispatch:
     inputs:
       full_backfill:
-        description: "Run full 2-year backfill (true) or 7-day delta (false)"
+        description: "Run a full 5-year backfill instead of the daily single-day load"
         required: false
         default: "false"
+      days:
+        description: "Daily mode lookback window in days (default 1 = that day only)"
+        required: false
+        default: "1"
 
 jobs:
   ingest:
-    name: Ingest Yahoo Finance OHLCV
+    name: Ingest Yahoo Finance OHLCV (500 stocks → ohlcv)
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -35,16 +41,21 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          ARGS=""
+          set -o pipefail
+          DAYS="${{ github.event.inputs.days }}"
+          DAYS="${DAYS:-1}"
           if [ "${{ github.event.inputs.full_backfill }}" = "true" ]; then
-            ARGS="--full"
+            echo "Full 5-year backfill (stocks → ohlcv)"
+            python ingestion/fetch_data.py --mode backfill --years 5 --universe stocks 2>&1 | tee ingestion/daily_ingest.log
+          else
+            echo "Daily single-day ingest (last $DAYS day(s), 500 stocks → ohlcv)"
+            python ingestion/fetch_data.py --mode daily --universe stocks --days "$DAYS" 2>&1 | tee ingestion/daily_ingest.log
           fi
-          python ingestion/yf_zerodha_backfill.py $ARGS
 
       - name: Upload log
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ingest-log-${{ github.run_id }}
-          path: ingestion/yf_zerodha_backfill.log
+          path: ingestion/daily_ingest.log
           retention-days: 7
