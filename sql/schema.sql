@@ -19,8 +19,13 @@ CREATE TABLE IF NOT EXISTS stocks (
   symbol      TEXT PRIMARY KEY,        -- e.g. 'RELIANCE'
   name        TEXT,
   sector      TEXT,
+  market_cap  NUMERIC,                 -- INR, from yfinance (ingestion/build_nse_universe.py)
+  is_fno      BOOLEAN DEFAULT FALSE,   -- in NSE Futures & Options segment (NSE fo_mktlots.csv)
   is_active   BOOLEAN DEFAULT TRUE
 );
+-- For existing databases:
+ALTER TABLE stocks ADD COLUMN IF NOT EXISTS market_cap NUMERIC;
+ALTER TABLE stocks ADD COLUMN IF NOT EXISTS is_fno BOOLEAN DEFAULT FALSE;
 
 -- 2. Price data: one row per stock per day
 CREATE TABLE IF NOT EXISTS ohlcv (

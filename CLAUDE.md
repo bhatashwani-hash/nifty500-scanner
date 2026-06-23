@@ -25,17 +25,18 @@ NSE stock market daily scanner pipeline. Fetches OHLCV from Yahoo Finance, runs 
 ### Source data — SCANNER UNIVERSE (what scanners read)
 | Table | Description |
 |---|---|
-| `stocks` | 500 NSE equities (the scanner universe). PK `symbol`. Cols: `symbol`, `name`, `sector`, `is_active`. Filter `is_active = true`. |
+| `stocks` | ~2,349 NSE equities (the scanner universe). PK `symbol`. Cols: `symbol`, `name`, `sector`, `market_cap` (yfinance), `is_fno` (NSE F&O list, 211 flagged), `is_active`. Filter `is_active = true`. |
 | `ohlcv` | Daily OHLCV for the 500, PK `(symbol, time)`. ~5yr history. Cols: `time`, `symbol`, `open/high/low/close`, `volume`. |
 | `indices` | Tracked indices, PK `symbol`. NIFTY 50 = `^NSEI`. |
 | `index_ohlcv` | Daily OHLCV for indices. `^NSEI` feeds breadth `nifty50_close`. |
 
-### Legacy ingestion tables (NOT used by scanners anymore)
-| Table | Description |
-|---|---|
-| `zerodha_stocks` | 2743 NSE symbols. Still used by dashboard FNO badge (`is_fno`) and ingestion scripts. |
-| `zerodha_ohlcv` | Raw OHLCV landing zone from `yf_zerodha_backfill.py`. |
-| `zerodha_indices` / `zerodha_index_ohlcv` | Legacy index tables. |
+### Legacy tables — DROPPED (2026-06-23)
+`zerodha_stocks`, `zerodha_ohlcv`, `zerodha_indices`, `zerodha_index_ohlcv`, and the
+old `scan_results` table were removed. The DB now holds only the 9 live tables:
+`stocks`, `ohlcv`, `indices`, `index_ohlcv`, and the five `scanner_*` outputs.
+The legacy ingestion scripts (`yf_zerodha_backfill.py`, `enrich_zerodha_stocks.py`,
+`enrich_nifty500.py`, `kite_zerodha_upsert.py`) target these dropped tables and are
+now dead — safe to delete.
 
 ### Scanner output tables (all have RLS + anon SELECT policy)
 | Table | PK | Description |
@@ -94,7 +95,7 @@ Both workflows use `DATABASE_URL` GitHub Actions secret. Logs uploaded as artifa
 - Tabs: Breadth, Breakouts, Episodic Pivot, VCP, Sectors
 - **Breadth tab** = last 6 months of daily rows (`loadBreadth` filters `date >= now-6mo`). `scanner_breadth` is populated daily over the 500 universe.
 - **Episodic Pivot tab** = 6-month leaderboard: columns `#` (rank), Symbol, Type, Pivot Date, Pivot Close, Last Close, Return Since Pivot, Gap %, Move %, Vol Ratio, FNO — sorted by rank. Reads all `scanner_ep` rows ordered by `rnk` (no run_date filter).
-- FNO badge still reads `zerodha_stocks.is_fno` (metadata lookup only).
+- FNO badge reads `stocks.is_fno` (211 stocks flagged from the NSE F&O list `fo_mktlots.csv`). Refresh via `build_nse_universe.py` (or re-pull the NSE list).
 - 11 KPI chips at top
 - Open by double-clicking the file in browser
 

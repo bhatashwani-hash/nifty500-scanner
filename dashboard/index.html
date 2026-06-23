@@ -219,9 +219,19 @@
 
   <div class="tab-content">
     <div class="tab-pane fade show active" id="tab-breadth">
+      <div class="panel mb-3">
+        <div class="panel-head"><h2>NIFTY 50 vs Breadth</h2>
+          <span class="count" id="bc-legend">
+            <span style="color:var(--up)">▮</span>/<span style="color:var(--down)">▮</span> 4% up/down ·
+            <span style="color:var(--info)">━</span> T2108 (% &gt;200MA) · candles = NIFTY 50
+          </span>
+          <span class="count ms-auto" id="bc-read" style="margin-left:auto"></span>
+        </div>
+        <div style="position:relative;"><div id="breadth-chart" style="height:480px;"></div></div>
+      </div>
       <div class="panel">
         <div class="panel-head"><h2>Market Breadth</h2><span class="count">Last 6 months · daily</span></div>
-        <div class="p-0" style="overflow:auto; max-height:72vh;">
+        <div class="p-0" style="overflow:auto; max-height:60vh;">
           <table class="table breadth-tbl mb-0" id="tbl-breadth" style="width:100%">
             <thead><tr>
               <th>Date</th><th>↑4%</th><th>↓4%</th><th>5d Ratio</th><th>10d Ratio</th>
@@ -327,6 +337,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let fnoSymbols = new Set(), latestDate = null, boData = [], sectorPeriod = "day";
 let dtBreakouts, dtEP, dtVCP;
+let breadthChart, roBreadth;
 
 async function loadAll(){
   const btn = document.getElementById("refresh-btn"); btn.classList.add("spin");
@@ -337,7 +348,9 @@ async function loadAll(){
 }
 
 async function loadFNO(){
-  const { data } = await sb.from("zerodha_stocks").select("symbol").eq("is_fno", true);
+  // F&O membership now lives on the stocks table (is_fno), populated from the
+  // official NSE F&O list (fo_mktlots.csv).
+  const { data } = await sb.from("stocks").select("symbol").eq("is_fno", true);
   if (data) fnoSymbols = new Set(data.map(r => r.symbol));
 }
 
@@ -383,6 +396,67 @@ async function loadBreadth(){
     <td>${r.universe??"—"}</td>
     <td class="${t2108Cls(r.pct_above_200ma)==='up'?'pos':t2108Cls(r.pct_above_200ma)==='down'?'neg':''}">${fmt(r.pct_above_200ma,1)}%</td>
     <td>${r.nifty50_close?fmt(r.nifty50_close,0):"—"}</td></tr>`).join("");
+
+  // Breadth chart: NIFTY candles + T2108 line + 4% up/down histogram
+  const asc = [...data].reverse();
+  const { data: nifty } = await sb.from("index_ohlcv")
+    .select("time, open, high, low, close").eq("symbol", "^NSEI")
+    .gte("time", cutoff.toISOString().slice(0,10)).order("time").limit(1000);
+  buildBreadthChart(asc, nifty || []);
+}
+
+function buildBreadthChart(rowsAsc, nifty){
+  const el=document.getElementById("breadth-chart"); if(!el) return; el.innerHTML="";
+  if(breadthChart){ breadthChart.remove(); breadthChart=null; }
+  breadthChart = LightweightCharts.createChart(el, {
+    layout:{ background:{type:"solid",color:"transparent"}, textColor:"#8a97a8", fontFamily:"JetBrains Mono" },
+    grid:{ vertLines:{color:"rgba(255,255,255,.04)"}, horzLines:{color:"rgba(255,255,255,.04)"} },
+    rightPriceScale:{ borderColor:"rgba(255,255,255,.08)" },
+    timeScale:{ borderColor:"rgba(255,255,255,.08)" },
+    crosshair:{ mode:LightweightCharts.CrosshairMode.Normal,
+      vertLine:{ color:"rgba(0,212,155,.4)", labelBackgroundColor:"#00d49b" },
+      horzLine:{ visible:false, labelVisible:false } },
+    width:el.clientWidth, height:el.clientHeight
+  });
+  // NIFTY 50 candles — top band
+  const candle = breadthChart.addCandlestickSeries({ upColor:"#26d07c", downColor:"#ff5a6a",
+    borderVisible:false, wickUpColor:"#26d07c", wickDownColor:"#ff5a6a", priceScaleId:"right" });
+  breadthChart.priceScale("right").applyOptions({ scaleMargins:{ top:0.04, bottom:0.56 } });
+  candle.setData(nifty.map(b=>({ time:b.time.slice(0,10), open:+b.open, high:+b.high, low:+b.low, close:+b.close })));
+  // T2108 (% above 200DMA) line — middle band, with 20/50/80 reference levels
+  const t = breadthChart.addLineSeries({ color:"#5aa9ff", lineWidth:2, priceScaleId:"t2108",
+    lastValueVisible:true, priceLineVisible:false });
+  breadthChart.priceScale("t2108").applyOptions({ scaleMargins:{ top:0.46, bottom:0.30 } });
+  t.setData(rowsAsc.filter(r=>r.pct_above_200ma!=null).map(r=>({ time:r.date, value:+r.pct_above_200ma })));
+  t.createPriceLine({ price:80, color:"rgba(38,208,124,.45)", lineWidth:1, lineStyle:2, axisLabelVisible:true, title:"80 OB" });
+  t.createPriceLine({ price:50, color:"rgba(255,255,255,.16)", lineWidth:1, lineStyle:2, axisLabelVisible:false });
+  t.createPriceLine({ price:20, color:"rgba(255,90,106,.45)", lineWidth:1, lineStyle:2, axisLabelVisible:true, title:"20 OS" });
+  // 4% up / 4% down histogram — bottom band (up plotted +, down plotted -)
+  const up = breadthChart.addHistogramSeries({ color:"rgba(38,208,124,.75)", priceScaleId:"breadth",
+    priceLineVisible:false, lastValueVisible:false });
+  const dn = breadthChart.addHistogramSeries({ color:"rgba(255,90,106,.75)", priceScaleId:"breadth",
+    priceLineVisible:false, lastValueVisible:false });
+  breadthChart.priceScale("breadth").applyOptions({ scaleMargins:{ top:0.76, bottom:0.02 } });
+  up.setData(rowsAsc.map(r=>({ time:r.date, value:(+r.up_4pct||0) })));
+  dn.setData(rowsAsc.map(r=>({ time:r.date, value:-(+r.down_4pct||0) })));
+
+  breadthChart.subscribeCrosshairMove(p=>{
+    const out=document.getElementById("bc-read"); if(!out) return;
+    if(!p.time){ out.textContent=""; return; }
+    const c=p.seriesData.get(candle), tv=p.seriesData.get(t),
+          u=p.seriesData.get(up), d=p.seriesData.get(dn);
+    let s="";
+    if(c) s+=`NIFTY ${fmt(c.close,0)}  `;
+    if(tv) s+=`T2108 ${fmt(tv.value,1)}%  `;
+    if(u) s+=`↑${u.value??0} `;
+    if(d) s+=`↓${Math.abs(d.value??0)}`;
+    out.textContent=s;
+  });
+
+  breadthChart.timeScale().fitContent();
+  if(roBreadth) roBreadth.disconnect();
+  roBreadth = new ResizeObserver(()=>{ if(breadthChart) breadthChart.applyOptions({ width:el.clientWidth, height:el.clientHeight }); });
+  roBreadth.observe(el);
 }
 
 async function loadBreakouts(){

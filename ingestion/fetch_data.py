@@ -122,6 +122,13 @@ def fetch_ohlcv(symbol: str, period: str = None, start: str = None, end: str = N
             "Volume": "volume",
         }
     )
+    # Normalize to the NSE session calendar date: strip intraday time + timezone
+    # so the value stores cleanly and time::date is never shifted across the
+    # UTC/IST day boundary (this is what caused Friday bars to land on Sunday).
+    _ts = pd.to_datetime(df["time"])
+    if getattr(_ts.dt, "tz", None) is not None:
+        _ts = _ts.dt.tz_convert("Asia/Kolkata").dt.tz_localize(None)
+    df["time"] = _ts.dt.normalize()
     return df[["time", "symbol", "open", "high", "low", "close", "volume"]]
 
 
@@ -174,6 +181,13 @@ def fetch_index_ohlcv(symbol: str, period: str = None, start: str = None, end: s
             "Volume": "volume",
         }
     )
+    # Normalize to the NSE session calendar date: strip intraday time + timezone
+    # so the value stores cleanly and time::date is never shifted across the
+    # UTC/IST day boundary (this is what caused Friday bars to land on Sunday).
+    _ts = pd.to_datetime(df["time"])
+    if getattr(_ts.dt, "tz", None) is not None:
+        _ts = _ts.dt.tz_convert("Asia/Kolkata").dt.tz_localize(None)
+    df["time"] = _ts.dt.normalize()
     return df[["time", "symbol", "open", "high", "low", "close", "volume"]]
 
 
@@ -201,7 +215,7 @@ def upsert_index_ohlcv(conn, df: pd.DataFrame):
     return len(rows)
 
 
-def run(mode: str, years: int, universe: str = "both", days: int = 1):
+def run(mode: str, years: int, universe: str = "both", days: int = 1, truncate: bool = False):
     if not DB_URL:
         print("ERROR: DATABASE_URL not set. Copy .env.example to .env and fill it in.")
         sys.exit(1)
@@ -210,6 +224,16 @@ def run(mode: str, years: int, universe: str = "both", days: int = 1):
     do_indices = universe in ("indices", "both")
 
     conn = psycopg2.connect(DB_URL)
+
+    if truncate:
+        with conn.cursor() as cur:
+            if do_stocks:
+                cur.execute("TRUNCATE TABLE ohlcv")
+                print("Truncated ohlcv — existing stock OHLCV removed.")
+            if do_indices:
+                cur.execute("TRUNCATE TABLE index_ohlcv")
+                print("Truncated index_ohlcv.")
+        conn.commit()
 
     if mode == "backfill":
         period = f"{years}y"
@@ -225,20 +249,16 @@ def run(mode: str, years: int, universe: str = "both", days: int = 1):
     total_rows = 0
     failed = []
     if do_stocks:
-        if mode == "daily":
-            # Daily ingest tracks the active 500-stock universe in the stocks table.
-            symbols = load_active_stock_symbols(conn)
+        # Universe = the stocks table (is_active). Same source for BOTH daily and
+        # backfill, so a backfill covers the full universe — not just the seed CSV.
+        symbols = load_active_stock_symbols(conn)
+        if symbols:
             print(f"Loaded {len(symbols)} active symbols from stocks table")
-            if not symbols:  # safety fallback if the table is empty
-                tickers_df = pd.read_csv(TICKER_CSV)
-                symbols = tickers_df["Symbol"].str.strip().tolist()
-                ensure_stocks_table(conn, tickers_df)
-                print(f"stocks table empty — fell back to {len(symbols)} tickers from CSV")
-        else:
+        else:  # safety fallback only if the table is empty
             tickers_df = pd.read_csv(TICKER_CSV)
             symbols = tickers_df["Symbol"].str.strip().tolist()
-            print(f"Loaded {len(symbols)} tickers from {TICKER_CSV}")
             ensure_stocks_table(conn, tickers_df)
+            print(f"stocks table empty — fell back to {len(symbols)} tickers from CSV")
 
         for i, symbol in enumerate(symbols, 1):
             try:
@@ -303,5 +323,10 @@ if __name__ == "__main__":
         default=1,
         help="Daily mode lookback window in calendar days (default 1 = that day only).",
     )
+    parser.add_argument(
+        "--truncate",
+        action="store_true",
+        help="Remove ALL existing rows from the target OHLCV table(s) before loading.",
+    )
     args = parser.parse_args()
-    run(args.mode, args.years, args.universe, args.days)
+    run(args.mode, args.years, args.universe, args.days, args.truncate)
