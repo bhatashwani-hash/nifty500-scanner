@@ -14,19 +14,19 @@
 
 <style>
   :root{
-    --bg:#080b11; --bg2:#0b0f17; --surface:#10151f; --surface2:#141b27;
-    --border:rgba(255,255,255,.07); --border2:rgba(255,255,255,.12);
-    --text:#e8edf4; --muted:#8a97a8; --faint:#5c6675;
-    --accent:#00d49b; --accent2:#22e3c3; --accentGlow:rgba(0,212,155,.35);
-    --up:#26d07c; --down:#ff5a6a; --info:#5aa9ff; --warn:#ffb454; --purple:#a78bfa;
-    --upbg:rgba(38,208,124,.12); --downbg:rgba(255,90,106,.12); --infobg:rgba(90,169,255,.12);
+    --bg:#eaeef4; --bg2:#ffffff; --surface:#ffffff; --surface2:#eff3f9;
+    --border:rgba(18,38,63,.10); --border2:rgba(18,38,63,.17);
+    --text:#15202e; --muted:#5b6675; --faint:#8a94a3;
+    --accent:#0aa982; --accent2:#13c79a; --accentGlow:rgba(10,169,130,.30);
+    --up:#15a34a; --down:#e23744; --info:#2563eb; --warn:#d97706; --purple:#7c5cfc;
+    --upbg:rgba(21,163,74,.13); --downbg:rgba(226,55,68,.12); --infobg:rgba(37,99,235,.12);
     --mono:'JetBrains Mono',ui-monospace,monospace;
   }
   *{ box-sizing:border-box; }
   body{
     background:
-      radial-gradient(900px 480px at 78% -8%, rgba(0,212,155,.10), transparent 60%),
-      radial-gradient(800px 420px at 8% -10%, rgba(90,169,255,.08), transparent 55%),
+      radial-gradient(900px 480px at 78% -8%, rgba(10,169,130,.12), transparent 60%),
+      radial-gradient(820px 420px at 6% -10%, rgba(37,99,235,.09), transparent 55%),
       var(--bg);
     color:var(--text); font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
     -webkit-font-smoothing:antialiased; letter-spacing:.1px; min-height:100vh; padding-bottom:3rem;
@@ -36,7 +36,7 @@
 
   .topbar{
     position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:1rem;
-    padding:.85rem 1.4rem; background:rgba(10,14,20,.72); backdrop-filter:blur(14px);
+    padding:.85rem 1.4rem; background:rgba(255,255,255,.78); backdrop-filter:blur(14px) saturate(1.2);
     border-bottom:1px solid var(--border);
   }
   .brand{ display:flex; align-items:center; gap:.6rem; font-weight:800; font-size:1.12rem; letter-spacing:.3px; }
@@ -73,6 +73,25 @@
   .kpi-label{ font-size:.66rem; color:var(--muted); text-transform:uppercase; letter-spacing:.9px; font-weight:600; }
   .kpi-val{ font-size:1.6rem; font-weight:700; margin-top:.25rem; font-family:var(--mono); line-height:1.1; }
   .kpi-val.up{ color:var(--up);} .kpi-val.down{ color:var(--down);} .kpi-val.neu{ color:var(--text);}
+  .kpi{ box-shadow:0 2px 10px rgba(18,38,63,.05); }
+
+  /* Index performance strip */
+  .index-strip{ display:flex; gap:.6rem; overflow-x:auto; padding:.1rem .1rem 1rem; scroll-snap-type:x proximity; }
+  .index-strip::-webkit-scrollbar{ height:6px; }
+  .idx-card{ flex:0 0 auto; min-width:152px; background:var(--surface); border:1px solid var(--border);
+    border-radius:13px; padding:.6rem .85rem .7rem; cursor:pointer; transition:.16s; position:relative;
+    overflow:hidden; scroll-snap-align:start; box-shadow:0 2px 10px rgba(18,38,63,.05); }
+  .idx-card:hover{ transform:translateY(-3px); border-color:var(--accent); box-shadow:0 8px 20px rgba(18,38,63,.10); }
+  .idx-card .i-name{ font-size:.64rem; font-weight:700; color:var(--muted); text-transform:uppercase;
+    letter-spacing:.5px; white-space:nowrap; }
+  .idx-card .i-val{ font-family:var(--mono); font-weight:700; font-size:1.06rem; margin-top:.18rem; color:var(--text); }
+  .idx-card .i-chg{ font-family:var(--mono); font-size:.76rem; font-weight:700; margin-top:.12rem; }
+  .idx-card::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:3px; opacity:.85; }
+  .idx-card.up::after{ background:var(--up); } .idx-card.down::after{ background:var(--down); }
+  .idx-card.up{ background:linear-gradient(180deg,var(--upbg),var(--surface) 55%); }
+  .idx-card.down{ background:linear-gradient(180deg,var(--downbg),var(--surface) 55%); }
+  .strip-label{ font-size:.66rem; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--faint);
+    margin:.2rem 0 .5rem .15rem; }
 
   .tabbar{ display:flex; gap:.35rem; padding:.32rem; background:var(--surface); border:1px solid var(--border);
            border-radius:14px; margin-bottom:1.2rem; overflow-x:auto; }
@@ -87,7 +106,7 @@
   }
 
   .panel{ background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden;
-          box-shadow:0 10px 30px rgba(0,0,0,.25); }
+          box-shadow:0 6px 22px rgba(18,38,63,.08); }
   .panel-head{ display:flex; align-items:center; gap:.6rem; padding:.9rem 1.1rem; border-bottom:1px solid var(--border); }
   .panel-head h2{ font-size:.82rem; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin:0; font-weight:700; }
   .panel-head .count{ font-size:.72rem; color:var(--faint); font-family:var(--mono); }
@@ -105,9 +124,9 @@
     border-bottom:1px solid var(--border)!important; font-size:.68rem; text-transform:uppercase;
     letter-spacing:.7px; font-weight:700; padding:.7rem .8rem; position:sticky; top:0; }
   table.dataTable tbody td{ background:transparent; color:var(--text); border:none!important;
-    border-bottom:1px solid rgba(255,255,255,.04)!important; font-size:.85rem; padding:.6rem .8rem; font-family:var(--mono); }
+    border-bottom:1px solid rgba(18,38,63,.07)!important; font-size:.85rem; padding:.6rem .8rem; font-family:var(--mono); }
   table.dataTable tbody tr{ transition:.12s; }
-  table.dataTable tbody tr:hover td{ background:rgba(255,255,255,.025); }
+  table.dataTable tbody tr:hover td{ background:rgba(18,38,63,.04); }
   .breadth-tbl td{ font-size:.76rem; white-space:nowrap; }
   .breadth-tbl thead th{ font-size:.62rem; }
 
@@ -148,17 +167,48 @@
     text-transform:uppercase; letter-spacing:.6px; font-weight:700; border:none;
     border-bottom:1px solid var(--border); padding:.6rem .7rem; }
   #tbl-sector td{ font-family:var(--mono); font-size:.82rem; padding:.5rem .7rem; border:none;
-    border-bottom:1px solid rgba(255,255,255,.04); color:var(--text); }
-  #tbl-sector tbody tr:hover td{ background:rgba(255,255,255,.03); }
+    border-bottom:1px solid rgba(18,38,63,.07); color:var(--text); }
+  #tbl-sector tbody tr:hover td{ background:rgba(18,38,63,.05); }
+
+  /* F&O sectors tab — matrix of sector cards */
+  #fno-sectors{ column-width:236px; column-gap:.9rem; column-fill:balance; }
+  .fno-sector{ background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden;
+    box-shadow:0 3px 14px rgba(18,38,63,.06); display:flex; flex-direction:column;
+    break-inside:avoid; -webkit-column-break-inside:avoid; margin:0 0 .9rem;
+    animation:fnoIn .5s cubic-bezier(.2,.85,.25,1) both;
+    transition:transform .2s cubic-bezier(.2,.8,.2,1), box-shadow .2s, border-color .2s; }
+  .fno-sector:hover{ transform:translateY(-4px); box-shadow:0 14px 30px rgba(18,38,63,.13); border-color:var(--border2); }
+  @keyframes fnoIn{ from{ opacity:0; transform:translateY(12px) scale(.98); } to{ opacity:1; transform:none; } }
+  .fno-sector-head{ display:flex; align-items:center; gap:.5rem; padding:.7rem .8rem .65rem .9rem; position:relative;
+    border-bottom:1px solid var(--border); }
+  .fno-sector.up .fno-sector-head{ background:linear-gradient(180deg, var(--upbg), transparent 90%); }
+  .fno-sector.down .fno-sector-head{ background:linear-gradient(180deg, var(--downbg), transparent 90%); }
+  .fno-sector-head::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:3px; border-radius:0 2px 2px 0; }
+  .fno-sector.up .fno-sector-head::before{ background:var(--up); }
+  .fno-sector.down .fno-sector-head::before{ background:var(--down); }
+  .fs-name{ font-weight:700; font-size:.81rem; letter-spacing:.2px; line-height:1.18; color:var(--text); }
+  .fs-avg{ font-family:var(--mono); font-weight:800; font-size:.73rem; padding:.16rem .46rem; border-radius:999px;
+    margin-left:auto; white-space:nowrap; }
+  .fs-avg.up{ color:var(--up); background:var(--upbg); } .fs-avg.down{ color:var(--down); background:var(--downbg); }
+  .fs-cnt{ font-size:.62rem; color:var(--faint); font-family:var(--mono); min-width:1.4rem; text-align:right; }
+  .fno-chips{ display:flex; flex-direction:column; padding:.35rem .35rem .45rem; max-height:340px; overflow-y:auto; }
+  .fno-chips::-webkit-scrollbar{ width:6px; } .fno-chips::-webkit-scrollbar-thumb{ background:var(--border2); border-radius:5px; }
+  .fno-chip{ display:flex; justify-content:space-between; align-items:center; gap:.5rem; padding:.4rem .55rem;
+    border-radius:9px; cursor:pointer; transition:background .14s, transform .14s; }
+  .fno-chip:hover{ background:var(--surface2); transform:translateX(3px); }
+  .fno-chip .fc-sym{ font-family:var(--mono); font-weight:600; font-size:.78rem; color:var(--text); }
+  .fno-chip .fc-ret{ font-family:var(--mono); font-weight:700; font-size:.78rem; }
+  .fno-chip .fc-ret.up{ color:var(--up); } .fno-chip .fc-ret.down{ color:var(--down); }
+  #fno-count .pos,#fno-count .neg{ font-family:var(--mono); font-weight:700; }
 
   .chart-overlay{ position:fixed; inset:0; z-index:1000; display:none; align-items:center; justify-content:center;
-    background:rgba(4,7,11,.7); backdrop-filter:blur(6px); padding:1.2rem; }
+    background:rgba(18,38,63,.32); backdrop-filter:blur(6px); padding:1.2rem; }
   .chart-overlay.open{ display:flex; animation:fade .2s ease; }
   #chart-overlay{ z-index:1001; }  /* chart sits above the sector drill-down */
   @keyframes fade{ from{ opacity:0;} to{ opacity:1;} }
   .chart-modal{ width:min(1040px,96vw); height:min(680px,92vh); background:linear-gradient(180deg,var(--surface),var(--bg2));
     border:1px solid var(--border2); border-radius:18px; display:flex; flex-direction:column; overflow:hidden;
-    box-shadow:0 30px 80px rgba(0,0,0,.6); animation:rise .24s cubic-bezier(.2,.8,.2,1); }
+    box-shadow:0 30px 80px rgba(18,38,63,.22); animation:rise .24s cubic-bezier(.2,.8,.2,1); }
   @keyframes rise{ from{ transform:translateY(14px) scale(.99); opacity:.6;} to{ transform:none; opacity:1;} }
   .cm-head{ display:flex; align-items:flex-start; gap:1rem; padding:1rem 1.2rem; border-bottom:1px solid var(--border); }
   .cm-sym{ font-family:var(--mono); font-weight:800; font-size:1.35rem; }
@@ -182,7 +232,7 @@
   #toast{ position:fixed; bottom:1.2rem; left:50%; transform:translateX(-50%) translateY(20px); z-index:1100;
     background:var(--surface2); border:1px solid var(--border2); color:var(--text); padding:.6rem 1.1rem;
     border-radius:11px; font-size:.84rem; font-weight:500; opacity:0; pointer-events:none; transition:.25s;
-    box-shadow:0 10px 30px rgba(0,0,0,.4); }
+    box-shadow:0 10px 30px rgba(18,38,63,.16); }
   #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
   ::-webkit-scrollbar{ width:10px; height:10px; } ::-webkit-scrollbar-track{ background:transparent; }
   ::-webkit-scrollbar-thumb{ background:var(--border2); border-radius:6px; }
@@ -202,6 +252,17 @@
 </div>
 
 <div class="wrap">
+  <div class="strip-label">Index Performance · click for chart</div>
+  <div class="index-strip" id="index-strip"></div>
+
+  <div class="strip-label">Market Breadth Snapshot</div>
+  <div class="kpi-grid" id="market-stats" style="grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); margin-bottom:1.3rem;">
+    <div class="kpi k-up"><div class="kpi-label">Stocks &gt; 200 DMA</div><div class="kpi-val up" id="st-above">—</div></div>
+    <div class="kpi k-down"><div class="kpi-label">Stocks &lt; 200 DMA</div><div class="kpi-val down" id="st-below">—</div></div>
+    <div class="kpi k-up"><div class="kpi-label">Up 4%+ Today</div><div class="kpi-val up" id="st-up4">—</div></div>
+    <div class="kpi k-down"><div class="kpi-label">Down 4%+ Today</div><div class="kpi-val down" id="st-dn4">—</div></div>
+  </div>
+
   <div class="kpi-grid" id="kpi-row">
     <div class="kpi k-up"><div class="kpi-label">Up 4%+</div><div class="kpi-val up" id="kpi-up4">—</div></div>
     <div class="kpi k-down"><div class="kpi-label">Down 4%+</div><div class="kpi-val down" id="kpi-dn4">—</div></div>
@@ -222,6 +283,7 @@
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-ep">⚡ Episodic Pivot</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-vcp">🎯 VCP</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-sectors">🌐 Sectors</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-fno">⭐ F&O Sectors</a></li>
   </ul>
 
   <div class="tab-content">
@@ -311,6 +373,19 @@
         <div class="sector-grid" id="sectors-grid"></div>
       </div>
     </div>
+
+    <!-- F&O SECTORS TAB -->
+    <div class="tab-pane fade" id="tab-fno">
+      <div class="d-flex gap-2 mb-3 align-items-center flex-wrap">
+        <div class="seg" id="fno-period">
+          <button class="active" data-p="ret_day" onclick="setFnoPeriod('ret_day')">Day</button>
+          <button data-p="ret_week" onclick="setFnoPeriod('ret_week')">Week</button>
+          <button data-p="ret_month" onclick="setFnoPeriod('ret_month')">Month</button>
+        </div>
+        <span class="count" id="fno-count"></span>
+      </div>
+      <div id="fno-sectors"></div>
+    </div>
   </div>
 </div>
 
@@ -381,7 +456,7 @@ let breadthChart, roBreadth;
 async function loadAll(){
   const btn = document.getElementById("refresh-btn"); btn.classList.add("spin");
   toast("Refreshing…");
-  await Promise.all([loadFNO(), loadBreadth(), loadBreakouts(), loadEP(), loadVCP(), loadSectors()]);
+  await Promise.all([loadFNO(), loadIndices(), loadBreadth(), loadBreakouts(), loadEP(), loadVCP(), loadSectors(), loadFNOSectors()]);
   document.getElementById("last-updated").textContent = "Updated " + new Date().toLocaleTimeString("en-IN");
   btn.classList.remove("spin"); toast("Data refreshed ✓");
 }
@@ -391,6 +466,18 @@ async function loadFNO(){
   // official NSE F&O list (fo_mktlots.csv).
   const { data } = await sb.from("stocks").select("symbol").eq("is_fno", true);
   if (data) fnoSymbols = new Set(data.map(r => r.symbol));
+}
+
+async function loadIndices(){
+  const { data } = await sb.rpc("get_index_performance");
+  if(!data) return;
+  document.getElementById("index-strip").innerHTML = data.map(r=>{
+    const c=r.ret_day, up=(c??0)>=0;
+    return `<div class="idx-card ${up?'up':'down'}" data-idx-sym="${r.symbol}">
+      <div class="i-name">${r.name}</div>
+      <div class="i-val">${fmt(r.last_close,2)}</div>
+      <div class="i-chg ${up?'pos':'neg'}">${up?'▲':'▼'} ${c==null?'—':fmt(Math.abs(c),2)+'%'}</div>
+    </div>`;}).join("");
 }
 
 const tk = s => `<span class="ticker" data-sym="${s}">${s}</span>`;
@@ -428,6 +515,12 @@ async function loadBreadth(){
   setText("kpi-r5", fmt(d.ratio_5d,2), ratioCls(d.ratio_5d)); setText("kpi-r10", fmt(d.ratio_10d,2), ratioCls(d.ratio_10d));
   setText("kpi-t2108", fmt(d.pct_above_200ma,1)+"%", t2108Cls(d.pct_above_200ma));
   setText("kpi-nifty", d.nifty50_close?fmt(d.nifty50_close,0):"—", "neu"); setText("kpi-univ", d.universe, "neu");
+  // Market breadth snapshot strip (above/below 200DMA, up/down 4%)
+  const above = (d.pct_above_200ma!=null && d.universe) ? Math.round(d.pct_above_200ma/100*d.universe) : null;
+  setText("st-above", above ?? "—", "up");
+  setText("st-below", (above!=null && d.universe) ? (d.universe-above) : "—", "down");
+  setText("st-up4", d.up_4pct, "up");
+  setText("st-dn4", d.down_4pct, "down");
   document.getElementById("breadth-body").innerHTML = data.map(r=>`<tr>
     <td>${r.date}</td>
     <td class="pos">${r.up_4pct??"—"}</td><td class="neg">${r.down_4pct??"—"}</td>
@@ -453,10 +546,10 @@ function buildBreadthChart(rowsAsc, nifty){
   const el=document.getElementById("breadth-chart"); if(!el) return; el.innerHTML="";
   if(breadthChart){ breadthChart.remove(); breadthChart=null; }
   breadthChart = LightweightCharts.createChart(el, {
-    layout:{ background:{type:"solid",color:"transparent"}, textColor:"#8a97a8", fontFamily:"JetBrains Mono" },
-    grid:{ vertLines:{color:"rgba(255,255,255,.04)"}, horzLines:{color:"rgba(255,255,255,.04)"} },
-    rightPriceScale:{ borderColor:"rgba(255,255,255,.08)" },
-    timeScale:{ borderColor:"rgba(255,255,255,.08)" },
+    layout:{ background:{type:"solid",color:"transparent"}, textColor:"#5b6675", fontFamily:"JetBrains Mono" },
+    grid:{ vertLines:{color:"rgba(18,38,63,.07)"}, horzLines:{color:"rgba(18,38,63,.07)"} },
+    rightPriceScale:{ borderColor:"rgba(18,38,63,.13)" },
+    timeScale:{ borderColor:"rgba(18,38,63,.13)" },
     crosshair:{ mode:LightweightCharts.CrosshairMode.Normal,
       vertLine:{ color:"rgba(0,212,155,.4)", labelBackgroundColor:"#00d49b" },
       horzLine:{ visible:false, labelVisible:false } },
@@ -473,7 +566,7 @@ function buildBreadthChart(rowsAsc, nifty){
   breadthChart.priceScale("t2108").applyOptions({ scaleMargins:{ top:0.46, bottom:0.30 } });
   t.setData(rowsAsc.filter(r=>r.pct_above_200ma!=null).map(r=>({ time:r.date, value:+r.pct_above_200ma })));
   t.createPriceLine({ price:80, color:"rgba(38,208,124,.45)", lineWidth:1, lineStyle:2, axisLabelVisible:true, title:"80 OB" });
-  t.createPriceLine({ price:50, color:"rgba(255,255,255,.16)", lineWidth:1, lineStyle:2, axisLabelVisible:false });
+  t.createPriceLine({ price:50, color:"rgba(18,38,63,.18)", lineWidth:1, lineStyle:2, axisLabelVisible:false });
   t.createPriceLine({ price:20, color:"rgba(255,90,106,.45)", lineWidth:1, lineStyle:2, axisLabelVisible:true, title:"20 OS" });
   // 4% up / 4% down histogram — bottom band (up plotted +, down plotted -)
   const up = breadthChart.addHistogramSeries({ color:"rgba(38,208,124,.75)", priceScaleId:"breadth",
@@ -599,12 +692,52 @@ function setSectorPeriod(p){ sectorPeriod=p;
   document.querySelectorAll("#period-toggle button").forEach(b=>b.classList.toggle("active",b.dataset.period===p));
   loadSectors(); }
 
+// ── F&O Sectors tab: F&O stocks grouped by sector, toggle day/week/month ──
+let fnoStocks=[], fnoPeriod="ret_day";
+async function loadFNOSectors(){
+  const { data, error } = await sb.rpc("get_fno_stocks");
+  if(error){ document.getElementById("fno-sectors").innerHTML =
+    '<div class="strip-label">Couldn’t load F&O stocks: '+error.message+'</div>'; return; }
+  fnoStocks = data || [];
+  renderFNOSectors();
+}
+function renderFNOSectors(){
+  const col=fnoPeriod, bySec={};
+  fnoStocks.forEach(s=>{ (bySec[s.sector] ||= []).push(s); });
+  const secs = Object.entries(bySec).map(([sec,arr])=>{
+    const vals=arr.map(x=>x[col]).filter(v=>v!=null);
+    const avg = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
+    return { sec, arr, avg };
+  }).sort((a,b)=>b.avg-a.avg);
+  const adv=fnoStocks.filter(s=>(s[col]??0)>0).length, dec=fnoStocks.filter(s=>(s[col]??0)<0).length;
+  document.getElementById("fno-count").innerHTML =
+    `${fnoStocks.length} F&O · ${secs.length} sectors · <span class="pos">${adv} ▲</span> &nbsp;<span class="neg">${dec} ▼</span>`;
+  document.getElementById("fno-sectors").innerHTML = secs.map(({sec,arr,avg},i)=>{
+    const aup = avg>=0;
+    const stocks=[...arr].sort((a,b)=>(b[col]??-1e9)-(a[col]??-1e9));
+    const chips=stocks.map(s=>{ const v=s[col], up=(v??0)>=0;
+      return `<div class="fno-chip" data-sym="${s.symbol}">
+        <span class="fc-sym">${s.symbol}</span>
+        <span class="fc-ret ${up?'up':'down'}">${v==null?'—':(up?'+':'')+fmt(v,2)+'%'}</span></div>`;}).join("");
+    return `<div class="fno-sector ${aup?'up':'down'}" style="animation-delay:${Math.min(i*28,420)}ms">
+      <div class="fno-sector-head">
+        <span class="fs-name">${sec}</span>
+        <span class="fs-avg ${aup?'up':'down'}">${aup?'+':''}${fmt(avg,2)}%</span>
+        <span class="fs-cnt">${arr.length}</span>
+      </div>
+      <div class="fno-chips">${chips}</div></div>`;
+  }).join("");
+}
+function setFnoPeriod(p){ fnoPeriod=p;
+  document.querySelectorAll("#fno-period button").forEach(b=>b.classList.toggle("active",b.dataset.p===p));
+  renderFNOSectors(); }
+
 let chart, candleSeries, volSeries, ma50Series, ma200Series, allCandles=[], allVols=[], roCm;
 function sma(arr, n){ const out=[]; let sum=0;
   for(let i=0;i<arr.length;i++){ sum+=arr[i].close; if(i>=n) sum-=arr[i-n].close;
     if(i>=n-1) out.push({ time:arr[i].time, value:+(sum/n).toFixed(2) }); } return out; }
 
-async function openChart(sym, defRange=252){
+async function openChart(sym, defRange=252, isIndex=false){
   const ov=document.getElementById("chart-overlay"); ov.classList.add("open");
   document.getElementById("cm-sym").textContent = sym;
   document.getElementById("cm-name").textContent = "Loading…";
@@ -614,12 +747,14 @@ async function openChart(sym, defRange=252){
   const ld=document.getElementById("cm-loading"); ld.style.display="grid"; ld.innerHTML='<div><div class="spinner"></div>Loading price history…</div>';
 
   const [{ data:meta }, { data:bars }] = await Promise.all([
-    sb.from("stocks").select("name, sector").eq("symbol", sym).maybeSingle(),
-    sb.from("ohlcv").select("time, open, high, low, close, volume").eq("symbol", sym)
+    sb.from(isIndex?"indices":"stocks").select(isIndex?"name, category":"name, sector").eq("symbol", sym).maybeSingle(),
+    sb.from(isIndex?"index_ohlcv":"ohlcv").select("time, open, high, low, close, volume").eq("symbol", sym)
       .order("time",{ascending:false}).limit(1000)
   ]);
   if(bars) bars.reverse();   // newest-first from API -> oldest-first for the chart, guarantees latest bar is included
-  document.getElementById("cm-name").textContent = meta ? `${meta.name||""}${meta.sector?" · "+meta.sector:""}` : sym;
+  document.getElementById("cm-name").textContent = meta
+    ? (isIndex ? `${meta.name||sym} · ${meta.category||"Index"}` : `${meta.name||""}${meta.sector?" · "+meta.sector:""}`)
+    : sym;
 
   if(!bars || !bars.length){ ld.innerHTML="No price history available."; return; }
   allCandles = bars.map(b=>({ time:b.time.slice(0,10), open:+b.open, high:+b.high, low:+b.low, close:+b.close }));
@@ -641,10 +776,10 @@ function buildChart(){
   const el=document.getElementById("cm-chart"); el.innerHTML="";
   if(chart){ chart.remove(); chart=null; }
   chart = LightweightCharts.createChart(el, {
-    layout:{ background:{ type:"solid", color:"transparent" }, textColor:"#8a97a8", fontFamily:"JetBrains Mono" },
-    grid:{ vertLines:{ color:"rgba(255,255,255,.04)" }, horzLines:{ color:"rgba(255,255,255,.04)" } },
-    rightPriceScale:{ borderColor:"rgba(255,255,255,.08)" },
-    timeScale:{ borderColor:"rgba(255,255,255,.08)", rightOffset:4 },
+    layout:{ background:{ type:"solid", color:"transparent" }, textColor:"#5b6675", fontFamily:"JetBrains Mono" },
+    grid:{ vertLines:{ color:"rgba(18,38,63,.07)" }, horzLines:{ color:"rgba(18,38,63,.07)" } },
+    rightPriceScale:{ borderColor:"rgba(18,38,63,.13)" },
+    timeScale:{ borderColor:"rgba(18,38,63,.13)", rightOffset:4 },
     crosshair:{ mode:LightweightCharts.CrosshairMode.Normal,
       vertLine:{ color:"rgba(0,212,155,.4)", labelBackgroundColor:"#00d49b" },
       horzLine:{ color:"rgba(0,212,155,.4)", labelBackgroundColor:"#00d49b" } },
@@ -685,6 +820,8 @@ function closeChart(){ document.getElementById("chart-overlay").classList.remove
 
 document.addEventListener("click", e=>{
   const t=e.target.closest(".ticker"); if(t){ openChart(t.dataset.sym, +t.dataset.range||252); return; }
+  const ic=e.target.closest(".idx-card"); if(ic){ openChart(ic.dataset.idxSym, 504, true); return; }
+  const fc=e.target.closest(".fno-chip"); if(fc){ openChart(fc.dataset.sym, 504); return; }
   const tile=e.target.closest(".sector-tile"); if(tile && tile.dataset.sector){ openSector(tile.dataset.sector); return; }
   const rb=e.target.closest("#cm-range button"); if(rb){ setRange(+rb.dataset.r); return; }
   const sp=e.target.closest("#sec-period button"); if(sp){
