@@ -139,15 +139,22 @@
   .rank.top{ background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#04130d; }
 
   .sector-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:.7rem; padding:1rem; }
-  .sector-tile{ border:1px solid var(--border); border-radius:13px; padding:.85rem .95rem; position:relative; overflow:hidden; transition:.18s; }
-  .sector-tile:hover{ transform:translateY(-2px); border-color:var(--border2); }
+  .sector-tile{ border:1px solid var(--border); border-radius:13px; padding:.85rem .95rem; position:relative; overflow:hidden; transition:.18s; cursor:pointer; }
+  .sector-tile:hover{ transform:translateY(-2px); border-color:var(--accent); }
   .sector-tile .s-name{ font-weight:700; font-size:.82rem; margin-bottom:.35rem; }
   .sector-tile .s-ret{ font-family:var(--mono); font-size:1.5rem; font-weight:700; }
   .sector-tile .s-meta{ font-size:.7rem; color:var(--muted); margin-top:.35rem; font-family:var(--mono); }
+  #tbl-sector thead th{ position:sticky; top:0; background:var(--surface2); color:var(--muted); font-size:.66rem;
+    text-transform:uppercase; letter-spacing:.6px; font-weight:700; border:none;
+    border-bottom:1px solid var(--border); padding:.6rem .7rem; }
+  #tbl-sector td{ font-family:var(--mono); font-size:.82rem; padding:.5rem .7rem; border:none;
+    border-bottom:1px solid rgba(255,255,255,.04); color:var(--text); }
+  #tbl-sector tbody tr:hover td{ background:rgba(255,255,255,.03); }
 
   .chart-overlay{ position:fixed; inset:0; z-index:1000; display:none; align-items:center; justify-content:center;
     background:rgba(4,7,11,.7); backdrop-filter:blur(6px); padding:1.2rem; }
   .chart-overlay.open{ display:flex; animation:fade .2s ease; }
+  #chart-overlay{ z-index:1001; }  /* chart sits above the sector drill-down */
   @keyframes fade{ from{ opacity:0;} to{ opacity:1;} }
   .chart-modal{ width:min(1040px,96vw); height:min(680px,92vh); background:linear-gradient(180deg,var(--surface),var(--bg2));
     border:1px solid var(--border2); border-radius:18px; display:flex; flex-direction:column; overflow:hidden;
@@ -264,6 +271,11 @@
     </div>
 
     <div class="tab-pane fade" id="tab-ep">
+      <div class="d-flex gap-2 mb-3 flex-wrap">
+        <select id="ep-fno-filter" class="control" onchange="filterEP()">
+          <option value="">All Stocks</option><option value="fno">F&O Only</option>
+        </select>
+      </div>
       <div class="panel"><div class="panel-head"><h2>Episodic Pivot · 6-Month Leaderboard</h2>
         <span class="count">ranked by return since pivot</span></div>
         <div class="p-1"><table id="tbl-ep" class="table mb-0" style="width:100%">
@@ -274,6 +286,11 @@
     </div>
 
     <div class="tab-pane fade" id="tab-vcp">
+      <div class="d-flex gap-2 mb-3 flex-wrap">
+        <select id="vcp-fno-filter" class="control" onchange="filterVCP()">
+          <option value="">All Stocks</option><option value="fno">F&O Only</option>
+        </select>
+      </div>
       <div class="panel"><div class="panel-head"><h2>Volatility Contraction Pattern</h2><span class="count" id="vcp-count"></span></div>
         <div class="p-1"><table id="tbl-vcp" class="table mb-0" style="width:100%">
           <thead><tr><th>Symbol</th><th>Close</th><th>3M Return</th><th>15d High</th><th>15d Low</th>
@@ -321,6 +338,28 @@
   </div>
 </div>
 
+<!-- Sector drill-down modal -->
+<div class="chart-overlay" id="sector-overlay">
+  <div class="chart-modal" style="width:min(840px,96vw); height:min(660px,92vh);">
+    <div class="cm-head">
+      <div><div class="cm-sym" id="sec-name">—</div><div class="cm-name" id="sec-sub">—</div></div>
+      <button class="cm-close" onclick="closeSector()" style="margin-left:auto">✕</button>
+    </div>
+    <div class="cm-toolbar">
+      <div class="seg" id="sec-period">
+        <button data-p="ret_day">Day</button><button data-p="ret_week">Week</button><button data-p="ret_month" class="active">Month</button>
+      </div>
+      <span class="cm-legend">sorted by selected return · click a symbol for its 2-year chart</span>
+    </div>
+    <div style="overflow:auto; flex:1; min-height:0; padding:0 .3rem;">
+      <table class="table mb-0" id="tbl-sector" style="width:100%">
+        <thead><tr><th>Symbol</th><th>Day %</th><th>Week %</th><th>Month %</th><th>Last</th><th>F&O</th></tr></thead>
+        <tbody id="sector-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -356,6 +395,11 @@ async function loadFNO(){
 
 const tk = s => `<span class="ticker" data-sym="${s}">${s}</span>`;
 const fnoTag = s => fnoSymbols.has(s) ? '<span class="tag tag-fno">F&O</span>' : "";
+// F&O filter helper: returns only F&O rows when the given select is set to "fno".
+const applyFno = (data, selectId) => {
+  const el = document.getElementById(selectId);
+  return el && el.value === "fno" ? data.filter(r => fnoSymbols.has(r.symbol)) : data;
+};
 function fmt(v,d=2){ if(v==null||isNaN(v)) return "—";
   return Number(v).toLocaleString("en-IN",{minimumFractionDigits:d,maximumFractionDigits:d}); }
 function fmtVol(v){ if(!v) return "—"; v=+v;
@@ -471,6 +515,7 @@ async function loadBreakouts(){
   renderBreakouts(data);
 }
 function renderBreakouts(data){
+  if(dtBreakouts){ dtBreakouts.destroy(); dtBreakouts=null; }
   document.getElementById("bo-count").textContent = data.length + " signals";
   document.getElementById("bo-body").innerHTML = data.map(r=>{
     const hi = r.breakout_type.includes("HIGH");
@@ -479,7 +524,6 @@ function renderBreakouts(data){
       <td>${fmt(r.close,2)}</td>
       <td class="${r.change_pct>=0?'pos':'neg'}">${fmt(r.change_pct,2)}%</td>
       <td>${fmtVol(r.volume)}</td><td>${fnoTag(r.symbol)}</td></tr>`;}).join("");
-  if(dtBreakouts) dtBreakouts.destroy();
   dtBreakouts = $("#tbl-breakouts").DataTable(dtOpts({ order:[] }));
 }
 function filterBreakouts(){
@@ -487,14 +531,19 @@ function filterBreakouts(){
   let d=boData;
   if(t) d=d.filter(r=>r.breakout_type.includes(t));
   if(f==="fno") d=d.filter(r=>fnoSymbols.has(r.symbol));
-  if(dtBreakouts) dtBreakouts.destroy();
   renderBreakouts(d);
 }
 
+let epData = [];
 async function loadEP(){
   const { data, error } = await sb.from("scanner_ep").select("*").order("rnk",{ascending:true});
   if(error||!data) return;
+  epData = data;
   setText("kpi-bep", data.filter(r=>r.ep_type==="BULLISH").length, "up");
+  renderEP(applyFno(data, "ep-fno-filter"));
+}
+function renderEP(data){
+  if(dtEP){ dtEP.destroy(); dtEP=null; }
   document.getElementById("ep-body").innerHTML = data.map(r=>{
     const bull=r.ep_type==="BULLISH", ret=r.return_since_pivot;
     return `<tr>
@@ -506,23 +555,29 @@ async function loadEP(){
       <td class="${r.gap_pct>=0?'pos':'neg'}">${fmt(r.gap_pct,2)}%</td>
       <td class="${r.move_pct>=0?'pos':'neg'}">${fmt(r.move_pct,2)}%</td>
       <td style="color:var(--warn)">${fmt(r.vol_ratio,1)}×</td><td>${fnoTag(r.symbol)}</td></tr>`;}).join("");
-  if(dtEP) dtEP.destroy();
   dtEP = $("#tbl-ep").DataTable(dtOpts({ order:[[0,"asc"]] }));
 }
+function filterEP(){ renderEP(applyFno(epData, "ep-fno-filter")); }
 
+let vcpData = [];
 async function loadVCP(){
   const { data, error } = await sb.from("scanner_vcp").select("*")
     .eq("run_date", await getLatestDate("scanner_vcp")).order("range_15d_pct");
   if(error||!data) return;
+  vcpData = data;
   setText("kpi-vcp", data.length, "neu");
+  renderVCP(applyFno(data, "vcp-fno-filter"));
+}
+function renderVCP(data){
+  if(dtVCP){ dtVCP.destroy(); dtVCP=null; }
   document.getElementById("vcp-count").textContent = data.length + " setups";
   document.getElementById("vcp-body").innerHTML = data.map(r=>`<tr>
     <td>${tk(r.symbol)}</td><td>${fmt(r.close,2)}</td>
     <td class="pos">${fmt(r.return_3m,1)}%</td><td>${fmt(r.high_15d,2)}</td><td>${fmt(r.low_15d,2)}</td>
     <td style="color:var(--info)">${fmt(r.range_15d_pct,1)}%</td><td>${fnoTag(r.symbol)}</td></tr>`).join("");
-  if(dtVCP) dtVCP.destroy();
   dtVCP = $("#tbl-vcp").DataTable(dtOpts({ order:[] }));
 }
+function filterVCP(){ renderVCP(applyFno(vcpData, "vcp-fno-filter")); }
 
 async function loadSectors(){
   const { data, error } = await sb.from("scanner_sectors").select("*")
@@ -534,7 +589,7 @@ async function loadSectors(){
   document.getElementById("sectors-grid").innerHTML = data.map(r=>{
     const pos=r.avg_return>=0, a=Math.min(.22, Math.abs(r.avg_return)/max*.22);
     const bg = pos?`rgba(38,208,124,${a})`:`rgba(255,90,106,${a})`;
-    return `<div class="sector-tile" style="background:${bg}">
+    return `<div class="sector-tile" data-sector="${r.sector}" style="background:${bg}">
       <div class="s-name">${r.sector}</div>
       <div class="s-ret ${pos?'pos':'neg'}">${pos?'+':''}${fmt(r.avg_return,2)}%</div>
       <div class="s-meta">med ${fmt(r.med_return,1)}% · <span class="pos">${r.up_count}↑</span>
@@ -549,7 +604,7 @@ function sma(arr, n){ const out=[]; let sum=0;
   for(let i=0;i<arr.length;i++){ sum+=arr[i].close; if(i>=n) sum-=arr[i-n].close;
     if(i>=n-1) out.push({ time:arr[i].time, value:+(sum/n).toFixed(2) }); } return out; }
 
-async function openChart(sym){
+async function openChart(sym, defRange=252){
   const ov=document.getElementById("chart-overlay"); ov.classList.add("open");
   document.getElementById("cm-sym").textContent = sym;
   document.getElementById("cm-name").textContent = "Loading…";
@@ -578,7 +633,7 @@ async function openChart(sym){
   chgEl.textContent = `${chg>=0?"▲":"▼"} ${fmt(Math.abs(chg),2)} (${fmt(chgp,2)}%)`;
   chgEl.className = "cm-chg "+(chg>=0?"pos":"neg");
 
-  buildChart(); setRange(252);
+  buildChart(); setRange(defRange);
   ld.style.display="none";
 }
 
@@ -629,11 +684,44 @@ function closeChart(){ document.getElementById("chart-overlay").classList.remove
   if(roCm) roCm.disconnect(); }
 
 document.addEventListener("click", e=>{
-  const t=e.target.closest(".ticker"); if(t){ openChart(t.dataset.sym); return; }
+  const t=e.target.closest(".ticker"); if(t){ openChart(t.dataset.sym, +t.dataset.range||252); return; }
+  const tile=e.target.closest(".sector-tile"); if(tile && tile.dataset.sector){ openSector(tile.dataset.sector); return; }
   const rb=e.target.closest("#cm-range button"); if(rb){ setRange(+rb.dataset.r); return; }
+  const sp=e.target.closest("#sec-period button"); if(sp){
+    sectorSortCol=sp.dataset.p;
+    document.querySelectorAll("#sec-period button").forEach(b=>b.classList.toggle("active",b===sp));
+    renderSector(); return; }
   if(e.target.id==="chart-overlay") closeChart();
+  if(e.target.id==="sector-overlay") closeSector();
 });
-document.addEventListener("keydown", e=>{ if(e.key==="Escape") closeChart(); });
+document.addEventListener("keydown", e=>{ if(e.key==="Escape"){ closeChart(); closeSector(); } });
+
+// ── Sector drill-down ──
+let sectorData=[], sectorSortCol="ret_month";
+async function openSector(sector){
+  sectorSortCol = "ret_"+sectorPeriod;   // match the period selected on the Sectors tab
+  document.querySelectorAll("#sec-period button").forEach(b=>b.classList.toggle("active",b.dataset.p===sectorSortCol));
+  document.getElementById("sec-name").textContent = sector;
+  document.getElementById("sec-sub").textContent = "Loading…";
+  document.getElementById("sector-body").innerHTML = "";
+  document.getElementById("sector-overlay").classList.add("open");
+  const { data, error } = await sb.rpc("get_sector_stocks", { p_sector: sector });
+  if(error){ document.getElementById("sec-sub").textContent = "Couldn't load stocks: " + error.message; return; }
+  sectorData = data || [];
+  document.getElementById("sec-sub").textContent = sectorData.length + " stocks · click a symbol for its 2-year chart";
+  renderSector();
+}
+function renderSector(){
+  const col=sectorSortCol;
+  const rows=[...sectorData].sort((a,b)=>(b[col]??-1e9)-(a[col]??-1e9));
+  document.getElementById("sector-body").innerHTML = rows.map(r=>`<tr>
+    <td><span class="ticker" data-sym="${r.symbol}" data-range="504">${r.symbol}</span></td>
+    <td class="${r.ret_day>=0?'pos':'neg'}">${fmt(r.ret_day,2)}%</td>
+    <td class="${r.ret_week>=0?'pos':'neg'}">${fmt(r.ret_week,2)}%</td>
+    <td class="${r.ret_month>=0?'pos':'neg'}">${fmt(r.ret_month,2)}%</td>
+    <td>${fmt(r.last_close,2)}</td><td>${fnoTag(r.symbol)}</td></tr>`).join("");
+}
+function closeSector(){ document.getElementById("sector-overlay").classList.remove("open"); }
 
 let toastT;
 function toast(msg){ const el=document.getElementById("toast"); el.textContent=msg; el.classList.add("show");
