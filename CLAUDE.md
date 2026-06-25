@@ -84,6 +84,7 @@ To repoint a scanner's universe, change its data-load query: `FROM ohlcv o JOIN 
 |---|---|---|
 | `daily_ingest.yml` | `30 12 * * 1-5` (6pm IST) | `fetch_data.py --mode daily --universe stocks --days 1` — fetches **only that day's** bar for the active 500-stock universe (symbols from the `stocks` table) and upserts into `ohlcv`. Manual trigger supports `full_backfill=true` (5yr) and a `days` override. |
 | `daily_scan.yml` | `30 13 * * 1-5` (7pm IST) | `scan_all.py` via ingestion/ dir. Manual trigger supports `scan_date` and `skip` inputs. |
+| `live_15m.yml` | `*/15 3-10 * * 1-5` (every 15min, ~9am–3:30pm IST) | `fetch_live.py` — delayed 15-min Yahoo bars for F&O stocks + indices → `live_15m` table. Dashboard **F&O tab** polls it (60s) for the **Live** toggle + live index strip. Rest of dashboard stays EOD. |
 
 Both workflows use `DATABASE_URL` GitHub Actions secret. Logs uploaded as artifacts (7-day retention).
 

@@ -158,6 +158,20 @@ CREATE TABLE IF NOT EXISTS scanner_sectors (
   PRIMARY KEY (run_date, period, sector)
 );
 
+-- Live 15-minute intraday snapshot (F&O stocks + indices), one row per symbol.
+-- Populated by ingestion/fetch_live.py via .github/workflows/live_15m.yml (market hours).
+CREATE TABLE IF NOT EXISTS live_15m (
+  symbol      TEXT PRIMARY KEY,
+  name        TEXT,
+  is_index    BOOLEAN DEFAULT FALSE,
+  last        NUMERIC,
+  prev_close  NUMERIC,
+  chg_pct     NUMERIC,
+  intraday    JSONB,
+  bar_ts      TIMESTAMPTZ,
+  updated_at  TIMESTAMPTZ DEFAULT now()
+);
+
 -- Market breadth (Worden T2107/T2108-style), one row per trading day.
 CREATE TABLE IF NOT EXISTS scanner_breadth (
   date            DATE PRIMARY KEY,

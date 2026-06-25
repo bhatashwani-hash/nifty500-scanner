@@ -200,6 +200,17 @@
   .fno-chip .fc-ret{ font-family:var(--mono); font-weight:700; font-size:.78rem; }
   .fno-chip .fc-ret.up{ color:var(--up); } .fno-chip .fc-ret.down{ color:var(--down); }
   #fno-count .pos,#fno-count .neg{ font-family:var(--mono); font-weight:700; }
+  /* live 15m layer (F&O tab) */
+  .live-idx{ display:flex; gap:.5rem; overflow-x:auto; padding:.1rem .1rem .8rem; }
+  .live-idx .lc{ flex:0 0 auto; min-width:122px; background:var(--surface); border:1px solid var(--border);
+    border-radius:11px; padding:.45rem .65rem; box-shadow:0 2px 8px rgba(18,38,63,.05); }
+  .live-idx .lc .n{ font-size:.58rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; }
+  .live-idx .lc .v{ font-family:var(--mono); font-weight:700; font-size:.92rem; margin-top:.1rem; }
+  .live-idx .lc .c{ font-family:var(--mono); font-weight:700; font-size:.7rem; }
+  .live-tag{ font-size:.66rem; color:var(--muted); font-family:var(--mono); display:inline-flex; align-items:center; gap:.4rem; }
+  .live-dot{ width:7px; height:7px; border-radius:50%; background:var(--down); animation:lpulse 1.5s infinite; }
+  @keyframes lpulse{ 0%,100%{ opacity:1; } 50%{ opacity:.25; } }
+  #fno-period button[data-p="live"].active{ background:linear-gradient(135deg,#e23744,#ff6a78); color:#fff; }
 
   .chart-overlay{ position:fixed; inset:0; z-index:1000; display:none; align-items:center; justify-content:center;
     background:rgba(18,38,63,.32); backdrop-filter:blur(6px); padding:1.2rem; }
@@ -376,13 +387,16 @@
 
     <!-- F&O SECTORS TAB -->
     <div class="tab-pane fade" id="tab-fno">
+      <div class="live-idx" id="live-idx"></div>
       <div class="d-flex gap-2 mb-3 align-items-center flex-wrap">
         <div class="seg" id="fno-period">
+          <button data-p="live" onclick="setFnoPeriod('live')">⦿ Live</button>
           <button class="active" data-p="ret_day" onclick="setFnoPeriod('ret_day')">Day</button>
           <button data-p="ret_week" onclick="setFnoPeriod('ret_week')">Week</button>
           <button data-p="ret_month" onclick="setFnoPeriod('ret_month')">Month</button>
         </div>
         <span class="count" id="fno-count"></span>
+        <span class="live-tag" id="live-tag"></span>
       </div>
       <div id="fno-sectors"></div>
     </div>
@@ -459,6 +473,7 @@ async function loadAll(){
   await Promise.all([loadFNO(), loadIndices(), loadBreadth(), loadBreakouts(), loadEP(), loadVCP(), loadSectors(), loadFNOSectors()]);
   document.getElementById("last-updated").textContent = "Updated " + new Date().toLocaleTimeString("en-IN");
   btn.classList.remove("spin"); toast("Data refreshed ✓");
+  startLive();
 }
 
 async function loadFNO(){
@@ -694,6 +709,7 @@ function setSectorPeriod(p){ sectorPeriod=p;
 
 // ── F&O Sectors tab: F&O stocks grouped by sector, toggle day/week/month ──
 let fnoStocks=[], fnoPeriod="ret_day";
+let liveMap={}, liveTimer=null;
 async function loadFNOSectors(){
   const { data, error } = await sb.rpc("get_fno_stocks");
   if(error){ document.getElementById("fno-sectors").innerHTML =
@@ -702,20 +718,21 @@ async function loadFNOSectors(){
   renderFNOSectors();
 }
 function renderFNOSectors(){
-  const col=fnoPeriod, bySec={};
+  const bySec={};
+  const gv=s=>fnoPeriod==='live' ? (liveMap[s.symbol]&&liveMap[s.symbol].chg_pct!=null?liveMap[s.symbol].chg_pct:null) : s[fnoPeriod];
   fnoStocks.forEach(s=>{ (bySec[s.sector] ||= []).push(s); });
   const secs = Object.entries(bySec).map(([sec,arr])=>{
-    const vals=arr.map(x=>x[col]).filter(v=>v!=null);
+    const vals=arr.map(gv).filter(v=>v!=null);
     const avg = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
     return { sec, arr, avg };
   }).sort((a,b)=>b.avg-a.avg);
-  const adv=fnoStocks.filter(s=>(s[col]??0)>0).length, dec=fnoStocks.filter(s=>(s[col]??0)<0).length;
+  const adv=fnoStocks.filter(s=>(gv(s)??0)>0).length, dec=fnoStocks.filter(s=>(gv(s)??0)<0).length;
   document.getElementById("fno-count").innerHTML =
     `${fnoStocks.length} F&O · ${secs.length} sectors · <span class="pos">${adv} ▲</span> &nbsp;<span class="neg">${dec} ▼</span>`;
   document.getElementById("fno-sectors").innerHTML = secs.map(({sec,arr,avg},i)=>{
     const aup = avg>=0;
-    const stocks=[...arr].sort((a,b)=>(b[col]??-1e9)-(a[col]??-1e9));
-    const chips=stocks.map(s=>{ const v=s[col], up=(v??0)>=0;
+    const stocks=[...arr].sort((a,b)=>(gv(b)??-1e9)-(gv(a)??-1e9));
+    const chips=stocks.map(s=>{ const v=gv(s), up=(v??0)>=0;
       return `<div class="fno-chip" data-sym="${s.symbol}">
         <span class="fc-sym">${s.symbol}</span>
         <span class="fc-ret ${up?'up':'down'}">${v==null?'—':(up?'+':'')+fmt(v,2)+'%'}</span></div>`;}).join("");
@@ -731,6 +748,25 @@ function renderFNOSectors(){
 function setFnoPeriod(p){ fnoPeriod=p;
   document.querySelectorAll("#fno-period button").forEach(b=>b.classList.toggle("active",b.dataset.p===p));
   renderFNOSectors(); }
+
+// ── Live 15-min layer (F&O tab) — polls the live_15m table ──
+const LIVE_IDX_ORDER=["^NSEI","^NSEBANK","NIFTY_FIN_SERVICE.NS","^CNXIT","^CNXAUTO","^CNXPHARMA","^CNXMETAL","^CNXFMCG","^CNXREALTY","^CNXENERGY"];
+async function loadLive(){
+  const { data, error } = await sb.from("live_15m").select("symbol,name,is_index,last,chg_pct").order("symbol");
+  if(error||!data) return;
+  liveMap={}; const idx=[];
+  data.forEach(r=>{ liveMap[r.symbol]=r; if(r.is_index) idx.push(r); });
+  const pick=LIVE_IDX_ORDER.map(s=>idx.find(x=>x.symbol===s)).filter(Boolean)
+    .concat(idx.filter(x=>LIVE_IDX_ORDER.indexOf(x.symbol)<0));
+  document.getElementById("live-idx").innerHTML = pick.map(r=>{const up=(r.chg_pct||0)>=0;
+    return `<div class="lc"><div class="n">${r.name}</div><div class="v">${fmt(r.last,2)}</div><div class="c ${up?'pos':'neg'}">${r.chg_pct==null?'—':(up?'+':'')+fmt(r.chg_pct,2)+'%'}</div></div>`;}).join("");
+  const tag=document.getElementById("live-tag");
+  tag.innerHTML = data.length
+    ? `<span class="live-dot"></span>LIVE · ${new Date().toLocaleTimeString("en-IN",{hour:'2-digit',minute:'2-digit'})} · ~15m delayed`
+    : "no live data yet — populates during market hours";
+  if(fnoPeriod==='live') renderFNOSectors();
+}
+function startLive(){ loadLive(); if(liveTimer) clearInterval(liveTimer); liveTimer=setInterval(loadLive, 60000); }
 
 let chart, candleSeries, volSeries, ma50Series, ma200Series, allCandles=[], allVols=[], roCm;
 function sma(arr, n){ const out=[]; let sum=0;
