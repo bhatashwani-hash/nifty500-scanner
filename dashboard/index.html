@@ -174,6 +174,18 @@
   .scorebar.s4{ background:var(--infobg); color:var(--info); }
   .scorebar.s5{ background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#04130d; }
   .tag-ready{ background:var(--upbg); color:var(--up); }
+
+  /* Linda */
+  .tag-buy{ background:var(--upbg); color:var(--up); }
+  .tag-sell{ background:var(--downbg); color:var(--down); }
+  .pat-pill{ font-family:'Inter'; font-size:.7rem; font-weight:600; padding:.16rem .5rem;
+        border-radius:7px; background:var(--surface2); color:var(--muted); border:1px solid var(--border);
+        white-space:nowrap; }
+  .pat-pill.hg{ background:var(--infobg); color:var(--info); border-color:transparent; }
+  .pat-pill.ts{ background:rgba(255,180,84,.14); color:var(--warn); border-color:transparent; }
+  .pat-pill.et{ background:rgba(168,85,247,.16); color:#a855f7; border-color:transparent; }
+  .pat-pill.ps{ background:var(--upbg); color:var(--up); border-color:transparent; }
+  #tbl-linda .note{ color:var(--faint); font-size:.78rem; }
   .rank{ display:inline-grid; place-items:center; min-width:24px; height:24px; padding:0 .35rem; border-radius:7px;
          font-family:var(--mono); font-weight:700; font-size:.76rem; background:var(--surface2); color:var(--muted); }
   .rank.top{ background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#04130d; }
@@ -321,6 +333,7 @@
     <div class="kpi k-up"><div class="kpi-label">Bullish EPs · 6M</div><div class="kpi-val up" id="kpi-bep">—</div></div>
     <div class="kpi k-info"><div class="kpi-label">VCP Setups</div><div class="kpi-val neu" id="kpi-vcp">—</div></div>
     <div class="kpi k-up"><div class="kpi-label">Manas Ready</div><div class="kpi-val up" id="kpi-manas">—</div></div>
+    <div class="kpi k-info"><div class="kpi-label">Linda Signals</div><div class="kpi-val neu" id="kpi-linda">—</div></div>
   </div>
 
   <ul class="nav tabbar" id="mainTabs" role="tablist">
@@ -329,6 +342,7 @@
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-ep">⚡ Episodic Pivot</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-vcp">🎯 VCP</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-manas">🧭 Manas Scan</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-linda">🐢 Linda</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-sectors">🌐 Sectors</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-fno">⭐ F&O Sectors</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-ticks">⚡ Ticks</a></li>
@@ -443,6 +457,44 @@
       </div>
     </div>
 
+    <!-- LINDA TAB -->
+    <div class="tab-pane fade" id="tab-linda">
+      <div class="manas-legend">
+        <strong>Linda Scan</strong> — Linda Raschke short-term setups, tagged
+        <span class="tag tag-buy">BUY</span> / <span class="tag tag-sell">SELL</span>.
+        <div class="manas-keys">
+          <span class="mk"><b>Holy Grail</b> ADX&gt;30 pullback to 20‑EMA</span>
+          <span class="mk"><b>Turtle Soup</b> failed 20‑day breakout/breakdown</span>
+          <span class="mk"><b>80/20</b> reversal bar, faded next day</span>
+          <span class="mk"><b>Persistency</b> 7/7 closes one side of 5‑MA</span>
+        </div>
+      </div>
+      <div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
+        <select id="linda-pat-filter" class="control" onchange="filterLinda()">
+          <option value="">All patterns</option>
+          <option value="holy_grail">Holy Grail</option>
+          <option value="turtle_soup">Turtle Soup</option>
+          <option value="eighty_twenty">80/20</option>
+          <option value="persistency">Persistency</option>
+        </select>
+        <select id="linda-side-filter" class="control" onchange="filterLinda()">
+          <option value="">Buy &amp; Sell</option>
+          <option value="BUY">Buy only</option>
+          <option value="SELL">Sell only</option>
+        </select>
+        <select id="linda-fno-filter" class="control" onchange="filterLinda()">
+          <option value="">All Stocks</option><option value="fno">F&O Only</option>
+        </select>
+      </div>
+      <div class="panel"><div class="panel-head"><h2>Linda Raschke Signals</h2><span class="count" id="linda-count"></span></div>
+        <div class="p-1"><table id="tbl-linda" class="table mb-0" style="width:100%">
+          <thead><tr>
+            <th>Symbol</th><th>Pattern</th><th>Signal</th><th>Close</th><th>ADX</th><th>20‑MA</th><th>Ref</th><th>Note</th><th>F&O</th>
+          </tr></thead>
+          <tbody id="linda-body"></tbody></table></div>
+      </div>
+    </div>
+
     <div class="tab-pane fade" id="tab-sectors">
       <div class="d-flex gap-2 mb-3">
         <div class="seg" id="period-toggle">
@@ -549,14 +601,14 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let fnoSymbols = new Set(), latestDate = null, boData = [], sectorPeriod = "day";
-let dtBreakouts, dtEP, dtVCP, dtManas;
-let manasData = [];
+let dtBreakouts, dtEP, dtVCP, dtManas, dtLinda;
+let manasData = [], lindaData = [];
 let breadthChart, roBreadth;
 
 async function loadAll(){
   const btn = document.getElementById("refresh-btn"); btn.classList.add("spin");
   toast("Refreshing…");
-  await Promise.all([loadFNO(), loadIndices(), loadBreadth(), loadBreakouts(), loadEP(), loadVCP(), loadManas(), loadSectors(), loadFNOSectors()]);
+  await Promise.all([loadFNO(), loadIndices(), loadBreadth(), loadBreakouts(), loadEP(), loadVCP(), loadManas(), loadLinda(), loadSectors(), loadFNOSectors()]);
   document.getElementById("last-updated").textContent = "Updated " + new Date().toLocaleTimeString("en-IN");
   btn.classList.remove("spin"); toast("Data refreshed ✓");
   startLive(); startTicks();
@@ -818,6 +870,46 @@ function renderManas(data){
   dtManas = $("#tbl-manas").DataTable(dtOpts({ order:[], columnDefs:[{ orderable:false, targets:[7,9] }] }));
 }
 function filterManas(){ renderManas(applyManasFilters(manasData)); }
+
+const LINDA_PAT = { holy_grail:["Holy Grail","hg"], turtle_soup:["Turtle Soup","ts"],
+                    eighty_twenty:["80/20","et"], persistency:["Persistency","ps"] };
+async function loadLinda(){
+  const { data, error } = await sb.from("scanner_linda").select("*")
+    .eq("run_date", await getLatestDate("scanner_linda"))
+    .order("side").order("pattern").order("adx14", { ascending:false });
+  if(error||!data) return;
+  lindaData = data;
+  setText("kpi-linda", data.length, "neu");
+  renderLinda(applyLindaFilters(data));
+}
+function applyLindaFilters(data){
+  data = applyFno(data, "linda-fno-filter");
+  const p = document.getElementById("linda-pat-filter"), s = document.getElementById("linda-side-filter");
+  if(p && p.value) data = data.filter(r=>r.pattern===p.value);
+  if(s && s.value) data = data.filter(r=>r.side===s.value);
+  return data;
+}
+function renderLinda(data){
+  if(dtLinda){ dtLinda.destroy(); dtLinda=null; }
+  const buys = data.filter(r=>r.side==="BUY").length;
+  document.getElementById("linda-count").textContent = `${data.length} signals · ${buys} buy / ${data.length-buys} sell`;
+  document.getElementById("linda-body").innerHTML = data.map(r=>{
+    const [lbl,cls] = LINDA_PAT[r.pattern] || [r.pattern,""];
+    const sideTag = r.side==="BUY" ? '<span class="tag tag-buy">BUY</span>' : '<span class="tag tag-sell">SELL</span>';
+    return `<tr>
+      <td>${tk(r.symbol)}</td>
+      <td><span class="pat-pill ${cls}">${lbl}</span></td>
+      <td>${sideTag}</td>
+      <td>${fmt(r.close,2)}</td>
+      <td>${r.adx14!=null?fmt(r.adx14,0):"—"}</td>
+      <td>${fmt(r.ema20,2)}</td>
+      <td>${r.ref_level!=null?fmt(r.ref_level,2):"—"}</td>
+      <td class="note">${r.note||""}</td>
+      <td>${fnoTag(r.symbol)}</td></tr>`;
+  }).join("");
+  dtLinda = $("#tbl-linda").DataTable(dtOpts({ order:[], columnDefs:[{ orderable:false, targets:[2,7,8] }] }));
+}
+function filterLinda(){ renderLinda(applyLindaFilters(lindaData)); }
 
 async function loadSectors(){
   const { data, error } = await sb.from("scanner_sectors").select("*")

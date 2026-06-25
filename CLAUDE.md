@@ -46,6 +46,7 @@ now dead — safe to delete.
 | `scanner_ep` | `(run_date, symbol)` | Episodic Pivot — **rolling 6-month leaderboard**, ranked by return since pivot. Extra cols: `last_date`, `last_close`, `return_since_pivot`, `rnk` |
 | `scanner_vcp` | `(run_date, symbol)` | Volatility Contraction Pattern (return_3m ≥ 25%, 15d range < 15%) |
 | `scanner_manas` | `(run_date, symbol)` | **Manas Scan** — two-layer momentum-pullback. Layer 1 = hard trend filter (candidate list); Layer 2 = setup flags (`inside_bar`, `fast_mover`) + `setup_score` 0–5 + `setup_ready`. Cols: `close`, `pct_from_high`, `sma50/200`, `ema21`, `pct_above_ema`, `prior_move_pct`, `range_5d_pct`, `vol_ratio`, `last_date` |
+| `scanner_linda` | `(run_date, symbol, pattern, side)` | **Linda Scan** — Linda Raschke setups, one row per fired signal. `pattern` ∈ `holy_grail`/`turtle_soup`/`eighty_twenty`/`persistency`; `side` ∈ `BUY`/`SELL`. Cols: `close`, `adx14`, `ema20`, `ref_level`, `note`, `last_date` |
 | `scanner_sectors` | `(run_date, period, sector)` | Sector performance — day/week/month |
 
 **FK change (2026-06-21):** `scanner_ep`, `scanner_breakouts`, `scanner_vcp` `symbol` FKs now reference `stocks(symbol)` (were `zerodha_stocks`). Definitions live in `sql/schema.sql`.
@@ -72,6 +73,7 @@ now dead — safe to delete.
 | `ingestion/scan_ep.py` | Episodic Pivot — scans trailing **6 months**, full-refresh, ranks all hits by `return_since_pivot`, writes `rnk` |
 | `ingestion/scan_vcp.py` | VCP scanner |
 | `ingestion/scan_manas.py` | **Manas Scan** — Layer 1 trend filter + Layer 2 setup flags/score. Uses true **EMA21** for the 21-EMA guide, ordered cummin up-leg for `prior_move_pct`. (The one-off SQL seed used SMA20 + a 126-bar range proxy — close, but the daily Python job is canonical.) |
+| `ingestion/scan_linda.py` | **Linda Scan** — Raschke setups (Holy Grail / Turtle Soup / 80-20 / Persistency), BUY+SELL. Uses true Wilder **ADX(14)** + 20 EMA + 5-MA. (The SQL seed used a single-pass DX proxy for ADX and SMA20 for the EMA — runs hotter than Wilder ADX; the daily Python job is canonical.) |
 | `ingestion/scan_sectors.py` | Sector pulse (sector from `stocks.sector`) |
 
 To repoint a scanner's universe, change its data-load query: `FROM ohlcv o JOIN stocks s ON o.symbol = s.symbol WHERE s.is_active = true`.
@@ -101,7 +103,8 @@ Both workflows use `DATABASE_URL` GitHub Actions secret. Logs uploaded as artifa
 ## Dashboard
 - File: `dashboard/index.html` — single static file, no server needed
 - Uses: Bootstrap 5, DataTables, Supabase JS v2 (all CDN)
-- Tabs: Breadth, Breakouts, Episodic Pivot, VCP, **Manas Scan**, Sectors, F&O Sectors, Ticks
+- Tabs: Breadth, Breakouts, Episodic Pivot, VCP, **Manas Scan**, **Linda**, Sectors, F&O Sectors, Ticks
+- **Linda tab** = `scanner_linda` for latest run_date. Pattern pills (Holy Grail/Turtle Soup/80-20/Persistency), BUY/SELL tags, ADX, 20-MA, ref level, note; pattern + side + F&O filters; click symbol → candlestick. KPI chip `kpi-linda` = total signal count.
 - **Manas Scan tab** = `scanner_manas` ordered by `setup_score` desc. Shows the Layer-1 candidate list with Layer-2 chips (P/E/C/I/●), score badge, Ready tag, FNO badge; F&O + ready/score filters; click symbol → candlestick. KPI chip `kpi-manas` = setup-ready count.
 - **Breadth tab** = last 6 months of daily rows (`loadBreadth` filters `date >= now-6mo`). `scanner_breadth` is populated daily over the 500 universe.
 - **Episodic Pivot tab** = 6-month leaderboard: columns `#` (rank), Symbol, Type, Pivot Date, Pivot Close, Last Close, Return Since Pivot, Gap %, Move %, Vol Ratio, FNO — sorted by rank. Reads all `scanner_ep` rows ordered by `rnk` (no run_date filter).

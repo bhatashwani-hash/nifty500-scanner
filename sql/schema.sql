@@ -185,6 +185,27 @@ CREATE TABLE IF NOT EXISTS scanner_manas (
 );
 CREATE INDEX IF NOT EXISTS idx_scanner_manas_score ON scanner_manas (setup_score DESC);
 
+-- "Linda Scan" — Linda Raschke short-term setups, one row per fired signal.
+--   holy_grail    : ADX(14)>30 trend pullback to the 20 EMA (BUY uptrend / SELL downtrend)
+--   turtle_soup   : failed 20-day breakout/breakdown (BUY/SELL)
+--   eighty_twenty : 80/20 reversal bar, faded next day (BUY/SELL)
+--   persistency   : 7/7 closes on one side of the 5-MA (BUY/SELL trend flag)
+-- Written by scan_linda.py.
+CREATE TABLE IF NOT EXISTS scanner_linda (
+  run_date   DATE NOT NULL,
+  symbol     TEXT NOT NULL REFERENCES stocks(symbol),
+  pattern    TEXT NOT NULL,
+  side       TEXT NOT NULL,
+  close      NUMERIC,
+  adx14      NUMERIC,
+  ema20      NUMERIC,
+  ref_level  NUMERIC,
+  note       TEXT,
+  last_date  DATE,
+  PRIMARY KEY (run_date, symbol, pattern, side)
+);
+CREATE INDEX IF NOT EXISTS idx_scanner_linda_pat ON scanner_linda (pattern, side);
+
 -- Live 15-minute intraday snapshot (F&O stocks + indices), one row per symbol.
 -- Populated by ingestion/fetch_live.py via .github/workflows/live_15m.yml (market hours).
 CREATE TABLE IF NOT EXISTS live_15m (
