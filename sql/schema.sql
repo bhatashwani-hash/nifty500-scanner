@@ -158,6 +158,33 @@ CREATE TABLE IF NOT EXISTS scanner_sectors (
   PRIMARY KEY (run_date, period, sector)
 );
 
+-- "Manas Scan" — two-layer momentum-pullback scanner.
+--   Layer 1 (hard filter): close>30, within 25% of 52w high, close>SMA50>SMA200,
+--   SMA200 rising 3m, close>=1.5x 52w low, 52w high made in last 6 months.
+--   Layer 2 (flags + score 0..5): prior up-leg >=50%, 0-5% above 21 EMA,
+--   volatility contraction (tight 5d range + falling volume), inside bar,
+--   fast mover (>5% day on >1M vol in last 40 bars). Written by scan_manas.py.
+CREATE TABLE IF NOT EXISTS scanner_manas (
+  run_date        DATE NOT NULL,
+  symbol          TEXT NOT NULL REFERENCES stocks(symbol),
+  close           NUMERIC,
+  pct_from_high   NUMERIC,
+  sma50           NUMERIC,
+  sma200          NUMERIC,
+  ema21           NUMERIC,
+  pct_above_ema   NUMERIC,
+  prior_move_pct  NUMERIC,
+  range_5d_pct    NUMERIC,
+  vol_ratio       NUMERIC,
+  inside_bar      BOOLEAN DEFAULT FALSE,
+  fast_mover      BOOLEAN DEFAULT FALSE,
+  setup_score     INTEGER,
+  setup_ready     BOOLEAN DEFAULT FALSE,
+  last_date       DATE,
+  PRIMARY KEY (run_date, symbol)
+);
+CREATE INDEX IF NOT EXISTS idx_scanner_manas_score ON scanner_manas (setup_score DESC);
+
 -- Live 15-minute intraday snapshot (F&O stocks + indices), one row per symbol.
 -- Populated by ingestion/fetch_live.py via .github/workflows/live_15m.yml (market hours).
 CREATE TABLE IF NOT EXISTS live_15m (
@@ -169,6 +196,20 @@ CREATE TABLE IF NOT EXISTS live_15m (
   chg_pct     NUMERIC,
   intraday    JSONB,
   bar_ts      TIMESTAMPTZ,
+  updated_at  TIMESTAMPTZ DEFAULT now()
+);
+
+-- Live Zerodha (Kite) ticks (F&O stocks + indices), one row per symbol.
+-- Populated continuously by ingestion/kite_ticks.py (Kite WebSocket) during market
+-- hours; the dashboard "Ticks" tab polls it every ~3s. Needs a Kite Connect app.
+CREATE TABLE IF NOT EXISTS ticks (
+  symbol      TEXT PRIMARY KEY,
+  is_index    BOOLEAN DEFAULT FALSE,
+  ltp         NUMERIC,
+  prev_close  NUMERIC,
+  chg_pct     NUMERIC,
+  vol         BIGINT,
+  ts          TIMESTAMPTZ,
   updated_at  TIMESTAMPTZ DEFAULT now()
 );
 

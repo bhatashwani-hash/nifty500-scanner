@@ -46,6 +46,7 @@ def main():
     # Import here so each module picks up logging config above
     from scan_breakouts  import run as run_breakouts
     from scan_ep         import run as run_ep
+    from scan_manas      import run as run_manas
     from scan_sectors    import run as run_sectors
     from scan_vcp        import run as run_vcp
 
@@ -53,6 +54,7 @@ def main():
         ("breakouts", run_breakouts),
         ("ep",        run_ep),
         ("vcp",       run_vcp),
+        ("manas",     run_manas),
         ("sectors",   run_sectors),
         ("breadth",   None),   # handled separately below via compute_breadth/write_breadth
     ]
