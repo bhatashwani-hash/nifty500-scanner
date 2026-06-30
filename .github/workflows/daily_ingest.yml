@@ -1,12 +1,12 @@
 name: Daily Ingestion — Yahoo Finance → ohlcv (500 stocks)
 
-# Runs at 6:00 PM IST (12:30 UTC) on NSE trading days (Mon–Fri).
-# NSE closes at 3:30 PM IST, so the day's EOD data is well settled by 6 PM.
+# Runs at 4:00 PM IST (10:30 UTC) on NSE trading days (Mon–Fri).
+# NSE closes at 3:30 PM IST; this fires 30 min after the close.
 # Fetches ONLY that day's bar for the active 500-stock universe (stocks table)
 # and upserts into the ohlcv table.
 on:
   schedule:
-    - cron: "30 12 * * 1-5"
+    - cron: "30 10 * * 1-5"
   workflow_dispatch:
     inputs:
       full_backfill:
