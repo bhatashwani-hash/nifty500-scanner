@@ -139,7 +139,7 @@ def scan_rvol(conn):
         cl, p, vv, a = c0.get(s), c1.get(s), v0.get(s), av20.get(s)
         if any(pd.isna(x) for x in (cl, p, vv, a)) or p <= 0 or a <= 0:
             continue
-        rows.append((run_date, s, round(float(cl), 2), round((cl / p - 1) * 100, 2),
+        rows.append((run_date, s, round(float(cl), 2), round(float(cl / p - 1) * 100, 2),
                      int(vv), int(a), round(float(vv) / float(a), 2)))
     with conn.cursor() as cur:
         cur.execute("DELETE FROM scanner_us_rvol WHERE run_date=%s", (run_date,))
@@ -223,7 +223,7 @@ def scan_vcp(conn):
             continue
         ret3 = (cl - cb) / cb
         if ret3 >= 0.25 and r < 0.15:
-            rows.append((run_date, s, round(float(cl), 2), round(ret3 * 100, 2),
+            rows.append((run_date, s, round(float(cl), 2), round(float(ret3) * 100, 2),
                          round(float(hh), 2), round(float(ll), 2), round(float(r) * 100, 2)))
     with conn.cursor() as cur:
         cur.execute("DELETE FROM scanner_us_vcp WHERE run_date=%s", (run_date,))
