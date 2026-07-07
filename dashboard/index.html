@@ -186,6 +186,25 @@
   .pat-pill.et{ background:rgba(168,85,247,.16); color:#a855f7; border-color:transparent; }
   .pat-pill.ps{ background:var(--upbg); color:var(--up); border-color:transparent; }
   #tbl-linda .note{ color:var(--faint); font-size:.78rem; }
+
+  /* Sentiment */
+  .sent-asof{ display:block; margin-top:.4rem; font-size:.78rem; color:var(--faint); }
+  .sent-cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:.8rem; }
+  .sent-card{ border:1px solid var(--border); border-radius:14px; padding:1rem 1.1rem; background:var(--surface);
+        position:relative; overflow:hidden; }
+  .sent-card .sc-lbl{ font-size:.72rem; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); }
+  .sent-card .sc-val{ font-family:var(--mono); font-weight:700; font-size:1.9rem; line-height:1.1; margin:.25rem 0 .15rem; }
+  .sent-card .sc-sub{ font-size:.74rem; color:var(--faint); }
+  .sent-card.bull .sc-val{ color:var(--up); }   .sent-card.bear .sc-val{ color:var(--down); }
+  .sent-card.neu  .sc-val{ color:var(--muted); } .sent-card.spread .sc-val{ color:var(--info); }
+  .sent-card .sc-bar{ height:6px; border-radius:4px; background:var(--surface2); margin-top:.6rem; overflow:hidden; }
+  .sent-card .sc-bar i{ display:block; height:100%; border-radius:4px; }
+  .sent-card.bull .sc-bar i{ background:var(--up); } .sent-card.bear .sc-bar i{ background:var(--down); }
+  .sent-card.neu .sc-bar i{ background:var(--muted); }
+  .sent-legend{ display:flex; gap:1.2rem; margin-top:.7rem; font-size:.76rem; color:var(--muted); }
+  .sent-legend i{ display:inline-block; width:14px; height:3px; border-radius:2px; vertical-align:middle; margin-right:.35rem; }
+  .sent-legend .sw-bull{ background:var(--up); } .sent-legend .sw-bear{ background:var(--down); }
+  .sent-legend .sw-spread{ background:var(--info); }
   .rank{ display:inline-grid; place-items:center; min-width:24px; height:24px; padding:0 .35rem; border-radius:7px;
          font-family:var(--mono); font-weight:700; font-size:.76rem; background:var(--surface2); color:var(--muted); }
   .rank.top{ background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#04130d; }
@@ -233,8 +252,19 @@
   .fno-chip .fc-px{ margin-left:auto; font-family:var(--mono); font-weight:600; font-size:.73rem; color:var(--muted); }
   .fno-chip .fc-ret{ font-family:var(--mono); font-weight:700; font-size:.78rem; min-width:3.4rem; text-align:right; }
   .fno-chip .fc-ret.up{ color:var(--up); } .fno-chip .fc-ret.down{ color:var(--down); }
+  /* scan-hit badges on F&O chips: which other scans the stock appears in, with dates */
+  .fno-chip{ flex-wrap:wrap; }
+  .fno-hits{ flex-basis:100%; display:flex; flex-wrap:wrap; gap:.22rem; padding:.12rem 0 .04rem; }
+  .hit-pill{ font-family:'Inter'; font-size:.58rem; font-weight:700; letter-spacing:.3px;
+    padding:.08rem .34rem; border-radius:5px; white-space:nowrap; background:var(--surface2); color:var(--muted); }
+  .hit-pill.h-up{ background:var(--upbg); color:var(--up); }
+  .hit-pill.h-dn{ background:var(--downbg); color:var(--down); }
+  .hit-pill.h-info{ background:var(--infobg); color:var(--info); }
+  .hit-pill.h-warn{ background:rgba(217,119,6,.13); color:var(--warn); }
+  .hit-pill.h-purple{ background:rgba(168,85,247,.16); color:#a855f7; }
+  .hit-pill.h-acc{ background:rgba(10,169,130,.14); color:var(--accent); }
   #fno-count .pos,#fno-count .neg{ font-family:var(--mono); font-weight:700; }
-  /* live 15m layer (F&O tab) */
+  /* live index/tick cards (Ticks tab) */
   .live-idx{ display:flex; gap:.5rem; overflow-x:auto; padding:.1rem .1rem .8rem; }
   .live-idx .lc{ flex:0 0 auto; min-width:122px; background:var(--surface); border:1px solid var(--border);
     border-radius:11px; padding:.45rem .65rem; box-shadow:0 2px 8px rgba(18,38,63,.05); }
@@ -245,6 +275,33 @@
   .live-dot{ width:7px; height:7px; border-radius:50%; background:var(--down); animation:lpulse 1.5s infinite; }
   @keyframes lpulse{ 0%,100%{ opacity:1; } 50%{ opacity:.25; } }
   #fno-period button[data-p="live"].active{ background:linear-gradient(135deg,#e23744,#ff6a78); color:#fff; }
+  /* Daily Scan tab */
+  .regime-banner{
+    display:flex; align-items:center; gap:1.2rem; padding:1rem 1.3rem; border-radius:14px;
+    border:1px solid var(--border); background:var(--surface); position:relative; overflow:hidden;
+  }
+  .regime-banner::before{ content:""; position:absolute; inset:0; opacity:.08; pointer-events:none; }
+  .regime-banner.bull{ border-color:rgba(21,163,74,.35); }
+  .regime-banner.bull::before{ background:var(--up); }
+  .regime-banner.bear{ border-color:rgba(226,55,68,.35); }
+  .regime-banner.bear::before{ background:var(--down); }
+  .regime-banner.caut{ border-color:rgba(217,119,6,.35); }
+  .regime-banner.caut::before{ background:var(--warn); }
+  .rb-bias{ font-size:1.5rem; font-weight:800; font-family:var(--mono); letter-spacing:.5px; }
+  .rb-bias.bull{ color:var(--up); } .rb-bias.bear{ color:var(--down); } .rb-bias.caut{ color:var(--warn); }
+  .rb-indices{ display:flex; gap:1.5rem; flex-wrap:wrap; }
+  .rb-idx{ display:flex; flex-direction:column; gap:.18rem; }
+  .rb-idx-name{ font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); }
+  .rb-idx-val{ font-family:var(--mono); font-weight:700; font-size:.92rem; }
+  .rb-emas{ display:flex; gap:.4rem; margin-top:.18rem; }
+  .ema-pill{ font-size:.65rem; font-weight:700; padding:.12rem .4rem; border-radius:5px; font-family:var(--mono);
+    white-space:nowrap; }
+  .ema-pill.on{ background:var(--upbg); color:var(--up); }
+  .ema-pill.off{ background:var(--downbg); color:var(--down); }
+  .rb-date{ margin-left:auto; font-size:.75rem; color:var(--faint); font-family:var(--mono); }
+  .tag-long{ background:var(--upbg); color:var(--up); }
+  .tag-short{ background:var(--downbg); color:var(--down); }
+
   /* Zerodha ticks tab */
   .tk-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(146px,1fr)); gap:.5rem; }
   .tk{ background:var(--surface); border:1px solid var(--border); border-radius:11px; padding:.5rem .65rem;
@@ -328,27 +385,32 @@
     <div class="kpi k-info"><div class="kpi-label">T2108 · %&gt;200MA</div><div class="kpi-val neu" id="kpi-t2108">—</div></div>
     <div class="kpi k-info"><div class="kpi-label">NIFTY 50</div><div class="kpi-val neu" id="kpi-nifty">—</div></div>
     <div class="kpi"><div class="kpi-label">Universe</div><div class="kpi-val neu" id="kpi-univ">—</div></div>
-    <div class="kpi k-up"><div class="kpi-label">Breakouts</div><div class="kpi-val up" id="kpi-bo">—</div></div>
-    <div class="kpi k-down"><div class="kpi-label">Breakdowns</div><div class="kpi-val down" id="kpi-bd">—</div></div>
+    <div class="kpi k-up"><div class="kpi-label">Fresh Breakouts</div><div class="kpi-val up" id="kpi-bo">—</div></div>
+    <div class="kpi k-down"><div class="kpi-label">Fresh Breakdowns</div><div class="kpi-val down" id="kpi-bd">—</div></div>
+    <div class="kpi k-info"><div class="kpi-label">RVOL Movers</div><div class="kpi-val neu" id="kpi-rvol">—</div></div>
     <div class="kpi k-up"><div class="kpi-label">Bullish EPs · 6M</div><div class="kpi-val up" id="kpi-bep">—</div></div>
     <div class="kpi k-info"><div class="kpi-label">VCP Setups</div><div class="kpi-val neu" id="kpi-vcp">—</div></div>
+    <div class="kpi k-up"><div class="kpi-label">VCP Pro Active</div><div class="kpi-val up" id="kpi-vcppro">—</div></div>
     <div class="kpi k-up"><div class="kpi-label">Manas Ready</div><div class="kpi-val up" id="kpi-manas">—</div></div>
-    <div class="kpi k-info"><div class="kpi-label">Linda Signals</div><div class="kpi-val neu" id="kpi-linda">—</div></div>
   </div>
 
   <ul class="nav tabbar" id="mainTabs" role="tablist">
-    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-breadth">📊 Breadth</a></li>
-    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-breakouts">🚀 Breakouts</a></li>
+    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-breadth" id="breadth-tab">📊 Breadth</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-breakouts">🚀 Fresh Breakouts</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-rvol">📶 RVOL Daily</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-ep">⚡ Episodic Pivot</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-vcp">🎯 VCP</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-vcppro">🌀 VCP Pro</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-manas">🧭 Manas Scan</a></li>
-    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-linda">🐢 Linda</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-sentiment">🐂 Sentiment</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-sectors">🌐 Sectors</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-hourly">⏱ Hourly F&O</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-fno">⭐ F&O Sectors</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-ticks">⚡ Ticks</a></li>
   </ul>
 
   <div class="tab-content">
+
     <div class="tab-pane fade show active" id="tab-breadth">
       <div class="panel mb-3">
         <div class="panel-head"><h2>NIFTY 50 vs Breadth</h2>
@@ -377,17 +439,21 @@
     </div>
 
     <div class="tab-pane fade" id="tab-breakouts">
+      <div class="manas-legend">
+        <strong>Fresh Breakouts</strong> — only stocks making a <em>new</em> 6M / 1Y / 2Y closing
+        high or low <em>today</em>, that hadn't already done so the day before. Continuation days
+        are excluded; the longest window is shown when several trigger at once.
+      </div>
       <div class="d-flex gap-2 mb-3 flex-wrap">
         <select id="bo-type-filter" class="control" onchange="filterBreakouts()">
           <option value="">All Types</option><option value="HIGH">Highs only</option><option value="LOW">Lows only</option>
           <option value="2Y">2Y</option><option value="1Y">1Y</option><option value="6M">6M</option>
-          <option value="3M">3M</option><option value="1M">1M</option>
         </select>
         <select id="bo-fno-filter" class="control" onchange="filterBreakouts()">
           <option value="">All Stocks</option><option value="fno">F&O Only</option>
         </select>
       </div>
-      <div class="panel"><div class="panel-head"><h2>Breakouts &amp; Breakdowns</h2><span class="count" id="bo-count"></span></div>
+      <div class="panel"><div class="panel-head"><h2>Fresh Breakouts &amp; Breakdowns (6M / 1Y / 2Y)</h2><span class="count" id="bo-count"></span></div>
         <div class="p-1"><table id="tbl-breakouts" class="table mb-0" style="width:100%">
           <thead><tr><th>Symbol</th><th>Type</th><th>Close</th><th>Chg %</th><th>Volume</th><th>F&O</th></tr></thead>
           <tbody id="bo-body"></tbody></table></div>
@@ -399,9 +465,18 @@
         <select id="ep-fno-filter" class="control" onchange="filterEP()">
           <option value="">All Stocks</option><option value="fno">F&O Only</option>
         </select>
+        <select id="ep-type-filter" class="control" onchange="filterEP()">
+          <option value="">All Types</option>
+          <option value="BULLISH">Bullish only</option>
+          <option value="BEARISH">Bearish only</option>
+        </select>
+        <select id="ep-sort" class="control" onchange="filterEP()">
+          <option value="date">Sort: Pivot date (newest)</option>
+          <option value="rank">Sort: Return rank</option>
+        </select>
       </div>
       <div class="panel"><div class="panel-head"><h2>Episodic Pivot · 6-Month Leaderboard</h2>
-        <span class="count">ranked by return since pivot</span></div>
+        <span class="count" id="ep-count">newest pivots first</span></div>
         <div class="p-1"><table id="tbl-ep" class="table mb-0" style="width:100%">
           <thead><tr><th>#</th><th>Symbol</th><th>Type</th><th>Pivot Date</th><th>Pivot Close</th>
             <th>Last Close</th><th>Return</th><th>Gap %</th><th>Move %</th><th>Vol×</th><th>F&O</th></tr></thead>
@@ -420,6 +495,41 @@
           <thead><tr><th>Symbol</th><th>Close</th><th>3M Return</th><th>15d High</th><th>15d Low</th>
             <th>15d Range</th><th>F&O</th></tr></thead>
           <tbody id="vcp-body"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- VCP PRO TAB -->
+    <div class="tab-pane fade" id="tab-vcppro">
+      <div class="manas-legend">
+        <strong>VCP Pro</strong> — Minervini-style VCP state machine over the last 3 months.
+        Requires a Stage-2 trend template (50&gt;150&gt;200 DMA, rising 200, within 25% of 52-wk
+        high, ≥30% above 52-wk low), ≥2 shrinking contractions (each ≤75% of the prior;
+        first ≤35%, final ≤10%), volume dry-up (5d &lt; 80% of 50d), and a live base.
+        <div class="manas-keys">
+          <span class="mk"><b><span class="tag tag-ready">Active</span></b> armed — waiting for a close above the pivot on ≥1.5× volume</span>
+          <span class="mk"><b><span class="tag tag-bull">Fired</span></b> breakout confirmed — Return TD tracks buy close → latest close</span>
+          <span class="mk"><b><span class="tag tag-bear">Failed</span></b> closed below the 50-DMA before breaking out</span>
+        </div>
+      </div>
+      <div class="d-flex gap-2 mb-3 flex-wrap">
+        <select id="vcppro-status-filter" class="control" onchange="filterVCPPro()">
+          <option value="">All statuses</option>
+          <option value="ACTIVE">Active only</option>
+          <option value="FIRED">Fired only</option>
+          <option value="FAILED">Failed only</option>
+        </select>
+        <select id="vcppro-fno-filter" class="control" onchange="filterVCPPro()">
+          <option value="">All Stocks</option><option value="fno">F&O Only</option>
+        </select>
+      </div>
+      <div class="panel"><div class="panel-head"><h2>VCP Pro — Contraction Bases (3M)</h2><span class="count" id="vcppro-count"></span></div>
+        <div class="p-1"><table id="tbl-vcppro" class="table mb-0" style="width:100%">
+          <thead><tr>
+            <th>Symbol</th><th>Status</th><th>Setup Date</th><th>Contractions</th>
+            <th>Pivot</th><th>Stop</th><th>Signal Date</th><th>Buy Close</th><th>Vol×</th>
+            <th>Last Close</th><th>Return TD</th><th>F&O</th>
+          </tr></thead>
+          <tbody id="vcppro-body"></tbody></table></div>
       </div>
     </div>
 
@@ -457,41 +567,56 @@
       </div>
     </div>
 
-    <!-- LINDA TAB -->
-    <div class="tab-pane fade" id="tab-linda">
+    <!-- SENTIMENT TAB -->
+    <div class="tab-pane fade" id="tab-sentiment">
       <div class="manas-legend">
-        <strong>Linda Scan</strong> — Linda Raschke short-term setups, tagged
-        <span class="tag tag-buy">BUY</span> / <span class="tag tag-sell">SELL</span>.
-        <div class="manas-keys">
-          <span class="mk"><b>Holy Grail</b> ADX&gt;30 pullback to 20‑EMA</span>
-          <span class="mk"><b>Turtle Soup</b> failed 20‑day breakout/breakdown</span>
-          <span class="mk"><b>80/20</b> reversal bar, faded next day</span>
-          <span class="mk"><b>Persistency</b> 7/7 closes one side of 5‑MA</span>
+        <strong>AAII Investor Sentiment Survey</strong> — weekly US individual-investor poll
+        (bullish / neutral / bearish on the next 6 months). A widely-watched contrarian
+        risk gauge. Long-run averages: Bullish 37.5% · Neutral 31.5% · Bearish 31.0%.
+        <span id="sent-asof" class="sent-asof"></span>
+      </div>
+      <div class="sent-cards" id="sent-cards"></div>
+      <div class="panel" style="margin-top:1rem"><div class="panel-head">
+        <h2>Bullish vs Bearish — History</h2><span class="count" id="sent-count"></span></div>
+        <div class="p-3"><div id="sent-chart"></div>
+          <div class="sent-legend">
+            <span><i class="sw-bull"></i> Bullish %</span>
+            <span><i class="sw-bear"></i> Bearish %</span>
+            <span><i class="sw-spread"></i> Bull−Bear spread</span>
+          </div>
         </div>
       </div>
-      <div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
-        <select id="linda-pat-filter" class="control" onchange="filterLinda()">
-          <option value="">All patterns</option>
-          <option value="holy_grail">Holy Grail</option>
-          <option value="turtle_soup">Turtle Soup</option>
-          <option value="eighty_twenty">80/20</option>
-          <option value="persistency">Persistency</option>
+    </div>
+
+    <!-- RVOL DAILY TAB -->
+    <div class="tab-pane fade" id="tab-rvol">
+      <div class="manas-legend">
+        <strong>RVOL Daily</strong> — all stocks, latest EOD session: day change vs relative
+        volume (today's volume ÷ 20-day average). Rows with RVOL ≥ 1.5 are the real movers —
+        up or down on unusually heavy trade.
+      </div>
+      <div class="d-flex gap-2 mb-3 flex-wrap">
+        <select id="rvol-dir-filter" class="control" onchange="filterRVOL()">
+          <option value="">Up + Down</option>
+          <option value="up">Up only</option>
+          <option value="down">Down only</option>
         </select>
-        <select id="linda-side-filter" class="control" onchange="filterLinda()">
-          <option value="">Buy &amp; Sell</option>
-          <option value="BUY">Buy only</option>
-          <option value="SELL">Sell only</option>
+        <select id="rvol-min-filter" class="control" onchange="filterRVOL()">
+          <option value="1.5">RVOL ≥ 1.5</option>
+          <option value="2">RVOL ≥ 2</option>
+          <option value="3">RVOL ≥ 3</option>
+          <option value="1.2">RVOL ≥ 1.2</option>
         </select>
-        <select id="linda-fno-filter" class="control" onchange="filterLinda()">
+        <select id="rvol-fno-filter" class="control" onchange="filterRVOL()">
           <option value="">All Stocks</option><option value="fno">F&O Only</option>
         </select>
       </div>
-      <div class="panel"><div class="panel-head"><h2>Linda Raschke Signals</h2><span class="count" id="linda-count"></span></div>
-        <div class="p-1"><table id="tbl-linda" class="table mb-0" style="width:100%">
+      <div class="panel"><div class="panel-head"><h2>Daily RVOL Movers</h2><span class="count" id="rvol-count"></span></div>
+        <div class="p-1"><table id="tbl-rvol" class="table mb-0" style="width:100%">
           <thead><tr>
-            <th>Symbol</th><th>Pattern</th><th>Signal</th><th>Close</th><th>ADX</th><th>20‑MA</th><th>Ref</th><th>Note</th><th>F&O</th>
+            <th>Symbol</th><th>Close</th><th>Chg %</th><th>RVOL</th><th>Volume</th><th>20d Avg Vol</th><th>F&O</th>
           </tr></thead>
-          <tbody id="linda-body"></tbody></table></div>
+          <tbody id="rvol-body"></tbody></table></div>
       </div>
     </div>
 
@@ -508,18 +633,46 @@
       </div>
     </div>
 
+    <!-- HOURLY F&O TAB -->
+    <div class="tab-pane fade" id="tab-hourly">
+      <div class="manas-legend">
+        <strong>Hourly F&amp;O</strong> — intraday feed from hourly Yahoo candles
+        (refreshed each hour, 9:30–15:30 IST). RVOL is time-adjusted: today's cumulative
+        volume ÷ (20-day avg daily volume × session fraction elapsed).
+        <span class="tag tag-bull">▲ HOT</span> / <span class="tag tag-bear">▼ HOT</span>
+        mark stocks up or down on RVOL ≥ 1.5.
+      </div>
+      <div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
+        <select id="hr-dir-filter" class="control" onchange="filterHourly()">
+          <option value="">Up + Down</option>
+          <option value="up">Up only</option>
+          <option value="down">Down only</option>
+        </select>
+        <select id="hr-hot-filter" class="control" onchange="filterHourly()">
+          <option value="">All F&O</option>
+          <option value="hot">High RVOL only (≥1.5)</option>
+        </select>
+        <span class="live-tag" id="hr-tag"></span>
+      </div>
+      <div class="panel"><div class="panel-head"><h2>Hourly F&amp;O Feed</h2><span class="count" id="hr-count"></span></div>
+        <div class="p-1"><table id="tbl-hourly" class="table mb-0" style="width:100%">
+          <thead><tr>
+            <th>Symbol</th><th>Last</th><th>Day Chg %</th><th>RVOL</th><th></th>
+            <th>Cum Volume</th><th>20d Avg Vol</th><th>Last Bar</th>
+          </tr></thead>
+          <tbody id="hr-body"></tbody></table></div>
+      </div>
+    </div>
+
     <!-- F&O SECTORS TAB -->
     <div class="tab-pane fade" id="tab-fno">
-      <div class="live-idx" id="live-idx"></div>
       <div class="d-flex gap-2 mb-3 align-items-center flex-wrap">
         <div class="seg" id="fno-period">
-          <button data-p="live" onclick="setFnoPeriod('live')">⦿ Live</button>
           <button class="active" data-p="ret_day" onclick="setFnoPeriod('ret_day')">Day</button>
           <button data-p="ret_week" onclick="setFnoPeriod('ret_week')">Week</button>
           <button data-p="ret_month" onclick="setFnoPeriod('ret_month')">Month</button>
         </div>
         <span class="count" id="fno-count"></span>
-        <span class="live-tag" id="live-tag"></span>
       </div>
       <div id="fno-sectors"></div>
     </div>
@@ -601,17 +754,21 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let fnoSymbols = new Set(), latestDate = null, boData = [], sectorPeriod = "day";
-let dtBreakouts, dtEP, dtVCP, dtManas, dtLinda;
-let manasData = [], lindaData = [];
+let dtBreakouts, dtEP, dtVCP, dtVCPPro, dtManas, dtRVOL, dtHourly;
+let manasData = [], sentData = [], rvolData = [], hourlyData = [], hourlyTimer = null;
 let breadthChart, roBreadth;
 
 async function loadAll(){
   const btn = document.getElementById("refresh-btn"); btn.classList.add("spin");
   toast("Refreshing…");
-  await Promise.all([loadFNO(), loadIndices(), loadBreadth(), loadBreakouts(), loadEP(), loadVCP(), loadManas(), loadLinda(), loadSectors(), loadFNOSectors()]);
+  await loadFNO();   // hourly + F&O filters need the F&O symbol list first
+  await Promise.all([loadIndices(), loadBreadth(), loadBreakouts(), loadRVOL(), loadHourly(), loadEP(), loadVCP(), loadVCPPro(), loadManas(), loadSentiment(), loadSectors(), loadFNOSectors()]);
+  if(hourlyTimer) clearInterval(hourlyTimer);
+  hourlyTimer = setInterval(loadHourly, 300000);   // refresh hourly feed every 5 min
+  if(fnoStocks.length) renderFNOSectors();   // re-render with scan-hit badges once every scanner has loaded
   document.getElementById("last-updated").textContent = "Updated " + new Date().toLocaleTimeString("en-IN");
   btn.classList.remove("spin"); toast("Data refreshed ✓");
-  startLive(); startTicks();
+  startTicks();
 }
 
 async function loadFNO(){
@@ -751,7 +908,7 @@ function buildBreadthChart(rowsAsc, nifty){
 
 async function loadBreakouts(){
   const { data, error } = await sb.from("scanner_breakouts")
-    .select("symbol, close, change_pct, volume, breakout_type")
+    .select("symbol, close, change_pct, volume, breakout_type, run_date")
     .eq("run_date", await getLatestDate("scanner_breakouts"))
     .order("breakout_type").order("change_pct",{ascending:false});
   if(error||!data) return;
@@ -762,7 +919,7 @@ async function loadBreakouts(){
 }
 function renderBreakouts(data){
   if(dtBreakouts){ dtBreakouts.destroy(); dtBreakouts=null; }
-  document.getElementById("bo-count").textContent = data.length + " signals";
+  document.getElementById("bo-count").textContent = data.length + " fresh signals · first day at a new 6M/1Y/2Y level";
   document.getElementById("bo-body").innerHTML = data.map(r=>{
     const hi = r.breakout_type.includes("HIGH");
     return `<tr><td>${tk(r.symbol)}</td>
@@ -782,14 +939,23 @@ function filterBreakouts(){
 
 let epData = [];
 async function loadEP(){
-  const { data, error } = await sb.from("scanner_ep").select("*").order("rnk",{ascending:true});
+  const { data, error } = await sb.from("scanner_ep").select("*").order("run_date",{ascending:false}).order("rnk",{ascending:true});
   if(error||!data) return;
   epData = data;
   setText("kpi-bep", data.filter(r=>r.ep_type==="BULLISH").length, "up");
-  renderEP(applyFno(data, "ep-fno-filter"));
+  renderEP(applyEpFilters(data));
+}
+function applyEpFilters(data){
+  data = applyFno(data, "ep-fno-filter");
+  const t = (document.getElementById("ep-type-filter")||{}).value || "";
+  if(t) data = data.filter(r=>r.ep_type===t);
+  return data;
 }
 function renderEP(data){
   if(dtEP){ dtEP.destroy(); dtEP=null; }
+  const sortMode = (document.getElementById("ep-sort")||{}).value || "date";
+  const cnt = document.getElementById("ep-count");
+  if(cnt) cnt.textContent = data.length + " pivots · " + (sortMode==="rank" ? "by return rank" : "newest first");
   document.getElementById("ep-body").innerHTML = data.map(r=>{
     const bull=r.ep_type==="BULLISH", ret=r.return_since_pivot;
     return `<tr>
@@ -801,9 +967,10 @@ function renderEP(data){
       <td class="${r.gap_pct>=0?'pos':'neg'}">${fmt(r.gap_pct,2)}%</td>
       <td class="${r.move_pct>=0?'pos':'neg'}">${fmt(r.move_pct,2)}%</td>
       <td style="color:var(--warn)">${fmt(r.vol_ratio,1)}×</td><td>${fnoTag(r.symbol)}</td></tr>`;}).join("");
-  dtEP = $("#tbl-ep").DataTable(dtOpts({ order:[[0,"asc"]] }));
+  const order = sortMode==="rank" ? [[0,"asc"]] : [[3,"desc"],[0,"asc"]];
+  dtEP = $("#tbl-ep").DataTable(dtOpts({ order }));
 }
-function filterEP(){ renderEP(applyFno(epData, "ep-fno-filter")); }
+function filterEP(){ renderEP(applyEpFilters(epData)); }
 
 let vcpData = [];
 async function loadVCP(){
@@ -824,6 +991,54 @@ function renderVCP(data){
   dtVCP = $("#tbl-vcp").DataTable(dtOpts({ order:[] }));
 }
 function filterVCP(){ renderVCP(applyFno(vcpData, "vcp-fno-filter")); }
+
+// ── VCP Pro (Minervini state machine — scanner_vcp_pro) ──
+let vcpProData = [];
+const vcpProTag = s => s==="ACTIVE" ? '<span class="tag tag-ready">Active</span>'
+  : s==="FIRED" ? '<span class="tag tag-bull">Fired</span>'
+  : '<span class="tag tag-bear">Failed</span>';
+async function loadVCPPro(){
+  const { data, error } = await sb.from("scanner_vcp_pro").select("*")
+    .order("status").order("return_pct", { ascending:false, nullsFirst:false });
+  if(error||!data) return;
+  vcpProData = data;
+  setText("kpi-vcppro", data.filter(r=>r.status==="ACTIVE").length, "up");
+  renderVCPPro(applyVCPProFilters(data));
+}
+function applyVCPProFilters(data){
+  data = applyFno(data, "vcppro-fno-filter");
+  const sf = document.getElementById("vcppro-status-filter");
+  if(sf && sf.value) data = data.filter(r=>r.status===sf.value);
+  return data;
+}
+function renderVCPPro(data){
+  if(dtVCPPro){ dtVCPPro.destroy(); dtVCPPro=null; }
+  const a=data.filter(r=>r.status==="ACTIVE").length, f=data.filter(r=>r.status==="FIRED").length;
+  document.getElementById("vcppro-count").textContent =
+    `${data.length} bases · ${a} active · ${f} fired`;
+  document.getElementById("vcppro-body").innerHTML = data.map(r=>{
+    const ret = r.status==="FIRED"
+      ? `<b class="${r.return_pct>=0?'pos':'neg'}">${r.return_pct>=0?'+':''}${fmt(r.return_pct,2)}%</b>`
+      : r.status==="ACTIVE"
+        ? `<span class="neu">${fmt(r.pct_to_pivot,2)}% to pivot</span>`
+        : '<span class="neu">—</span>';
+    return `<tr>
+      <td>${tk(r.symbol)}</td>
+      <td>${vcpProTag(r.status)}</td>
+      <td>${r.setup_date??""}</td>
+      <td style="color:var(--info);font-family:var(--mono);white-space:nowrap">${r.depths??""}%</td>
+      <td>${fmt(r.pivot,2)}</td>
+      <td style="color:var(--down)">${fmt(r.stop_loss,2)}</td>
+      <td>${r.signal_date??"—"}</td>
+      <td>${fmt(r.signal_close,2)}</td>
+      <td style="color:var(--warn)">${r.signal_vol_ratio?fmt(r.signal_vol_ratio,1)+"×":"—"}</td>
+      <td>${fmt(r.last_close,2)}</td>
+      <td>${ret}</td>
+      <td>${fnoTag(r.symbol)}</td></tr>`;
+  }).join("");
+  dtVCPPro = $("#tbl-vcppro").DataTable(dtOpts({ order:[], columnDefs:[{ orderable:false, targets:[3] }] }));
+}
+function filterVCPPro(){ renderVCPPro(applyVCPProFilters(vcpProData)); }
 
 async function loadManas(){
   const { data, error } = await sb.from("scanner_manas").select("*")
@@ -871,45 +1086,136 @@ function renderManas(data){
 }
 function filterManas(){ renderManas(applyManasFilters(manasData)); }
 
-const LINDA_PAT = { holy_grail:["Holy Grail","hg"], turtle_soup:["Turtle Soup","ts"],
-                    eighty_twenty:["80/20","et"], persistency:["Persistency","ps"] };
-async function loadLinda(){
-  const { data, error } = await sb.from("scanner_linda").select("*")
-    .eq("run_date", await getLatestDate("scanner_linda"))
-    .order("side").order("pattern").order("adx14", { ascending:false });
+// ── RVOL Daily tab (scanner_rvol — all stocks, EOD) ──
+async function loadRVOL(){
+  const { data, error } = await sb.from("scanner_rvol").select("*")
+    .gte("rvol", 1.2).order("rvol", { ascending:false }).limit(1000);
   if(error||!data) return;
-  lindaData = data;
-  setText("kpi-linda", data.length, "neu");
-  renderLinda(applyLindaFilters(data));
+  rvolData = data;
+  setText("kpi-rvol", data.filter(r=>r.rvol>=1.5 && r.chg_pct!=null && r.chg_pct!==0).length, "neu");
+  renderRVOL(applyRVOLFilters(data));
 }
-function applyLindaFilters(data){
-  data = applyFno(data, "linda-fno-filter");
-  const p = document.getElementById("linda-pat-filter"), s = document.getElementById("linda-side-filter");
-  if(p && p.value) data = data.filter(r=>r.pattern===p.value);
-  if(s && s.value) data = data.filter(r=>r.side===s.value);
+function applyRVOLFilters(data){
+  data = applyFno(data, "rvol-fno-filter");
+  const d = document.getElementById("rvol-dir-filter"), m = document.getElementById("rvol-min-filter");
+  if(d && d.value==="up")   data = data.filter(r=>(r.chg_pct??0) > 0);
+  if(d && d.value==="down") data = data.filter(r=>(r.chg_pct??0) < 0);
+  const min = m ? +m.value : 1.5;
+  return data.filter(r=>r.rvol >= min);
+}
+function renderRVOL(data){
+  if(dtRVOL){ dtRVOL.destroy(); dtRVOL=null; }
+  const up = data.filter(r=>(r.chg_pct??0)>0).length;
+  document.getElementById("rvol-count").textContent =
+    `${data.length} movers · ${up} ▲ / ${data.length-up} ▼ · ${rvolData[0]?.run_date ?? ""}`;
+  document.getElementById("rvol-body").innerHTML = data.map(r=>`<tr>
+    <td>${tk(r.symbol)}</td><td>${fmt(r.close,2)}</td>
+    <td class="${r.chg_pct>=0?'pos':'neg'}"><b>${r.chg_pct>=0?'+':''}${fmt(r.chg_pct,2)}%</b></td>
+    <td style="color:var(--warn)"><b>${fmt(r.rvol,2)}×</b></td>
+    <td>${fmtVol(r.volume)}</td><td>${fmtVol(r.avg_vol_20d)}</td>
+    <td>${fnoTag(r.symbol)}</td></tr>`).join("");
+  dtRVOL = $("#tbl-rvol").DataTable(dtOpts({ order:[] }));
+}
+function filterRVOL(){ renderRVOL(applyRVOLFilters(rvolData)); }
+
+// ── Hourly F&O tab (hourly_feed — intraday, time-adjusted RVOL) ──
+async function loadHourly(){
+  if(!fnoSymbols.size) await loadFNO();
+  const { data, error } = await sb.from("hourly_feed").select("*")
+    .in("symbol", Array.from(fnoSymbols))
+    .order("rvol", { ascending:false, nullsFirst:false });
+  const tag = document.getElementById("hr-tag");
+  if(error||!data||!data.length){
+    if(tag) tag.textContent = "no hourly data yet — populates during market hours (hourly ingest)";
+    hourlyData = []; renderHourly([]); return;
+  }
+  hourlyData = data;
+  const t = data.reduce((a,r)=>r.updated_at>a?r.updated_at:a, data[0].updated_at);
+  if(tag) tag.innerHTML = `<span class="live-dot"></span>${data[0].trade_date} · updated ${new Date(t).toLocaleTimeString("en-IN",{hour:'2-digit',minute:'2-digit'})}`;
+  renderHourly(applyHourlyFilters(data));
+}
+function applyHourlyFilters(data){
+  const d = document.getElementById("hr-dir-filter"), h = document.getElementById("hr-hot-filter");
+  if(d && d.value==="up")   data = data.filter(r=>(r.chg_pct??0) > 0);
+  if(d && d.value==="down") data = data.filter(r=>(r.chg_pct??0) < 0);
+  if(h && h.value==="hot")  data = data.filter(r=>(r.rvol??0) >= 1.5);
   return data;
 }
-function renderLinda(data){
-  if(dtLinda){ dtLinda.destroy(); dtLinda=null; }
-  const buys = data.filter(r=>r.side==="BUY").length;
-  document.getElementById("linda-count").textContent = `${data.length} signals · ${buys} buy / ${data.length-buys} sell`;
-  document.getElementById("linda-body").innerHTML = data.map(r=>{
-    const [lbl,cls] = LINDA_PAT[r.pattern] || [r.pattern,""];
-    const sideTag = r.side==="BUY" ? '<span class="tag tag-buy">BUY</span>' : '<span class="tag tag-sell">SELL</span>';
+function renderHourly(data){
+  if(dtHourly){ dtHourly.destroy(); dtHourly=null; }
+  const hot = data.filter(r=>(r.rvol??0)>=1.5).length;
+  document.getElementById("hr-count").textContent =
+    data.length ? `${data.length} F&O · ${hot} on high RVOL` : "";
+  document.getElementById("hr-body").innerHTML = data.map(r=>{
+    const up=(r.chg_pct??0)>=0, hotTag = (r.rvol??0)>=1.5
+      ? (up ? '<span class="tag tag-bull">▲ HOT</span>' : '<span class="tag tag-bear">▼ HOT</span>') : "";
     return `<tr>
-      <td>${tk(r.symbol)}</td>
-      <td><span class="pat-pill ${cls}">${lbl}</span></td>
-      <td>${sideTag}</td>
-      <td>${fmt(r.close,2)}</td>
-      <td>${r.adx14!=null?fmt(r.adx14,0):"—"}</td>
-      <td>${fmt(r.ema20,2)}</td>
-      <td>${r.ref_level!=null?fmt(r.ref_level,2):"—"}</td>
-      <td class="note">${r.note||""}</td>
-      <td>${fnoTag(r.symbol)}</td></tr>`;
+      <td>${tk(r.symbol)}</td><td>${fmt(r.last_close,2)}</td>
+      <td class="${up?'pos':'neg'}"><b>${up?'+':''}${fmt(r.chg_pct,2)}%</b></td>
+      <td style="color:var(--warn)"><b>${r.rvol!=null?fmt(r.rvol,2)+"×":"—"}</b></td>
+      <td>${hotTag}</td>
+      <td>${fmtVol(r.cum_vol)}</td><td>${fmtVol(r.avg_vol_20d)}</td>
+      <td style="color:var(--muted)">${r.last_ts ? new Date(r.last_ts).toLocaleTimeString("en-IN",{hour:'2-digit',minute:'2-digit'}) : "—"}</td></tr>`;
   }).join("");
-  dtLinda = $("#tbl-linda").DataTable(dtOpts({ order:[], columnDefs:[{ orderable:false, targets:[2,7,8] }] }));
+  dtHourly = $("#tbl-hourly").DataTable(dtOpts({ order:[], columnDefs:[{ orderable:false, targets:[4] }] }));
 }
-function filterLinda(){ renderLinda(applyLindaFilters(lindaData)); }
+function filterHourly(){ renderHourly(applyHourlyFilters(hourlyData)); }
+
+const AAII_AVG = { bull:37.5, neu:31.5, bear:31.0 };
+async function loadSentiment(){
+  const { data, error } = await sb.from("aaii_sentiment").select("*").order("week_ending");
+  if(error||!data) return;
+  sentData = data;
+  renderSentiment(data);
+}
+function renderSentiment(d){
+  const cardsEl = document.getElementById("sent-cards");
+  if(!d.length){ cardsEl.innerHTML = "<div class='sent-card'><div class='sc-lbl'>No data</div><div class='sc-sub'>Run fetch_aaii.py</div></div>"; return; }
+  const last = d[d.length-1];
+  const asOf = new Date(last.week_ending).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+  document.getElementById("sent-asof").textContent = "Latest reading: week ending " + asOf;
+  const card = (cls,lbl,val,avg)=>{
+    const dv = (val-avg), sign = dv>=0?"+":"";
+    return `<div class="sent-card ${cls}"><div class="sc-lbl">${lbl}</div>
+      <div class="sc-val">${val.toFixed(1)}%</div>
+      <div class="sc-sub">${sign}${dv.toFixed(1)} vs avg ${avg}%</div>
+      <div class="sc-bar"><i style="width:${Math.min(100,val/60*100)}%"></i></div></div>`;
+  };
+  const sp = +last.bull_bear_spread;
+  cardsEl.innerHTML =
+    card('bull','Bullish',+last.bullish,AAII_AVG.bull) +
+    card('neu','Neutral',+last.neutral,AAII_AVG.neu) +
+    card('bear','Bearish',+last.bearish,AAII_AVG.bear) +
+    `<div class="sent-card spread"><div class="sc-lbl">Bull − Bear Spread</div>
+      <div class="sc-val">${sp>=0?'+':''}${sp.toFixed(1)}</div>
+      <div class="sc-sub">${sp>=0?'net bullish':'net bearish'}</div></div>`;
+  document.getElementById("sent-count").textContent = d.length + " weeks";
+  document.getElementById("sent-chart").innerHTML = sentSvg(d);
+}
+function sentSvg(d){
+  const W=820,H=280,pl=40,pr=16,pt=16,pb=28, iw=W-pl-pr, ih=H-pt-pb, n=d.length, ymax=60;
+  const x=i=> n<=1 ? pl+iw/2 : pl+(i/(n-1))*iw;
+  const y=v=> pt+(1-(v/ymax))*ih;
+  const path=arr=> arr.map((v,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1)).join(' ');
+  const bull=d.map(r=>+r.bullish), bear=d.map(r=>+r.bearish);
+  const area = 'M'+d.map((r,i)=>x(i).toFixed(1)+' '+y(+r.bullish).toFixed(1)).join(' L')
+             + ' L'+d.map((r,i)=>{const idx=n-1-i;return x(idx).toFixed(1)+' '+y(+d[idx].bearish).toFixed(1);}).join(' L')+' Z';
+  let grid=''; for(let g=0; g<=60; g+=15){ const yy=y(g);
+    grid+=`<line x1="${pl}" y1="${yy}" x2="${W-pr}" y2="${yy}" stroke="var(--border)" stroke-width="1"/>`+
+          `<text x="${pl-6}" y="${yy+3}" text-anchor="end" font-size="10" fill="var(--faint)">${g}</text>`; }
+  const lab=i=> new Date(d[i].week_ending).toLocaleDateString("en-US",{month:"short",day:"numeric"});
+  let xl=''; [...new Set([0, Math.floor((n-1)/2), n-1])].forEach(i=>{
+    xl+=`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="10" fill="var(--faint)">${lab(i)}</text>`; });
+  const dots=d.map((r,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(+r.bullish).toFixed(1)}" r="2.6" fill="var(--up)"/>`+
+                          `<circle cx="${x(i).toFixed(1)}" cy="${y(+r.bearish).toFixed(1)}" r="2.6" fill="var(--down)"/>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet">
+    ${grid}
+    <path d="${area}" fill="var(--info)" opacity="0.10"/>
+    <path d="${path(bear)}" fill="none" stroke="var(--down)" stroke-width="2"/>
+    <path d="${path(bull)}" fill="none" stroke="var(--up)" stroke-width="2"/>
+    ${dots}${xl}
+  </svg>`;
+}
 
 async function loadSectors(){
   const { data, error } = await sb.from("scanner_sectors").select("*")
@@ -933,7 +1239,31 @@ function setSectorPeriod(p){ sectorPeriod=p;
 
 // ── F&O Sectors tab: F&O stocks grouped by sector, toggle day/week/month ──
 let fnoStocks=[], fnoPeriod="ret_day";
-let liveMap={}, liveTimer=null;
+function fmtScanDate(d){ if(!d) return ""; const dt=new Date(d);
+  return isNaN(dt) ? "" : dt.toLocaleDateString("en-IN",{day:"numeric",month:"short"}); }
+// Map symbol -> scan hits across all the other scanners (built from the globals
+// each load* function fills), so F&O chips can show where else a stock shows up.
+function buildScanHits(){
+  const hits={};
+  const add=(sym,lbl,cls,date,title)=>{ if(!sym) return;
+    (hits[sym] ||= []).push({lbl,cls,date:fmtScanDate(date),title}); };
+  boData.forEach(r=>{ const hi=r.breakout_type.includes("HIGH");
+    add(r.symbol, hi?"BO▲":"BO▼", hi?"h-up":"h-dn", r.run_date, "Breakout: "+r.breakout_type.replace("_"," ")); });
+  const epSeen=new Set();   // epData holds full history, newest first — keep latest pivot per symbol
+  epData.forEach(r=>{ if(epSeen.has(r.symbol)) return; epSeen.add(r.symbol);
+    add(r.symbol, "EP", r.ep_type==="BULLISH"?"h-up":"h-dn", r.run_date, "Episodic Pivot: "+r.ep_type); });
+  vcpData.forEach(r=>add(r.symbol, "VCP", "h-info", r.run_date, "VCP setup · 15d range "+fmt(r.range_15d_pct,1)+"%"));
+  vcpProData.forEach(r=>{ if(r.status==="FAILED") return;
+    add(r.symbol, "PRO·"+(r.status==="ACTIVE"?"A":"F"), "h-purple",
+      r.status==="FIRED" ? (r.signal_date||r.setup_date) : r.setup_date, "VCP Pro: "+r.status); });
+  manasData.forEach(r=>{ if(!r.setup_ready) return;
+    add(r.symbol, "MNS", "h-acc", r.run_date, "Manas setup-ready · score "+r.setup_score+"/5"); });
+  rvolData.forEach(r=>{ if((r.rvol??0) < 1.5 || !r.chg_pct) return;
+    const up = r.chg_pct > 0;
+    add(r.symbol, up?"RV▲":"RV▼", up?"h-up":"h-dn", r.run_date,
+      "RVOL "+fmt(r.rvol,1)+"× · "+(up?"+":"")+fmt(r.chg_pct,1)+"%"); });
+  return hits;
+}
 async function loadFNOSectors(){
   const { data, error } = await sb.rpc("get_fno_stocks");
   if(error){ document.getElementById("fno-sectors").innerHTML =
@@ -943,7 +1273,8 @@ async function loadFNOSectors(){
 }
 function renderFNOSectors(){
   const bySec={};
-  const gv=s=>fnoPeriod==='live' ? (liveMap[s.symbol]&&liveMap[s.symbol].chg_pct!=null?liveMap[s.symbol].chg_pct:null) : s[fnoPeriod];
+  const gv=s=>s[fnoPeriod];
+  const scanHits = buildScanHits();
   fnoStocks.forEach(s=>{ (bySec[s.sector] ||= []).push(s); });
   const secs = Object.entries(bySec).map(([sec,arr])=>{
     const vals=arr.map(gv).filter(v=>v!=null);
@@ -957,11 +1288,14 @@ function renderFNOSectors(){
     const aup = avg>=0;
     const stocks=[...arr].sort((a,b)=>(gv(b)??-1e9)-(gv(a)??-1e9));
     const chips=stocks.map(s=>{ const v=gv(s), up=(v??0)>=0;
-      const px = fnoPeriod==='live' ? (liveMap[s.symbol]&&liveMap[s.symbol].last) : s.last_close;
+      const px = s.last_close;
+      const hs = scanHits[s.symbol] || [];
+      const hitHtml = hs.length ? `<span class="fno-hits">${hs.map(h=>
+        `<span class="hit-pill ${h.cls}" title="${h.title}">${h.lbl}${h.date?' '+h.date:''}</span>`).join("")}</span>` : "";
       return `<div class="fno-chip" data-sym="${s.symbol}">
         <span class="fc-sym">${s.symbol}</span>
         <span class="fc-px">${px==null?'':fmt(px,1)}</span>
-        <span class="fc-ret ${up?'up':'down'}">${v==null?'—':(up?'+':'')+fmt(v,2)+'%'}</span></div>`;}).join("");
+        <span class="fc-ret ${up?'up':'down'}">${v==null?'—':(up?'+':'')+fmt(v,2)+'%'}</span>${hitHtml}</div>`;}).join("");
     return `<div class="fno-sector ${aup?'up':'down'}" style="animation-delay:${Math.min(i*28,420)}ms">
       <div class="fno-sector-head">
         <span class="fs-name">${sec}</span>
@@ -975,26 +1309,8 @@ function setFnoPeriod(p){ fnoPeriod=p;
   document.querySelectorAll("#fno-period button").forEach(b=>b.classList.toggle("active",b.dataset.p===p));
   renderFNOSectors(); }
 
-// ── Live 15-min layer (F&O tab) — polls the live_15m table ──
-const LIVE_IDX_ORDER=["^NSEI","^NSEBANK","NIFTY_FIN_SERVICE.NS","^CNXIT","^CNXAUTO","^CNXPHARMA","^CNXMETAL","^CNXFMCG","^CNXREALTY","^CNXENERGY"];
-async function loadLive(){
-  const { data, error } = await sb.from("live_15m").select("symbol,name,is_index,last,chg_pct").order("symbol");
-  if(error||!data) return;
-  liveMap={}; const idx=[];
-  data.forEach(r=>{ liveMap[r.symbol]=r; if(r.is_index) idx.push(r); });
-  const pick=LIVE_IDX_ORDER.map(s=>idx.find(x=>x.symbol===s)).filter(Boolean)
-    .concat(idx.filter(x=>LIVE_IDX_ORDER.indexOf(x.symbol)<0));
-  document.getElementById("live-idx").innerHTML = pick.map(r=>{const up=(r.chg_pct||0)>=0;
-    return `<div class="lc"><div class="n">${r.name}</div><div class="v">${fmt(r.last,2)}</div><div class="c ${up?'pos':'neg'}">${r.chg_pct==null?'—':(up?'+':'')+fmt(r.chg_pct,2)+'%'}</div></div>`;}).join("");
-  const tag=document.getElementById("live-tag");
-  tag.innerHTML = data.length
-    ? `<span class="live-dot"></span>LIVE · ${new Date().toLocaleTimeString("en-IN",{hour:'2-digit',minute:'2-digit'})} · ~15m delayed`
-    : "no live data yet — populates during market hours";
-  if(fnoPeriod==='live') renderFNOSectors();
-}
-function startLive(){ loadLive(); if(liveTimer) clearInterval(liveTimer); liveTimer=setInterval(loadLive, 60000); }
-
 // ── Zerodha live ticks tab (polls the ticks table) ──
+const LIVE_IDX_ORDER=["^NSEI","^NSEBANK","NIFTY_FIN_SERVICE.NS","^CNXIT","^CNXAUTO","^CNXPHARMA","^CNXMETAL","^CNXFMCG","^CNXREALTY","^CNXENERGY"];
 const IDX_NAMES={"^NSEI":"NIFTY 50","^NSEBANK":"BANK","NIFTY_FIN_SERVICE.NS":"FINNIFTY","^CNXIT":"IT","^CNXAUTO":"AUTO","^CNXPHARMA":"PHARMA","^CNXFMCG":"FMCG","^CNXMETAL":"METAL","^CNXENERGY":"ENERGY","^CNXREALTY":"REALTY","^CNXPSUBANK":"PSU BANK","^CRSLDX":"NIFTY 500","^NSMIDCP":"NEXT 50"};
 let ticksTimer=null, tkSort="chg", tkPrev={};
 async function loadTicks(){
@@ -1109,40 +1425,10 @@ function setRange(n){
 function closeChart(){ document.getElementById("chart-overlay").classList.remove("open");
   if(roCm) roCm.disconnect(); }
 
-// Intraday (today's 15-min) line chart for Live mode — drawn as SVG from live_15m.intraday
-function openIntraday(sym){
-  const r=liveMap[sym]||{};
-  document.getElementById("chart-overlay").classList.add("open");
-  document.getElementById("cm-sym").textContent=sym;
-  const fn=fnoStocks.find(x=>x.symbol===sym)||{};
-  document.getElementById("cm-name").textContent=(fn.sector?fn.sector+" · ":"")+"Intraday 15m (~delayed)";
-  document.getElementById("cm-last").textContent=r.last==null?"—":fmt(r.last,2);
-  const ce=document.getElementById("cm-chg");
-  ce.textContent=r.chg_pct==null?"":((r.chg_pct>=0?"▲ ":"▼ ")+(r.chg_pct>=0?"+":"")+fmt(r.chg_pct,2)+"%");
-  ce.className="cm-chg "+((r.chg_pct||0)>=0?"pos":"neg");
-  document.getElementById("cm-ohlc").textContent="";
-  document.getElementById("cm-loading").style.display="none";
-  document.getElementById("cm-range").style.display="none";
-  if(chart){ chart.remove(); chart=null; } if(roCm) roCm.disconnect();
-  const a=Array.isArray(r.intraday)?r.intraday:[];
-  const el=document.getElementById("cm-chart");
-  if(!a.length){ el.innerHTML='<div style="display:grid;place-items:center;height:100%;color:var(--muted);font-size:.85rem">No intraday data yet — runs during market hours</div>'; return; }
-  const cl=a.map(p=>+p[1]), W=el.clientWidth||700, H=el.clientHeight||300, pad=8;
-  const mn=Math.min.apply(0,cl), mx=Math.max.apply(0,cl);
-  const xs=i=>pad+i*(W-2*pad)/((cl.length-1)||1), ys=v=>14+(1-(v-mn)/((mx-mn)||1))*(H-44);
-  let ln="M"+xs(0)+" "+ys(cl[0]); cl.forEach((v,i)=>ln+=" L"+xs(i).toFixed(1)+" "+ys(v).toFixed(1));
-  const fp=ln+" L"+xs(cl.length-1).toFixed(1)+" "+(H-12)+" L"+xs(0)+" "+(H-12)+" Z";
-  const up=cl[cl.length-1]>=cl[0], col=up?"#15a34a":"#e23744";
-  el.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="100%" preserveAspectRatio="none">'
-   +'<defs><linearGradient id="ig" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+col+'" stop-opacity=".22"/><stop offset="1" stop-color="'+col+'" stop-opacity="0"/></linearGradient></defs>'
-   +'<path d="'+fp+'" fill="url(#ig)"/><path d="'+ln+'" fill="none" stroke="'+col+'" stroke-width="1.9"/></svg>'
-   +'<div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:.62rem;color:var(--muted);padding:.2rem .5rem 0"><span>'+a[0][0]+'</span><span>'+a[a.length-1][0]+'</span></div>';
-}
-
 document.addEventListener("click", e=>{
   const t=e.target.closest(".ticker"); if(t){ openChart(t.dataset.sym, +t.dataset.range||252); return; }
   const ic=e.target.closest(".idx-card"); if(ic){ openChart(ic.dataset.idxSym, 504, true); return; }
-  const fc=e.target.closest(".fno-chip"); if(fc){ if(fnoPeriod==='live') openIntraday(fc.dataset.sym); else openChart(fc.dataset.sym, 504); return; }
+  const fc=e.target.closest(".fno-chip"); if(fc){ openChart(fc.dataset.sym, 504); return; }
   const tk=e.target.closest(".tk"); if(tk&&tk.dataset.sym){ openChart(tk.dataset.sym, 504); return; }
   const tile=e.target.closest(".sector-tile"); if(tile && tile.dataset.sector){ openSector(tile.dataset.sector); return; }
   const rb=e.target.closest("#cm-range button"); if(rb){ setRange(+rb.dataset.r); return; }

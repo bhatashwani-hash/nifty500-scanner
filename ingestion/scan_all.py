@@ -46,17 +46,19 @@ def main():
     # Import here so each module picks up logging config above
     from scan_breakouts  import run as run_breakouts
     from scan_ep         import run as run_ep
-    from scan_linda      import run as run_linda
     from scan_manas      import run as run_manas
+    from scan_rvol       import run as run_rvol
     from scan_sectors    import run as run_sectors
     from scan_vcp        import run as run_vcp
+    from scan_vcp_pro    import run as run_vcp_pro
 
     scanners = [
-        ("breakouts", run_breakouts),
+        ("breakouts", run_breakouts),   # fresh 6M/1Y/2Y highs & lows only
         ("ep",        run_ep),
         ("vcp",       run_vcp),
+        ("vcp_pro",   run_vcp_pro),
         ("manas",     run_manas),
-        ("linda",     run_linda),
+        ("rvol",      run_rvol),        # daily RVOL movers (all stocks)
         ("sectors",   run_sectors),
         ("breadth",   None),   # handled separately below via compute_breadth/write_breadth
     ]
@@ -129,3 +131,4 @@ def _load_nifty50(conn):
 
 if __name__ == "__main__":
     main()
+

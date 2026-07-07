@@ -64,9 +64,11 @@ python ingestion/scan_breadth.py --full     # recompute all history
 | Scanner | Output table | What it flags |
 |---|---|---|
 | `scan_breadth`   | `scanner_breadth`   | Daily breadth (Worden T2107/T2108-style): up/down 4%, 5d/10d ratios, % above 200-DMA, NIFTY 50 close |
-| `scan_breakouts` | `scanner_breakouts` | New closing highs/lows over 1M/3M/6M/1Y/2Y |
+| `scan_breakouts` | `scanner_breakouts` | FRESH new closing highs/lows over 6M/1Y/2Y — first day only, continuation days excluded |
+| `scan_rvol`      | `scanner_rvol`      | Daily RVOL movers: day change + volume vs 20-day average, all stocks |
 | `scan_ep`        | `scanner_ep`        | Episodic Pivots (gap ≥1%, move ≥7%, vol ≥3×). Keeps every pivot in the **last 6 months**, ranked by return from pivot close to latest close |
 | `scan_vcp`       | `scanner_vcp`       | Volatility Contraction Pattern (3-month return ≥25%, 15-day range <15%) |
+| `scan_vcp_pro`   | `scanner_vcp_pro`   | Minervini-style VCP: Stage-2 trend template + shrinking contractions + volume dry-up + pivot breakout (ACTIVE/FIRED/FAILED, return since signal) |
 | `scan_sectors`   | `scanner_sectors`   | Sector performance over day/week/month |
 
 ## Dashboard

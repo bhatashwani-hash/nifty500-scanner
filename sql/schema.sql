@@ -185,39 +185,67 @@ CREATE TABLE IF NOT EXISTS scanner_manas (
 );
 CREATE INDEX IF NOT EXISTS idx_scanner_manas_score ON scanner_manas (setup_score DESC);
 
--- "Linda Scan" — Linda Raschke short-term setups, one row per fired signal.
---   holy_grail    : ADX(14)>30 trend pullback to the 20 EMA (BUY uptrend / SELL downtrend)
---   turtle_soup   : failed 20-day breakout/breakdown (BUY/SELL)
---   eighty_twenty : 80/20 reversal bar, faded next day (BUY/SELL)
---   persistency   : 7/7 closes on one side of the 5-MA (BUY/SELL trend flag)
--- Written by scan_linda.py.
-CREATE TABLE IF NOT EXISTS scanner_linda (
-  run_date   DATE NOT NULL,
-  symbol     TEXT NOT NULL REFERENCES stocks(symbol),
-  pattern    TEXT NOT NULL,
-  side       TEXT NOT NULL,
-  close      NUMERIC,
-  adx14      NUMERIC,
-  ema20      NUMERIC,
-  ref_level  NUMERIC,
-  note       TEXT,
-  last_date  DATE,
-  PRIMARY KEY (run_date, symbol, pattern, side)
+-- Hourly OHLCV bars (Yahoo 1h interval, ~9:15–15:30 IST session), all active
+-- stocks. Populated by ingestion/fetch_hourly.py via hourly_ingest.yml
+-- (hourly 9:30–15:30 IST on trading days). Partial current bar is refreshed
+-- on each run and finalizes by the 15:30 run.
+CREATE TABLE IF NOT EXISTS ohlcv_hourly (
+  symbol  TEXT NOT NULL REFERENCES stocks(symbol),
+  ts      TIMESTAMPTZ NOT NULL,
+  open    NUMERIC, high NUMERIC, low NUMERIC, close NUMERIC,
+  volume  BIGINT,
+  PRIMARY KEY (symbol, ts)
 );
-CREATE INDEX IF NOT EXISTS idx_scanner_linda_pat ON scanner_linda (pattern, side);
+ALTER TABLE ohlcv_hourly ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS anon_read_ohlcv_hourly ON ohlcv_hourly;
+CREATE POLICY anon_read_ohlcv_hourly ON ohlcv_hourly FOR SELECT TO anon USING (true);
 
--- Live 15-minute intraday snapshot (F&O stocks + indices), one row per symbol.
--- Populated by ingestion/fetch_live.py via .github/workflows/live_15m.yml (market hours).
-CREATE TABLE IF NOT EXISTS live_15m (
-  symbol      TEXT PRIMARY KEY,
-  name        TEXT,
-  is_index    BOOLEAN DEFAULT FALSE,
-  last        NUMERIC,
-  prev_close  NUMERIC,
-  chg_pct     NUMERIC,
-  intraday    JSONB,
-  bar_ts      TIMESTAMPTZ,
-  updated_at  TIMESTAMPTZ DEFAULT now()
+-- Intraday snapshot, one row per symbol: day change + time-adjusted RVOL
+-- (today's cumulative volume ÷ (20d avg daily volume × session fraction
+-- elapsed)). Written by fetch_hourly.py after each hourly ingest. The
+-- dashboard Hourly F&O tab reads it and highlights |rvol| >= 1.5 movers.
+CREATE TABLE IF NOT EXISTS hourly_feed (
+  symbol       TEXT PRIMARY KEY REFERENCES stocks(symbol),
+  trade_date   DATE,
+  last_ts      TIMESTAMPTZ,
+  last_close   NUMERIC,
+  prev_close   NUMERIC,
+  chg_pct      NUMERIC,
+  cum_vol      BIGINT,
+  avg_vol_20d  BIGINT,
+  session_frac NUMERIC,
+  rvol         NUMERIC,
+  updated_at   TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE hourly_feed ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS anon_read_hourly_feed ON hourly_feed;
+CREATE POLICY anon_read_hourly_feed ON hourly_feed FOR SELECT TO anon USING (true);
+
+-- Daily RVOL movers (all stocks): EOD change + volume vs the 20-day average.
+-- Written by ingestion/scan_rvol.py (via scan_all.py).
+CREATE TABLE IF NOT EXISTS scanner_rvol (
+  run_date     DATE NOT NULL,
+  symbol       TEXT NOT NULL REFERENCES stocks(symbol),
+  close        NUMERIC,
+  chg_pct      NUMERIC,
+  volume       BIGINT,
+  avg_vol_20d  BIGINT,
+  rvol         NUMERIC,
+  PRIMARY KEY (run_date, symbol)
+);
+ALTER TABLE scanner_rvol ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS anon_read_scanner_rvol ON scanner_rvol;
+CREATE POLICY anon_read_scanner_rvol ON scanner_rvol FOR SELECT TO anon USING (true);
+
+-- AAII Investor Sentiment Survey — weekly US individual-investor poll, one row
+-- per week. Populated by ingestion/fetch_aaii.py. Contrarian risk gauge.
+CREATE TABLE IF NOT EXISTS aaii_sentiment (
+  week_ending      DATE PRIMARY KEY,
+  bullish          NUMERIC,
+  neutral          NUMERIC,
+  bearish          NUMERIC,
+  bull_bear_spread NUMERIC,
+  updated_at       TIMESTAMPTZ DEFAULT now()
 );
 
 -- Live Zerodha (Kite) ticks (F&O stocks + indices), one row per symbol.
@@ -233,6 +261,37 @@ CREATE TABLE IF NOT EXISTS ticks (
   ts          TIMESTAMPTZ,
   updated_at  TIMESTAMPTZ DEFAULT now()
 );
+
+-- VCP Pro (Minervini-style): trend template + shrinking contractions + volume
+-- dry-up + breakout state machine. One row per symbol (most recent base in the
+-- trailing 3 months). Full-refresh by ingestion/scan_vcp_pro.py.
+-- status: ACTIVE (armed, waiting for breakout) / FIRED (buy signal, return_pct
+-- tracks signal close -> latest close) / FAILED (fell below 50-DMA).
+CREATE TABLE IF NOT EXISTS scanner_vcp_pro (
+  run_date          DATE NOT NULL,
+  symbol            TEXT NOT NULL REFERENCES stocks(symbol),
+  status            TEXT NOT NULL,
+  setup_date        DATE,
+  signal_date       DATE,
+  pivot             NUMERIC,
+  stop_loss         NUMERIC,
+  num_contractions  INTEGER,
+  depths            TEXT,
+  first_depth_pct   NUMERIC,
+  last_depth_pct    NUMERIC,
+  signal_close      NUMERIC,
+  signal_vol_ratio  NUMERIC,
+  last_date         DATE,
+  last_close        NUMERIC,
+  return_pct        NUMERIC,
+  pct_to_pivot      NUMERIC,
+  created_at        TIMESTAMPTZ DEFAULT now(),
+  PRIMARY KEY (run_date, symbol)
+);
+ALTER TABLE scanner_vcp_pro ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS anon_read_scanner_vcp_pro ON scanner_vcp_pro;
+CREATE POLICY anon_read_scanner_vcp_pro ON scanner_vcp_pro
+  FOR SELECT TO anon USING (true);
 
 -- Market breadth (Worden T2107/T2108-style), one row per trading day.
 CREATE TABLE IF NOT EXISTS scanner_breadth (

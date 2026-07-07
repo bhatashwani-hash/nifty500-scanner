@@ -1,0 +1,45 @@
+name: Hourly Ingestion — Yahoo 1h bars → ohlcv_hourly + hourly_feed
+
+# Hourly on NSE trading days, 9:30 AM – 3:30 PM IST.
+# 0 4-10 UTC = 9:30, 10:30, 11:30, 12:30, 13:30, 14:30, 15:30 IST.
+# Each run upserts today's 1h candles for the active stock universe and
+# rebuilds the hourly_feed snapshot (day change + time-adjusted RVOL).
+# The in-progress bar is refreshed each run; the 15:30 run finalizes the day.
+on:
+  schedule:
+    - cron: "0 4-10 * * 1-5"
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    name: Hourly OHLCV ingest (stocks → ohlcv_hourly)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run hourly ingestion
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -o pipefail
+          python ingestion/fetch_hourly.py 2>&1 | tee ingestion/hourly_ingest.log
+
+      - name: Upload log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hourly-ingest-log-${{ github.run_id }}
+          path: ingestion/hourly_ingest.log
+          retention-days: 3

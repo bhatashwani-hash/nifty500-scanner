@@ -42,12 +42,18 @@ now dead — safe to delete.
 | Table | PK | Description |
 |---|---|---|
 | `scanner_breadth` | `date` | Daily market breadth (Worden T2107/T2108-style) over the 500 universe |
-| `scanner_breakouts` | `(run_date, symbol, breakout_type)` | 1M/3M/6M/1Y/2Y closing high+low breakouts |
+| `scanner_breakouts` | `(run_date, symbol, breakout_type)` | **Fresh breakouts (reworked 2026-07-07)** — only the FIRST day of a new 6M/1Y/2Y closing high/low (yesterday wasn't one); longest window wins; continuation days excluded. Types: `6M/1Y/2Y_HIGH/LOW` |
 | `scanner_ep` | `(run_date, symbol)` | Episodic Pivot — **rolling 6-month leaderboard**, ranked by return since pivot. Extra cols: `last_date`, `last_close`, `return_since_pivot`, `rnk` |
 | `scanner_vcp` | `(run_date, symbol)` | Volatility Contraction Pattern (return_3m ≥ 25%, 15d range < 15%) |
+| `scanner_vcp_pro` | `(run_date, symbol)` | **VCP Pro** — Minervini-style VCP state machine (added 2026-07-03). Stage-2 trend template (50>150>200 DMA, rising 200, ≤25% off 52wk-hi, ≥30% above 52wk-lo) + ≥2 shrinking contractions (each ≤75% of prior, first ≤35%, last ≤10%) + volume dry-up (5d<80% of 50d) + live base (swing low ≤15 bars, close<pivot). `status` ∈ `ACTIVE`/`FIRED`/`FAILED`. FIRED = close>pivot on ≥1.5× 50d vol with trend intact; `return_pct` = signal close→latest. **Full refresh**, one row per symbol, bases from trailing 3 months. Cols: `pivot`, `stop_loss` (final contraction low), `depths` (text sequence), `signal_date/close/vol_ratio`, `pct_to_pivot` (ACTIVE). Seeded via one-off PL/pgSQL port; `scan_vcp_pro.py` is canonical. |
 | `scanner_manas` | `(run_date, symbol)` | **Manas Scan** — two-layer momentum-pullback. Layer 1 = hard trend filter (candidate list); Layer 2 = setup flags (`inside_bar`, `fast_mover`) + `setup_score` 0–5 + `setup_ready`. Cols: `close`, `pct_from_high`, `sma50/200`, `ema21`, `pct_above_ema`, `prior_move_pct`, `range_5d_pct`, `vol_ratio`, `last_date` |
-| `scanner_linda` | `(run_date, symbol, pattern, side)` | **Linda Scan** — Linda Raschke setups, one row per fired signal. `pattern` ∈ `holy_grail`/`turtle_soup`/`eighty_twenty`/`persistency`; `side` ∈ `BUY`/`SELL`. Cols: `close`, `adx14`, `ema20`, `ref_level`, `note`, `last_date` |
 | `scanner_sectors` | `(run_date, period, sector)` | Sector performance — day/week/month |
+| `scanner_rvol` | `(run_date, symbol)` | **RVOL Daily (added 2026-07-07)** — all stocks, EOD: `chg_pct`, `volume`, `avg_vol_20d` (prior 20 sessions), `rvol` = vol/avg. Dashboard highlights rvol ≥ 1.5 movers. Written by `scan_rvol.py`. |
+| `ohlcv_hourly` | `(symbol, ts)` | **Hourly bars (added 2026-07-07)** — Yahoo 1h candles for all active stocks, ingested hourly 9:30–15:30 IST by `fetch_hourly.py`/`hourly_ingest.yml`. Partial current bar refreshed each run. |
+| `hourly_feed` | `symbol` | Intraday snapshot: `chg_pct` vs prev EOD close, `cum_vol`, `avg_vol_20d`, `session_frac`, `rvol` (time-adjusted: cum_vol ÷ (avg×frac)). Rebuilt on each hourly run; dashboard **Hourly F&O** tab reads it (5-min poll). |
+
+**Removed 2026-07-07:** `scanner_daily`, `scanner_daily_regime`, `scanner_linda` tables
+dropped; `scan_daily.py`, `scan_linda.py` deleted; Daily Scan + Linda dashboard tabs removed.
 
 **FK change (2026-06-21):** `scanner_ep`, `scanner_breakouts`, `scanner_vcp` `symbol` FKs now reference `stocks(symbol)` (were `zerodha_stocks`). Definitions live in `sql/schema.sql`.
 
@@ -69,12 +75,14 @@ now dead — safe to delete.
 |---|---|
 | `ingestion/scan_all.py` | Orchestrator — runs all 5 scanners in sequence |
 | `ingestion/scan_breadth.py` | Market breadth. Standalone `--full` / `--date` flags. No `run()` function — uses `compute_breadth` / `write_breadth` directly. NIFTY 50 close from `index_ohlcv` (`^NSEI`). |
-| `ingestion/scan_breakouts.py` | Breakout/breakdown scanner (1M/3M/6M/1Y/2Y) |
+| `ingestion/scan_breakouts.py` | **Fresh breakouts (reworked 2026-07-07)** — first-day-only new 6M/1Y/2Y closing highs/lows; continuation days excluded; longest window per symbol/side |
 | `ingestion/scan_ep.py` | Episodic Pivot — scans trailing **6 months**, full-refresh, ranks all hits by `return_since_pivot`, writes `rnk` |
 | `ingestion/scan_vcp.py` | VCP scanner |
+| `ingestion/scan_vcp_pro.py` | **VCP Pro** — Minervini 5-step state machine (trend template → contractions → vol dry-up → live base → breakout). Runs machine over trailing 6mo, keeps bases from last 3mo (63 bars). In `scan_all.py` as `vcp_pro`. |
 | `ingestion/scan_manas.py` | **Manas Scan** — Layer 1 trend filter + Layer 2 setup flags/score. Uses true **EMA21** for the 21-EMA guide, ordered cummin up-leg for `prior_move_pct`. (The one-off SQL seed used SMA20 + a 126-bar range proxy — close, but the daily Python job is canonical.) |
-| `ingestion/scan_linda.py` | **Linda Scan** — Raschke setups (Holy Grail / Turtle Soup / 80-20 / Persistency), BUY+SELL. Uses true Wilder **ADX(14)** + 20 EMA + 5-MA. (The SQL seed used a single-pass DX proxy for ADX and SMA20 for the EMA — runs hotter than Wilder ADX; the daily Python job is canonical.) |
 | `ingestion/scan_sectors.py` | Sector pulse (sector from `stocks.sector`) |
+| `ingestion/scan_rvol.py` | **RVOL Daily** — all stocks, EOD chg% + volume vs 20d avg → `scanner_rvol`. In `scan_all.py` as `rvol`. |
+| `ingestion/fetch_hourly.py` | **Hourly ingest** — Yahoo 1h bars (batched `yf.download`) → `ohlcv_hourly`, then rebuilds `hourly_feed` (chg vs prev EOD close + time-adjusted RVOL). Run by `hourly_ingest.yml`, not scan_all. |
 
 To repoint a scanner's universe, change its data-load query: `FROM ohlcv o JOIN stocks s ON o.symbol = s.symbol WHERE s.is_active = true`.
 
@@ -88,9 +96,13 @@ To repoint a scanner's universe, change its data-load query: `FROM ohlcv o JOIN 
 |---|---|---|
 | `daily_ingest.yml` | `30 12 * * 1-5` (6pm IST) | `fetch_data.py --mode daily --universe stocks --days 1` — fetches **only that day's** bar for the active 500-stock universe (symbols from the `stocks` table) and upserts into `ohlcv`. Manual trigger supports `full_backfill=true` (5yr) and a `days` override. |
 | `daily_scan.yml` | `30 13 * * 1-5` (7pm IST) | `scan_all.py` via ingestion/ dir. Manual trigger supports `scan_date` and `skip` inputs. |
-| `live_15m.yml` | `*/15 3-10 * * 1-5` (every 15min, ~9am–3:30pm IST) | `fetch_live.py` — delayed 15-min Yahoo bars for F&O stocks + indices → `live_15m` table. Dashboard **F&O tab** polls it (60s) for the **Live** toggle + live index strip. Rest of dashboard stays EOD. |
+| `hourly_ingest.yml` | `0 4-10 * * 1-5` (hourly 9:30–15:30 IST) | `fetch_hourly.py` — today's 1h candles for all active stocks → `ohlcv_hourly` + `hourly_feed` snapshot (added 2026-07-07; first run = next trading day 9:30 IST after push). |
 
-**Zerodha live ticks** (real-time, separate from the 15-min Yahoo feed): `ingestion/kite_ticks.py`
+**Yahoo 15-min live feed — REMOVED (2026-07-03):** `fetch_live.py`, `live_15m.yml`, and the
+`live_15m` table were deleted. The dashboard F&O tab is EOD-only (Day/Week/Month); the Live
+toggle, live index strip, and intraday chart are gone. Zerodha ticks are unaffected.
+
+**Zerodha live ticks** (real-time): `ingestion/kite_ticks.py`
 streams Kite WebSocket ticks for F&O stocks + indices into the `ticks` table. It's a CONTINUOUS
 process (not a cron) — run it on an always-on machine during market hours. Needs a Kite Connect app
 (`KITE_API_KEY`/`KITE_API_SECRET` in `.env`) and a daily token via `ingestion/kite_login.py`
@@ -103,8 +115,12 @@ Both workflows use `DATABASE_URL` GitHub Actions secret. Logs uploaded as artifa
 ## Dashboard
 - File: `dashboard/index.html` — single static file, no server needed
 - Uses: Bootstrap 5, DataTables, Supabase JS v2 (all CDN)
-- Tabs: Breadth, Breakouts, Episodic Pivot, VCP, **Manas Scan**, **Linda**, Sectors, F&O Sectors, Ticks
-- **Linda tab** = `scanner_linda` for latest run_date. Pattern pills (Holy Grail/Turtle Soup/80-20/Persistency), BUY/SELL tags, ADX, 20-MA, ref level, note; pattern + side + F&O filters; click symbol → candlestick. KPI chip `kpi-linda` = total signal count.
+- Tabs (2026-07-07): Breadth (default), **Fresh Breakouts**, **RVOL Daily**, Episodic Pivot, VCP, **VCP Pro**, Manas Scan, Sentiment, Sectors, **Hourly F&O**, F&O Sectors, Ticks
+- **Fresh Breakouts tab** = reworked `scanner_breakouts` (6M/1Y/2Y first-day only). KPI chips `kpi-bo`/`kpi-bd`.
+- **RVOL Daily tab** = `scanner_rvol` (rvol ≥ 1.2 fetched, filters ≥1.5/2/3, up/down, F&O). KPI `kpi-rvol` = rvol≥1.5 movers.
+- **Hourly F&O tab** = `hourly_feed` filtered to F&O symbols (`.in()` on `stocks.is_fno`), 5-min poll, `▲/▼ HOT` tags for rvol ≥ 1.5. Empty until the first `hourly_ingest.yml` run.
+- **VCP Pro tab** = `scanner_vcp_pro` (no run_date filter — full-refresh snapshot). Status pills (Active/Fired/Failed) + F&O filter; shows contraction sequence, pivot, stop, buy close, vol×, and **Return TD** (FIRED: return since signal; ACTIVE: % to pivot). KPI chip `kpi-vcppro` = active count.
+- **Sentiment tab** = `aaii_sentiment` (AAII weekly US investor survey). Current bull/neutral/bear cards vs long-run averages (37.5/31.5/31.0), bull−bear spread, and an SVG bull-vs-bear history chart. Populated by `ingestion/fetch_aaii.py` (run locally — downloads AAII's weekly .xls; sandbox has no internet). Seeded with a few confirmed recent weeks; full history loads on first `fetch_aaii.py` run.
 - **Manas Scan tab** = `scanner_manas` ordered by `setup_score` desc. Shows the Layer-1 candidate list with Layer-2 chips (P/E/C/I/●), score badge, Ready tag, FNO badge; F&O + ready/score filters; click symbol → candlestick. KPI chip `kpi-manas` = setup-ready count.
 - **Breadth tab** = last 6 months of daily rows (`loadBreadth` filters `date >= now-6mo`). `scanner_breadth` is populated daily over the 500 universe.
 - **Episodic Pivot tab** = 6-month leaderboard: columns `#` (rank), Symbol, Type, Pivot Date, Pivot Close, Last Close, Return Since Pivot, Gap %, Move %, Vol Ratio, FNO — sorted by rank. Reads all `scanner_ep` rows ordered by `rnk` (no run_date filter).
