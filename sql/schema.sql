@@ -237,6 +237,34 @@ ALTER TABLE scanner_rvol ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS anon_read_scanner_rvol ON scanner_rvol;
 CREATE POLICY anon_read_scanner_rvol ON scanner_rvol FOR SELECT TO anon USING (true);
 
+-- JFS multi-screen scanner: per-stock metrics (RS 1-99 percentile, ADR%, RVOL,
+-- ATR extension, returns, turnover) + 10 screen flags (focus, rs_leaders,
+-- hot_adr, movers, vcp, pullback, rvol, breakout, ipo, parabolic).
+-- Only rows passing >= 1 screen are stored; full refresh by scan_screens.py.
+-- Read live by the standalone dashboard_india.html (JFS-style UI).
+CREATE TABLE IF NOT EXISTS scanner_screens (
+  run_date     DATE NOT NULL,
+  symbol       TEXT NOT NULL REFERENCES stocks(symbol),
+  close        NUMERIC,
+  rs_rating    NUMERIC,
+  adr20        NUMERIC,
+  rvol         NUMERIC,
+  ext_atr      NUMERIC,
+  off_high_pct NUMERIC,
+  ret_1d NUMERIC, ret_1w NUMERIC, ret_1m NUMERIC, ret_3m NUMERIC, ret_6m NUMERIC,
+  turnover_cr  NUMERIC,
+  composite    NUMERIC,
+  s_focus BOOLEAN DEFAULT FALSE, s_rs_leaders BOOLEAN DEFAULT FALSE,
+  s_hot_adr BOOLEAN DEFAULT FALSE, s_movers BOOLEAN DEFAULT FALSE,
+  s_vcp BOOLEAN DEFAULT FALSE, s_pullback BOOLEAN DEFAULT FALSE,
+  s_rvol BOOLEAN DEFAULT FALSE, s_breakout BOOLEAN DEFAULT FALSE,
+  s_ipo BOOLEAN DEFAULT FALSE, s_parabolic BOOLEAN DEFAULT FALSE,
+  PRIMARY KEY (run_date, symbol)
+);
+ALTER TABLE scanner_screens ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS anon_read_scanner_screens ON scanner_screens;
+CREATE POLICY anon_read_scanner_screens ON scanner_screens FOR SELECT TO anon USING (true);
+
 -- AAII Investor Sentiment Survey — weekly US individual-investor poll, one row
 -- per week. Populated by ingestion/fetch_aaii.py. Contrarian risk gauge.
 CREATE TABLE IF NOT EXISTS aaii_sentiment (

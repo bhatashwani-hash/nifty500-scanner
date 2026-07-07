@@ -50,6 +50,7 @@ now dead — safe to delete.
 | `scanner_sectors` | `(run_date, period, sector)` | Sector performance — day/week/month |
 | `scanner_rvol` | `(run_date, symbol)` | **RVOL Daily (added 2026-07-07)** — all stocks, EOD: `chg_pct`, `volume`, `avg_vol_20d` (prior 20 sessions), `rvol` = vol/avg. Dashboard highlights rvol ≥ 1.5 movers. Written by `scan_rvol.py`. |
 | `ohlcv_hourly` | `(symbol, ts)` | **Hourly bars (added 2026-07-07)** — Yahoo 1h candles for all active stocks, ingested hourly 9:30–15:30 IST by `fetch_hourly.py`/`hourly_ingest.yml`. Partial current bar refreshed each run. |
+| `scanner_screens` | `(run_date, symbol)` | **JFS screens (added 2026-07-07)** — per-stock metrics + 10 boolean screen flags (`s_focus` … `s_parabolic`); only rows passing ≥1 screen stored; full refresh by `scan_screens.py`. Backs `dashboard_india.html`. |
 | `hourly_feed` | `symbol` | Intraday snapshot: `chg_pct` vs prev EOD close, `cum_vol`, `avg_vol_20d`, `session_frac`, `rvol` (time-adjusted: cum_vol ÷ (avg×frac)). Rebuilt on each hourly run; dashboard **Hourly F&O** tab reads it (5-min poll). |
 
 **Removed 2026-07-07:** `scanner_daily`, `scanner_daily_regime`, `scanner_linda` tables
@@ -83,6 +84,7 @@ dropped; `scan_daily.py`, `scan_linda.py` deleted; Daily Scan + Linda dashboard 
 | `ingestion/scan_sectors.py` | Sector pulse (sector from `stocks.sector`) |
 | `ingestion/scan_rvol.py` | **RVOL Daily** — all stocks, EOD chg% + volume vs 20d avg → `scanner_rvol`. In `scan_all.py` as `rvol`. |
 | `ingestion/fetch_hourly.py` | **Hourly ingest** — Yahoo 1h bars (batched `yf.download`) → `ohlcv_hourly`, then rebuilds `hourly_feed` (chg vs prev EOD close + time-adjusted RVOL). Run by `hourly_ingest.yml`, not scan_all. |
+| `ingestion/scan_screens.py` | **JFS multi-screen scanner (added 2026-07-07)** — 10 screens (focus, rs_leaders, hot_adr, movers top-200 composite, vcp, pullback, rvol, breakout, ipo, parabolic) + metrics (RS 1-99 percentile of 0.4·3M+0.3·6M+0.2·1M+0.1·1W composite, ADR%, RVOL vs 50d, ExtATR, %offHi, returns, turnover ₹Cr) → `scanner_screens`. In `scan_all.py` as `screens`. Read live by the standalone `C:\Users\zashw\nifty500_scanner\dashboard_india.html` (JFS-style UI, TradingView NSE: links). Seeded via one-off SQL; Python job canonical. |
 
 To repoint a scanner's universe, change its data-load query: `FROM ohlcv o JOIN stocks s ON o.symbol = s.symbol WHERE s.is_active = true`.
 
@@ -109,6 +111,18 @@ process (not a cron) — run it on an always-on machine during market hours. Nee
 (`KITE_ACCESS_TOKEN`). The dashboard **⚡ Ticks tab** polls `ticks` every ~3s.
 
 Both workflows use `DATABASE_URL` GitHub Actions secret. Logs uploaded as artifacts (7-day retention).
+
+---
+
+## US Scanner (added 2026-07-07, `us/` folder)
+Wilshire-style US universe in the SAME Supabase project, `us_` prefixed tables.
+- **Universe:** `us/build_us_universe.py` — NASDAQ screener API (needs browser UA; blocked from Cowork sandbox, works on GH runners/local). Filters price ≥ $3, mcap ≥ $150M → ~3,500–4,000 names → `us_stocks` (+5 indices → `us_indices`: ^GSPC/^NDX/^DJI/^RUT/^VIX).
+- **Ingest:** `us/fetch_us_data.py` — batched `yf.download` (100/batch), `--mode backfill --years 1` (only 1yr history by design) or `--mode daily --days N` → `us_ohlcv`/`us_index_ohlcv`. Yahoo mapping: `.` → `-` (BRK.B→BRK-B).
+- **Scanners:** `us/scan_us_all.py` — single file, all six: breadth (up/down 4%, ratios, %>200DMA, SPX close → `scanner_us_breadth`), fresh breakouts 3M/6M/1Y first-day-only (`scanner_us_breakouts`), rvol (`scanner_us_rvol`), EP 6-mo leaderboard gap≥1%/move≥7%/vol≥3× (`scanner_us_ep`), VCP ret3m≥25%+15d range<15% (`scanner_us_vcp`), sectors day/week/month (`scanner_us_sectors`). Sentiment tab reuses `aaii_sentiment`.
+- **Workflows:** `us_daily_ingest.yml` (cron `30 21 * * 1-5`, manual `full_backfill=true` = universe rebuild + 1yr seed) and `us_daily_scan.yml` (cron `0 23 * * 1-5`).
+- **Dashboard:** `dashboard/us.html` (copy at `C:\Users\zashw\nifty500_scanner\dashboard_us.html`) — tabs Breadth (SPX candles + 4% bars + %>200DMA chart), Fresh Breakouts, RVOL Daily, EP, VCP, Sentiment (AAII cards + SVG), Sectors; candlestick modal reads `us_ohlcv`.
+- **Seeding:** no data yet — push repo, then GitHub → Actions → "US Daily Ingestion" → Run workflow with `full_backfill=true` (~30–60 min), then run "US Daily Scan".
+- All `us_*` tables have anon-read RLS.
 
 ---
 

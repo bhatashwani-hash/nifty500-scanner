@@ -1,0 +1,44 @@
+name: US Daily Scan — breadth, breakouts, rvol, ep, vcp, sectors
+
+# 23:00 UTC — ~1.5h after the US ingest finishes.
+on:
+  schedule:
+    - cron: "0 23 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      skip:
+        description: "Comma-separated scanners to skip"
+        required: false
+        default: ""
+
+jobs:
+  scan:
+    name: Run US scanners
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run scanners
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -o pipefail
+          python us/scan_us_all.py --skip "${{ github.event.inputs.skip }}" 2>&1 | tee us_scan.log
+
+      - name: Upload log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: us-scan-log-${{ github.run_id }}
+          path: us_scan.log
+          retention-days: 7

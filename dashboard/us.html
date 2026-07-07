@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>US Scanner — Wilshire-style universe</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<link href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#f6f8fb; --surface:#ffffff; --border:#e3e8f0; --text:#12263f; --muted:#5b6675;
+  --up:#15a34a; --upbg:rgba(21,163,74,.10); --down:#e23744; --downbg:rgba(226,55,68,.10);
+  --info:#2f7dd1; --warn:#b97a1a; --mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box}
+body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; font-size:.875rem; padding:1.2rem 1.4rem 3rem; }
+h1{ font-size:1.15rem; font-weight:700; margin:0; }
+.sub{ color:var(--muted); font-size:.72rem; }
+.kpis{ display:flex; gap:.6rem; flex-wrap:wrap; margin:1rem 0; }
+.kpi{ background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:.5rem .9rem; min-width:118px; }
+.kpi-label{ font-size:.62rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; }
+.kpi-val{ font-family:var(--mono); font-size:1.05rem; font-weight:700; }
+.kpi-val.up{color:var(--up)} .kpi-val.down{color:var(--down)} .kpi-val.neu{color:var(--info)}
+.tabbar{ border-bottom:2px solid var(--border); gap:.25rem; margin-bottom:1rem; }
+.tabbar .nav-link{ color:var(--muted); font-weight:600; font-size:.82rem; border:none; border-bottom:2px solid transparent; margin-bottom:-2px; }
+.tabbar .nav-link.active{ color:var(--text); background:transparent; border-bottom:2px solid var(--info); }
+.legend{ background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--info); border-radius:8px; padding:.6rem .9rem; font-size:.78rem; color:var(--muted); margin-bottom:1rem; }
+.legend strong{ color:var(--text); }
+.panel{ background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:1rem; }
+.panel-head{ display:flex; align-items:center; gap:.8rem; padding:.7rem 1rem; border-bottom:1px solid var(--border); }
+.panel-head h2{ font-size:.9rem; font-weight:700; margin:0; }
+.count{ font-size:.72rem; color:var(--muted); }
+.control{ background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:.78rem; padding:.35rem .6rem; }
+table.table{ font-size:.82rem; } table.table td, table.table th{ vertical-align:middle; }
+.pos{color:var(--up)} .neg{color:var(--down)} .neu{color:var(--muted)}
+.tag{ font-size:.66rem; font-weight:700; padding:.18rem .5rem; border-radius:6px; white-space:nowrap; }
+.tag-high{ background:var(--upbg); color:var(--up); } .tag-low{ background:var(--downbg); color:var(--down); }
+.ticker{ font-family:var(--mono); font-weight:700; color:var(--info); cursor:pointer; }
+.ticker:hover{ text-decoration:underline; }
+.sent-cards{ display:flex; gap:.8rem; flex-wrap:wrap; margin-bottom:1rem; }
+.sc-card{ flex:1; min-width:160px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding: .8rem 1rem; }
+.sc-card .t{ font-size:.68rem; font-weight:700; color:var(--muted); text-transform:uppercase; }
+.sc-card .v{ font-family:var(--mono); font-size:1.5rem; font-weight:700; }
+.sc-card .d{ font-size:.7rem; color:var(--muted); }
+.sector-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:.7rem; padding:1rem; }
+.sector-tile{ border:1px solid var(--border); border-radius:10px; padding:.7rem .9rem; background:var(--surface); }
+.sector-tile.up{ border-left:3px solid var(--up); } .sector-tile.down{ border-left:3px solid var(--down); }
+.st-name{ font-weight:700; font-size:.8rem; } .st-ret{ font-family:var(--mono); font-weight:700; font-size:1.05rem; }
+.st-sub{ font-size:.68rem; color:var(--muted); }
+.overlay{ display:none; position:fixed; inset:0; background:rgba(18,38,63,.55); z-index:60; }
+.overlay.open{ display:grid; place-items:center; }
+.modal-box{ background:var(--surface); border-radius:14px; width:min(980px,96vw); height:min(620px,90vh); display:flex; flex-direction:column; overflow:hidden; }
+.mb-head{ display:flex; align-items:center; gap:1rem; padding:.8rem 1.1rem; border-bottom:1px solid var(--border); }
+.mb-sym{ font-family:var(--mono); font-weight:700; font-size:1.05rem; }
+.mb-name{ color:var(--muted); font-size:.72rem; }
+.mb-close{ margin-left:auto; border:none; background:transparent; font-size:1.1rem; color:var(--muted); cursor:pointer; }
+#chart{ flex:1; }
+#refresh{ margin-left:auto; }
+</style>
+</head>
+<body>
+
+<div class="d-flex align-items-center gap-3 flex-wrap">
+  <div><h1>US Scanner — Breadth · Breakouts · RVOL · EP · VCP · Sentiment · Sectors</h1>
+    <div class="sub">Wilshire-style universe (NASDAQ+NYSE+AMEX, cap ≥ $150M) · EOD via Yahoo · <span id="last-updated"></span></div></div>
+  <button id="refresh" class="control" onclick="loadAll()">⟳ Refresh</button>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="kpi-label">Up 4%+</div><div class="kpi-val up" id="kpi-up4">—</div></div>
+  <div class="kpi"><div class="kpi-label">Down 4%+</div><div class="kpi-val down" id="kpi-dn4">—</div></div>
+  <div class="kpi"><div class="kpi-label">% &gt; 200-DMA</div><div class="kpi-val neu" id="kpi-t2108">—</div></div>
+  <div class="kpi"><div class="kpi-label">S&amp;P 500</div><div class="kpi-val neu" id="kpi-spx">—</div></div>
+  <div class="kpi"><div class="kpi-label">Fresh Breakouts</div><div class="kpi-val up" id="kpi-bo">—</div></div>
+  <div class="kpi"><div class="kpi-label">RVOL Movers</div><div class="kpi-val neu" id="kpi-rvol">—</div></div>
+  <div class="kpi"><div class="kpi-label">Bullish EPs · 6M</div><div class="kpi-val up" id="kpi-ep">—</div></div>
+  <div class="kpi"><div class="kpi-label">VCP Setups</div><div class="kpi-val neu" id="kpi-vcp">—</div></div>
+</div>
+
+<ul class="nav tabbar" role="tablist">
+  <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-breadth">📊 Breadth</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-bo">🚀 Fresh Breakouts</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-rvol">📶 RVOL Daily</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-ep">⚡ Episodic Pivot</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-vcp">🎯 VCP</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-sent">🐂 Sentiment</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-sec">🌐 Sectors</a></li>
+</ul>
+
+<div class="tab-content">
+
+  <div class="tab-pane fade show active" id="tab-breadth">
+    <div class="panel">
+      <div class="panel-head"><h2>S&amp;P 500 vs Breadth</h2>
+        <span class="count"><span style="color:var(--up)">▮</span>/<span style="color:var(--down)">▮</span> 4% up/down ·
+          <span style="color:var(--info)">━</span> % &gt; 200-DMA · candles = S&amp;P 500</span></div>
+      <div style="position:relative"><div id="breadth-chart" style="height:430px"></div></div>
+    </div>
+    <div class="panel"><div class="panel-head"><h2>Market Breadth</h2><span class="count" id="br-count"></span></div>
+      <div class="p-0" style="overflow:auto;max-height:55vh">
+        <table class="table mb-0" style="width:100%">
+          <thead><tr><th>Date</th><th>↑4%</th><th>↓4%</th><th>5d Ratio</th><th>10d Ratio</th>
+            <th>% &gt; 200-DMA</th><th>Universe</th><th>S&amp;P 500</th></tr></thead>
+          <tbody id="br-body"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="tab-bo">
+    <div class="legend"><strong>Fresh Breakouts</strong> — first day at a new 3M / 6M / 1Y closing high or low
+      (wasn't one yesterday); continuation days excluded; longest window shown. 1Y activates as history accrues
+      beyond the initial 1-year backfill.</div>
+    <div class="d-flex gap-2 mb-3 flex-wrap">
+      <select id="bo-type" class="control" onchange="filterBO()">
+        <option value="">All Types</option><option value="HIGH">Highs only</option><option value="LOW">Lows only</option>
+        <option value="1Y">1Y</option><option value="6M">6M</option><option value="3M">3M</option>
+      </select>
+    </div>
+    <div class="panel"><div class="panel-head"><h2>Fresh Breakouts &amp; Breakdowns</h2><span class="count" id="bo-count"></span></div>
+      <div class="p-1"><table id="tbl-bo" class="table mb-0" style="width:100%">
+        <thead><tr><th>Symbol</th><th>Type</th><th>Close</th><th>Chg %</th><th>Volume</th><th>Sector</th></tr></thead>
+        <tbody id="bo-body"></tbody></table></div>
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="tab-rvol">
+    <div class="legend"><strong>RVOL Daily</strong> — day change vs relative volume (today ÷ 20-day avg). RVOL ≥ 1.5 = unusually heavy trade.</div>
+    <div class="d-flex gap-2 mb-3 flex-wrap">
+      <select id="rv-dir" class="control" onchange="filterRV()">
+        <option value="">Up + Down</option><option value="up">Up only</option><option value="down">Down only</option>
+      </select>
+      <select id="rv-min" class="control" onchange="filterRV()">
+        <option value="1.5">RVOL ≥ 1.5</option><option value="2">RVOL ≥ 2</option>
+        <option value="3">RVOL ≥ 3</option><option value="1.2">RVOL ≥ 1.2</option>
+      </select>
+    </div>
+    <div class="panel"><div class="panel-head"><h2>Daily RVOL Movers</h2><span class="count" id="rv-count"></span></div>
+      <div class="p-1"><table id="tbl-rv" class="table mb-0" style="width:100%">
+        <thead><tr><th>Symbol</th><th>Close</th><th>Chg %</th><th>RVOL</th><th>Volume</th><th>20d Avg</th><th>Sector</th></tr></thead>
+        <tbody id="rv-body"></tbody></table></div>
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="tab-ep">
+    <div class="legend"><strong>Episodic Pivot</strong> — gap ≥1%, move ≥7%, volume ≥3× the 50-day average on the same day.
+      6-month leaderboard ranked by return from pivot close to latest close.</div>
+    <div class="d-flex gap-2 mb-3 flex-wrap">
+      <select id="ep-type" class="control" onchange="filterEP()">
+        <option value="">All Types</option><option value="BULLISH">Bullish only</option><option value="BEARISH">Bearish only</option>
+      </select>
+    </div>
+    <div class="panel"><div class="panel-head"><h2>Episodic Pivots — 6M Leaderboard</h2><span class="count" id="ep-count"></span></div>
+      <div class="p-1"><table id="tbl-ep" class="table mb-0" style="width:100%">
+        <thead><tr><th>#</th><th>Symbol</th><th>Type</th><th>Pivot Date</th><th>Pivot Close</th>
+          <th>Last Close</th><th>Return</th><th>Gap %</th><th>Move %</th><th>Vol×</th></tr></thead>
+        <tbody id="ep-body"></tbody></table></div>
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="tab-vcp">
+    <div class="legend"><strong>VCP</strong> — +25% or more in 3 months, then a tight 15-day range (&lt;15%).</div>
+    <div class="panel"><div class="panel-head"><h2>Volatility Contraction Pattern</h2><span class="count" id="vcp-count"></span></div>
+      <div class="p-1"><table id="tbl-vcp" class="table mb-0" style="width:100%">
+        <thead><tr><th>Symbol</th><th>Close</th><th>3M Return</th><th>15d High</th><th>15d Low</th><th>15d Range</th><th>Sector</th></tr></thead>
+        <tbody id="vcp-body"></tbody></table></div>
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="tab-sent">
+    <div class="legend"><strong>AAII Investor Sentiment Survey</strong> — weekly US individual-investor poll.
+      Long-run averages: bulls 37.5 · neutral 31.5 · bears 31.0. Extremes are contrarian signals.</div>
+    <div class="sent-cards">
+      <div class="sc-card"><div class="t">Bullish</div><div class="v pos" id="sn-bull">—</div><div class="d" id="sn-bull-d"></div></div>
+      <div class="sc-card"><div class="t">Neutral</div><div class="v neu" id="sn-neu">—</div><div class="d" id="sn-neu-d"></div></div>
+      <div class="sc-card"><div class="t">Bearish</div><div class="v neg" id="sn-bear">—</div><div class="d" id="sn-bear-d"></div></div>
+      <div class="sc-card"><div class="t">Bull − Bear Spread</div><div class="v" id="sn-spread">—</div><div class="d" id="sn-week"></div></div>
+    </div>
+    <div class="panel"><div class="panel-head"><h2>Bulls vs Bears — history</h2><span class="count" id="sn-count"></span></div>
+      <div id="sent-chart" style="padding:1rem"></div>
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="tab-sec">
+    <div class="d-flex gap-2 mb-3">
+      <select id="sec-period" class="control" onchange="renderSectors()">
+        <option value="day">Day</option><option value="week">Week</option><option value="month">Month</option>
+      </select>
+    </div>
+    <div class="panel"><div class="panel-head"><h2>Sector Rotation</h2><span class="count" id="sec-count"></span></div>
+      <div class="sector-grid" id="sec-grid"></div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal-box">
+    <div class="mb-head">
+      <div><div class="mb-sym" id="mb-sym">—</div><div class="mb-name" id="mb-name"></div></div>
+      <button class="mb-close" onclick="closeChart()">✕</button>
+    </div>
+    <div id="chart"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<script>
+const SUPABASE_URL = "https://lgsgcccasccxfofxsbge.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxnc2djY2Nhc2NjeGZvZnhzYmdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5NTI5MjMsImV4cCI6MjA5NzUyODkyM30.mUk6etxWdkxttwoHnG9-F2axvj680XXOKWmjaSRYuTA";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let boData=[], rvData=[], epData=[], sectorData=[], sectorMap={};
+let dtBO, dtRV, dtEP, dtVCP;
+const fmt=(v,d=2)=>(v==null||isNaN(v))?"—":Number(v).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+const fmtVol=v=>{ if(!v) return "—"; v=+v;
+  if(v>=1e9) return (v/1e9).toFixed(2)+"B"; if(v>=1e6) return (v/1e6).toFixed(2)+"M";
+  if(v>=1e3) return (v/1e3).toFixed(1)+"K"; return String(v); };
+const tk=s=>`<span class="ticker" data-sym="${s}">${s}</span>`;
+const setText=(id,val,cls)=>{ const el=document.getElementById(id); if(!el) return;
+  el.textContent=val??"—"; if(cls) el.className="kpi-val "+cls; };
+const dtOpts=extra=>Object.assign({ pageLength:25, dom:"ftip", deferRender:true,
+  language:{ search:"", searchPlaceholder:"Filter…", zeroRecords:"No results" } }, extra);
+const secOf=s=>sectorMap[s]?`<span class="neu" style="font-size:.75rem">${sectorMap[s]}</span>`:"";
+
+async function loadSectorsMap(){
+  let all=[], page=0;
+  while(true){
+    const { data } = await sb.from("us_stocks").select("symbol,sector").eq("is_active",true)
+      .range(page*1000, page*1000+999);
+    all = all.concat(data||[]);
+    if(!data || data.length<1000) break; page++;
+  }
+  sectorMap = Object.fromEntries(all.map(r=>[r.symbol, r.sector]));
+}
+
+// ── Breadth (table + chart) ──
+async function loadBreadth(){
+  const { data, error } = await sb.from("scanner_us_breadth").select("*")
+    .order("date",{ascending:false}).limit(260);
+  if(error||!data?.length){ document.getElementById("br-count").textContent="no data yet — run the US ingest + scan workflows"; return; }
+  const d0=data[0];
+  setText("kpi-up4", d0.up_4pct, "up"); setText("kpi-dn4", d0.down_4pct, "down");
+  setText("kpi-t2108", d0.pct_above_200dma!=null?fmt(d0.pct_above_200dma,1)+"%":"—",
+    d0.pct_above_200dma>=60?"up":d0.pct_above_200dma<=40?"down":"neu");
+  setText("kpi-spx", fmt(d0.spx_close,0), "neu");
+  document.getElementById("br-count").textContent = data.length + " sessions";
+  document.getElementById("br-body").innerHTML = data.map(r=>`<tr>
+    <td>${r.date}</td><td class="pos">${r.up_4pct}</td><td class="neg">${r.down_4pct}</td>
+    <td>${fmt(r.ratio_5d,2)}</td><td>${fmt(r.ratio_10d,2)}</td>
+    <td>${r.pct_above_200dma!=null?fmt(r.pct_above_200dma,1)+"%":"—"}</td>
+    <td class="neu">${r.universe??"—"}</td><td>${fmt(r.spx_close,0)}</td></tr>`).join("");
+  drawBreadthChart([...data].reverse());
+}
+let bChart=null;
+async function drawBreadthChart(rows){
+  const el=document.getElementById("breadth-chart"); el.innerHTML="";
+  if(bChart){ bChart.remove(); bChart=null; }
+  const { data: spx } = await sb.from("us_index_ohlcv").select("time,open,high,low,close")
+    .eq("symbol","^GSPC").order("time",{ascending:false}).limit(260);
+  bChart = LightweightCharts.createChart(el, {
+    layout:{ background:{type:"solid", color:"transparent"}, textColor:"#5b6675", fontFamily:"JetBrains Mono" },
+    grid:{ vertLines:{color:"rgba(18,38,63,.07)"}, horzLines:{color:"rgba(18,38,63,.07)"} },
+    width:el.clientWidth, height:el.clientHeight, rightPriceScale:{visible:true}, leftPriceScale:{visible:true} });
+  if(spx?.length){
+    const cs=bChart.addCandlestickSeries({ upColor:"#26d07c", downColor:"#ff5a6a", borderVisible:false,
+      wickUpColor:"#26d07c", wickDownColor:"#ff5a6a", priceScaleId:"right" });
+    cs.setData(spx.reverse().map(b=>({time:b.time.slice(0,10), open:+b.open, high:+b.high, low:+b.low, close:+b.close})));
+  }
+  const up=bChart.addHistogramSeries({ color:"rgba(21,163,74,.5)", priceScaleId:"vol" });
+  const dn=bChart.addHistogramSeries({ color:"rgba(226,55,68,.5)", priceScaleId:"vol" });
+  bChart.priceScale("vol").applyOptions({ scaleMargins:{ top:.75, bottom:0 } });
+  up.setData(rows.map(r=>({time:r.date, value:+r.up_4pct})));
+  dn.setData(rows.map(r=>({time:r.date, value:-r.down_4pct})));
+  const t21=bChart.addLineSeries({ color:"#2f7dd1", lineWidth:1.6, priceScaleId:"left",
+    priceLineVisible:false, lastValueVisible:true });
+  t21.setData(rows.filter(r=>r.pct_above_200dma!=null).map(r=>({time:r.date, value:+r.pct_above_200dma})));
+  bChart.timeScale().fitContent();
+  new ResizeObserver(()=>{ if(bChart) bChart.applyOptions({width:el.clientWidth,height:el.clientHeight}); }).observe(el);
+}
+
+// ── Fresh Breakouts ──
+async function loadBO(){
+  const { data: rd } = await sb.from("scanner_us_breakouts").select("run_date")
+    .order("run_date",{ascending:false}).limit(1);
+  const latest = rd?.[0]?.run_date;
+  if(!latest){ renderBO([]); return; }
+  const { data } = await sb.from("scanner_us_breakouts").select("*").eq("run_date", latest)
+    .order("breakout_type").order("change_pct",{ascending:false}).limit(1000);
+  boData = data||[];
+  setText("kpi-bo", boData.filter(r=>r.breakout_type.includes("HIGH")).length, "up");
+  renderBO(applyBO(boData));
+}
+function applyBO(data){
+  const t=document.getElementById("bo-type").value;
+  return t ? data.filter(r=>r.breakout_type.includes(t)) : data;
+}
+function renderBO(data){
+  if(dtBO){ dtBO.destroy(); dtBO=null; }
+  document.getElementById("bo-count").textContent =
+    data.length ? data.length+" fresh signals · "+(boData[0]?.run_date??"") : "no data yet";
+  document.getElementById("bo-body").innerHTML = data.map(r=>{
+    const hi=r.breakout_type.includes("HIGH");
+    return `<tr><td>${tk(r.symbol)}</td>
+      <td><span class="tag ${hi?'tag-high':'tag-low'}">${r.breakout_type.replace('_',' ')}</span></td>
+      <td>${fmt(r.close,2)}</td>
+      <td class="${r.change_pct>=0?'pos':'neg'}">${fmt(r.change_pct,2)}%</td>
+      <td>${fmtVol(r.volume)}</td><td>${secOf(r.symbol)}</td></tr>`;}).join("");
+  dtBO = $("#tbl-bo").DataTable(dtOpts({ order:[] }));
+}
+function filterBO(){ renderBO(applyBO(boData)); }
+
+// ── RVOL ──
+async function loadRV(){
+  const { data } = await sb.from("scanner_us_rvol").select("*")
+    .gte("rvol",1.2).order("rvol",{ascending:false}).limit(1000);
+  rvData = data||[];
+  setText("kpi-rvol", rvData.filter(r=>r.rvol>=1.5 && r.chg_pct).length, "neu");
+  renderRV(applyRV(rvData));
+}
+function applyRV(data){
+  const d=document.getElementById("rv-dir").value, m=+document.getElementById("rv-min").value;
+  if(d==="up") data=data.filter(r=>(r.chg_pct??0)>0);
+  if(d==="down") data=data.filter(r=>(r.chg_pct??0)<0);
+  return data.filter(r=>r.rvol>=m);
+}
+function renderRV(data){
+  if(dtRV){ dtRV.destroy(); dtRV=null; }
+  const up=data.filter(r=>(r.chg_pct??0)>0).length;
+  document.getElementById("rv-count").textContent =
+    data.length ? `${data.length} movers · ${up} ▲ / ${data.length-up} ▼ · ${rvData[0]?.run_date??""}` : "no data yet";
+  document.getElementById("rv-body").innerHTML = data.map(r=>`<tr>
+    <td>${tk(r.symbol)}</td><td>${fmt(r.close,2)}</td>
+    <td class="${r.chg_pct>=0?'pos':'neg'}"><b>${r.chg_pct>=0?'+':''}${fmt(r.chg_pct,2)}%</b></td>
+    <td style="color:var(--warn)"><b>${fmt(r.rvol,2)}×</b></td>
+    <td>${fmtVol(r.volume)}</td><td>${fmtVol(r.avg_vol_20d)}</td><td>${secOf(r.symbol)}</td></tr>`).join("");
+  dtRV = $("#tbl-rv").DataTable(dtOpts({ order:[] }));
+}
+function filterRV(){ renderRV(applyRV(rvData)); }
+
+// ── EP ──
+async function loadEP(){
+  const { data } = await sb.from("scanner_us_ep").select("*").order("rnk",{ascending:true}).limit(1000);
+  epData = data||[];
+  setText("kpi-ep", epData.filter(r=>r.ep_type==="BULLISH").length, "up");
+  renderEP(applyEP(epData));
+}
+function applyEP(data){
+  const t=document.getElementById("ep-type").value;
+  return t ? data.filter(r=>r.ep_type===t) : data;
+}
+function renderEP(data){
+  if(dtEP){ dtEP.destroy(); dtEP=null; }
+  document.getElementById("ep-count").textContent = data.length ? data.length+" pivots · by return rank" : "no data yet";
+  document.getElementById("ep-body").innerHTML = data.map(r=>{
+    const bull=r.ep_type==="BULLISH", ret=r.return_since_pivot;
+    return `<tr><td>${r.rnk??""}</td><td>${tk(r.symbol)}</td>
+      <td><span class="tag ${bull?'tag-high':'tag-low'}">${r.ep_type}</span></td>
+      <td>${r.run_date??""}</td><td>${fmt(r.close,2)}</td><td>${fmt(r.last_close,2)}</td>
+      <td class="${ret>=0?'pos':'neg'}"><b>${fmt(ret,2)}%</b></td>
+      <td class="${r.gap_pct>=0?'pos':'neg'}">${fmt(r.gap_pct,2)}%</td>
+      <td class="${r.move_pct>=0?'pos':'neg'}">${fmt(r.move_pct,2)}%</td>
+      <td style="color:var(--warn)">${fmt(r.vol_ratio,1)}×</td></tr>`;}).join("");
+  dtEP = $("#tbl-ep").DataTable(dtOpts({ order:[] }));
+}
+function filterEP(){ renderEP(applyEP(epData)); }
+
+// ── VCP ──
+async function loadVCP(){
+  const { data: rd } = await sb.from("scanner_us_vcp").select("run_date")
+    .order("run_date",{ascending:false}).limit(1);
+  const latest = rd?.[0]?.run_date;
+  let data=[];
+  if(latest){
+    const res = await sb.from("scanner_us_vcp").select("*").eq("run_date", latest).order("range_15d_pct");
+    data = res.data||[];
+  }
+  setText("kpi-vcp", data.length, "neu");
+  if(dtVCP){ dtVCP.destroy(); dtVCP=null; }
+  document.getElementById("vcp-count").textContent = data.length ? data.length+" setups" : "no data yet";
+  document.getElementById("vcp-body").innerHTML = data.map(r=>`<tr>
+    <td>${tk(r.symbol)}</td><td>${fmt(r.close,2)}</td>
+    <td class="pos">${fmt(r.return_3m,1)}%</td><td>${fmt(r.high_15d,2)}</td><td>${fmt(r.low_15d,2)}</td>
+    <td style="color:var(--info)">${fmt(r.range_15d_pct,1)}%</td><td>${secOf(r.symbol)}</td></tr>`).join("");
+  dtVCP = $("#tbl-vcp").DataTable(dtOpts({ order:[] }));
+}
+
+// ── Sentiment (AAII — shared table) ──
+async function loadSent(){
+  const { data } = await sb.from("aaii_sentiment").select("*").order("week_ending");
+  if(!data?.length){ document.getElementById("sn-count").textContent="no data yet — run fetch_aaii.py"; return; }
+  const d0=data[data.length-1];
+  const set=(id,v,avg,did)=>{ document.getElementById(id).textContent=fmt(v,1)+"%";
+    document.getElementById(did).textContent = "long-run avg "+avg+"% · "+(v>=avg?"+":"")+fmt(v-avg,1)+" vs avg"; };
+  set("sn-bull", +d0.bullish, 37.5, "sn-bull-d");
+  set("sn-neu",  +d0.neutral, 31.5, "sn-neu-d");
+  set("sn-bear", +d0.bearish, 31.0, "sn-bear-d");
+  const sp=document.getElementById("sn-spread");
+  sp.textContent=(d0.bull_bear_spread>=0?"+":"")+fmt(d0.bull_bear_spread,1);
+  sp.className="v "+(d0.bull_bear_spread>=0?"pos":"neg");
+  document.getElementById("sn-week").textContent="week ending "+d0.week_ending;
+  document.getElementById("sn-count").textContent=data.length+" weeks";
+  // SVG bulls vs bears
+  const el=document.getElementById("sent-chart"), W=el.clientWidth||900, H=260, pad=30;
+  const xs=i=>pad+i*(W-2*pad)/((data.length-1)||1), ys=v=>H-20-(v/60)*(H-40);
+  const line=(key)=>data.map((r,i)=>(i?"L":"M")+xs(i).toFixed(1)+" "+ys(+r[key]).toFixed(1)).join("");
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%">
+    <line x1="${pad}" y1="${ys(37.5)}" x2="${W-pad}" y2="${ys(37.5)}" stroke="rgba(21,163,74,.3)" stroke-dasharray="4 4"/>
+    <line x1="${pad}" y1="${ys(31)}" x2="${W-pad}" y2="${ys(31)}" stroke="rgba(226,55,68,.3)" stroke-dasharray="4 4"/>
+    <path d="${line("bullish")}" fill="none" stroke="#15a34a" stroke-width="1.8"/>
+    <path d="${line("bearish")}" fill="none" stroke="#e23744" stroke-width="1.8"/>
+    <text x="${pad}" y="14" font-size="11" fill="#15a34a">Bulls</text>
+    <text x="${pad+42}" y="14" font-size="11" fill="#e23744">Bears</text>
+    <text x="${W-pad}" y="${H-4}" font-size="10" fill="#5b6675" text-anchor="end">${data[0].week_ending} → ${d0.week_ending}</text>
+  </svg>`;
+}
+
+// ── Sectors ──
+async function loadSecTab(){
+  const { data: rd } = await sb.from("scanner_us_sectors").select("run_date")
+    .order("run_date",{ascending:false}).limit(1);
+  const latest = rd?.[0]?.run_date;
+  if(!latest){ document.getElementById("sec-count").textContent="no data yet"; sectorData=[]; return; }
+  const { data } = await sb.from("scanner_us_sectors").select("*").eq("run_date", latest);
+  sectorData = data||[];
+  renderSectors();
+}
+function renderSectors(){
+  const p=document.getElementById("sec-period").value;
+  const rows=sectorData.filter(r=>r.period===p).sort((a,b)=>b.avg_return-a.avg_return);
+  document.getElementById("sec-count").textContent = rows.length ? rows.length+" sectors · "+p : "no data yet";
+  document.getElementById("sec-grid").innerHTML = rows.map(r=>{
+    const up=r.avg_return>=0;
+    return `<div class="sector-tile ${up?'up':'down'}">
+      <div class="st-name">${r.sector}</div>
+      <div class="st-ret ${up?'pos':'neg'}">${up?'+':''}${fmt(r.avg_return,2)}%</div>
+      <div class="st-sub"><span class="pos">${r.up_count}↑</span> · <span class="neg">${r.down_count}↓</span> · ${r.stock_count} stocks</div>
+    </div>`;}).join("");
+}
+
+// ── Candlestick modal (us_ohlcv) ──
+let chart=null;
+async function openChart(sym){
+  document.getElementById("overlay").classList.add("open");
+  document.getElementById("mb-sym").textContent=sym;
+  document.getElementById("mb-name").textContent="Loading…";
+  const [{ data: meta }, { data: bars }] = await Promise.all([
+    sb.from("us_stocks").select("name, sector").eq("symbol", sym).maybeSingle(),
+    sb.from("us_ohlcv").select("time, open, high, low, close").eq("symbol", sym)
+      .order("time",{ascending:false}).limit(504)
+  ]);
+  document.getElementById("mb-name").textContent =
+    meta ? `${meta.name||""}${meta.sector?" · "+meta.sector:""}` : sym;
+  const el=document.getElementById("chart"); el.innerHTML="";
+  if(chart){ chart.remove(); chart=null; }
+  if(!bars?.length) return;
+  bars.reverse();
+  chart = LightweightCharts.createChart(el, {
+    layout:{ background:{type:"solid", color:"transparent"}, textColor:"#5b6675", fontFamily:"JetBrains Mono" },
+    grid:{ vertLines:{color:"rgba(18,38,63,.07)"}, horzLines:{color:"rgba(18,38,63,.07)"} },
+    width:el.clientWidth, height:el.clientHeight });
+  const cs=chart.addCandlestickSeries({ upColor:"#26d07c", downColor:"#ff5a6a",
+    borderVisible:false, wickUpColor:"#26d07c", wickDownColor:"#ff5a6a" });
+  cs.setData(bars.map(b=>({time:b.time.slice(0,10), open:+b.open, high:+b.high, low:+b.low, close:+b.close})));
+  chart.timeScale().fitContent();
+}
+function closeChart(){ document.getElementById("overlay").classList.remove("open");
+  if(chart){ chart.remove(); chart=null; } }
+document.addEventListener("click", e=>{
+  const t=e.target.closest(".ticker"); if(t){ openChart(t.dataset.sym); return; }
+  if(e.target.id==="overlay") closeChart();
+});
+document.addEventListener("keydown", e=>{ if(e.key==="Escape") closeChart(); });
+
+async function loadAll(){
+  await loadSectorsMap();
+  await Promise.all([loadBreadth(), loadBO(), loadRV(), loadEP(), loadVCP(), loadSent(), loadSecTab()]);
+  document.getElementById("last-updated").textContent="updated "+new Date().toLocaleTimeString();
+}
+loadAll();
+</script>
+</body>
+</html>

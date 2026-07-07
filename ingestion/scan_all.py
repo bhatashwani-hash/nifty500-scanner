@@ -48,6 +48,7 @@ def main():
     from scan_ep         import run as run_ep
     from scan_manas      import run as run_manas
     from scan_rvol       import run as run_rvol
+    from scan_screens    import run as run_screens
     from scan_sectors    import run as run_sectors
     from scan_vcp        import run as run_vcp
     from scan_vcp_pro    import run as run_vcp_pro
@@ -59,6 +60,7 @@ def main():
         ("vcp_pro",   run_vcp_pro),
         ("manas",     run_manas),
         ("rvol",      run_rvol),        # daily RVOL movers (all stocks)
+        ("screens",   run_screens),     # JFS multi-screen scanner (10 screens)
         ("sectors",   run_sectors),
         ("breadth",   None),   # handled separately below via compute_breadth/write_breadth
     ]

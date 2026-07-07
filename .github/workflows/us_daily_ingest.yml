@@ -1,0 +1,58 @@
+name: US Daily Ingestion — Yahoo Finance → us_ohlcv
+
+# 21:30 UTC = 5:30 PM ET (EDT) / 4:30 PM ET (EST) — after US market close (4 PM ET).
+# Daily mode fetches only the last day's bars for the active US universe.
+# Manual trigger: full_backfill=true seeds the universe list + 1 year of history.
+on:
+  schedule:
+    - cron: "30 21 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      full_backfill:
+        description: "Rebuild universe + backfill 1 year of history"
+        required: false
+        default: "false"
+      days:
+        description: "Daily mode lookback window in days (default 1)"
+        required: false
+        default: "1"
+
+jobs:
+  ingest:
+    name: Ingest US OHLCV (us_stocks → us_ohlcv)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run ingestion
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -o pipefail
+          DAYS="${{ github.event.inputs.days }}"
+          DAYS="${DAYS:-1}"
+          if [ "${{ github.event.inputs.full_backfill }}" = "true" ]; then
+            echo "Universe rebuild + 1-year backfill"
+            python us/build_us_universe.py 2>&1 | tee us_ingest.log
+            python us/fetch_us_data.py --mode backfill --years 1 2>&1 | tee -a us_ingest.log
+          else
+            python us/fetch_us_data.py --mode daily --days "$DAYS" 2>&1 | tee us_ingest.log
+          fi
+
+      - name: Upload log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: us-ingest-log-${{ github.run_id }}
+          path: us_ingest.log
+          retention-days: 7
