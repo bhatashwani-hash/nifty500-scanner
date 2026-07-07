@@ -153,26 +153,59 @@ def scan_rvol(conn):
 
 
 # ── episodic pivots (6-month leaderboard) ────────────────────────────────────
-def _earnings_dates(symbols, after):
-    """symbol -> set of earnings report dates on/after `after` (Yahoo, threaded)."""
-    import concurrent.futures
+_CAL_URL = "https://api.nasdaq.com/api/calendar/earnings"
+_CAL_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+    "Accept": "application/json",
+}
 
-    import yfinance as yf
 
-    def one(s):
+def _earnings_calendar(days, tdays):
+    """(symbol, affected trading day) -> report date, from the NASDAQ earnings
+    calendar (one request per calendar day; the endpoint that already works
+    from GH runners, unlike per-symbol Yahoo lookups which get rate-limited).
+    Pre-market reports hit the same session, after-hours the next one;
+    unknown timing counts for both."""
+    import requests
+
+    def td_on_or_after(d):
+        pos = tdays.searchsorted(pd.Timestamp(d))
+        return tdays[pos].date() if pos < len(tdays) else None
+
+    def td_after(d):
+        pos = tdays.searchsorted(pd.Timestamp(d), side="right")
+        return tdays[pos].date() if pos < len(tdays) else None
+
+    out, failed = {}, 0
+    for day in days:
         try:
-            df = yf.Ticker(s.replace(".", "-")).get_earnings_dates(limit=8)
-            if df is None or df.empty:
-                return s, set()
-            return s, {ts.date() for ts in df.index if ts.date() >= after}
-        except Exception:
-            return s, set()
-
-    out = {}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
-        for s, dates in ex.map(one, symbols):
-            if dates:
-                out[s] = dates
+            r = requests.get(_CAL_URL, params={"date": day.isoformat()},
+                             headers=_CAL_HEADERS, timeout=30)
+            r.raise_for_status()
+            rows = (r.json().get("data") or {}).get("rows") or []
+        except Exception as exc:
+            failed += 1
+            log.warning("earnings calendar %s failed: %s", day, exc)
+            time.sleep(1)
+            continue
+        for x in rows:
+            sym = (x.get("symbol") or "").strip()
+            if not sym:
+                continue
+            t = x.get("time") or ""
+            if "pre-market" in t:
+                affected = {td_on_or_after(day)}
+            elif "after-hours" in t:
+                affected = {td_after(day)}
+            else:
+                affected = {td_on_or_after(day), td_after(day)}
+            for a in affected:
+                if a is not None:
+                    out.setdefault((sym, a), day)
+        time.sleep(0.15)
+    log.info("ep: earnings calendar %d days fetched, %d failed, %d (symbol, day) pairs",
+             len(days) - failed, failed, len(out))
     return out
 
 
@@ -217,26 +250,12 @@ def scan_ep(conn):
         seen.add(r["s"]); keep.append(r)
     keep.sort(key=lambda r: r["ret"], reverse=True)
 
-    # flag pivots that landed on an earnings release: report before the open hits
-    # the same session, report after the close hits the next trading day
-    log.info("ep: fetching earnings dates for %d symbols", len(keep))
-    emap = _earnings_dates([r["s"] for r in keep], cutoff.date())
-    tdays = c.index
-
-    def earnings_on(sym, d):
-        for e in emap.get(sym, ()):
-            pos = tdays.searchsorted(pd.Timestamp(e))
-            if pos >= len(tdays):
-                continue
-            affected = {tdays[pos].date()}
-            if tdays[pos].date() == e and pos + 1 < len(tdays):
-                affected.add(tdays[pos + 1].date())
-            if d in affected:
-                return e
-        return None
+    # flag pivots that landed on an earnings release
+    weekdays = [d.date() for d in pd.bdate_range(cutoff, last_d)]
+    cal = _earnings_calendar(weekdays, c.index)
 
     rows = [(r["d"], r["s"], r["t"], round(r["close"], 2), r["gap"], r["mv"], r["vr"],
-             last_d.date(), round(r["last"], 2), r["ret"], i + 1, earnings_on(r["s"], r["d"]))
+             last_d.date(), round(r["last"], 2), r["ret"], i + 1, cal.get((r["s"], r["d"])))
             for i, r in enumerate(keep)]
     log.info("ep: %d of %d pivots on an earnings release", sum(1 for r in rows if r[-1]), len(rows))
     with conn.cursor() as cur:
