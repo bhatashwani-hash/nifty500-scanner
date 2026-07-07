@@ -8,7 +8,8 @@ Scanners over the us_stocks / us_ohlcv universe (1-yr history):
                                       longest window wins; 1Y activates as history accrues)
   rvol       -> scanner_us_rvol       day change + volume vs 20d avg (all stocks)
   ep         -> scanner_us_ep         Episodic Pivots (gap>=1%, move>=7%, vol>=3x 50d),
-                                      6-month leaderboard ranked by return since pivot
+                                      6-month leaderboard ranked by return since pivot;
+                                      pivots on an earnings release get earnings_date set
   vcp        -> scanner_us_vcp        3-month return >= 25% and 15-day range < 15%
   sectors    -> scanner_us_sectors    sector performance day/week/month (us_stocks.sector)
 
@@ -152,6 +153,29 @@ def scan_rvol(conn):
 
 
 # ── episodic pivots (6-month leaderboard) ────────────────────────────────────
+def _earnings_dates(symbols, after):
+    """symbol -> set of earnings report dates on/after `after` (Yahoo, threaded)."""
+    import concurrent.futures
+
+    import yfinance as yf
+
+    def one(s):
+        try:
+            df = yf.Ticker(s.replace(".", "-")).get_earnings_dates(limit=8)
+            if df is None or df.empty:
+                return s, set()
+            return s, {ts.date() for ts in df.index if ts.date() >= after}
+        except Exception:
+            return s, set()
+
+    out = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
+        for s, dates in ex.map(one, symbols):
+            if dates:
+                out[s] = dates
+    return out
+
+
 def scan_ep(conn):
     df = pd.read_sql(
         """SELECT o.symbol, o.time::date AS date, o.open, o.close, o.volume
@@ -192,15 +216,35 @@ def scan_ep(conn):
             continue
         seen.add(r["s"]); keep.append(r)
     keep.sort(key=lambda r: r["ret"], reverse=True)
+
+    # flag pivots that landed on an earnings release: report before the open hits
+    # the same session, report after the close hits the next trading day
+    log.info("ep: fetching earnings dates for %d symbols", len(keep))
+    emap = _earnings_dates([r["s"] for r in keep], cutoff.date())
+    tdays = c.index
+
+    def earnings_on(sym, d):
+        for e in emap.get(sym, ()):
+            pos = tdays.searchsorted(pd.Timestamp(e))
+            if pos >= len(tdays):
+                continue
+            affected = {tdays[pos].date()}
+            if tdays[pos].date() == e and pos + 1 < len(tdays):
+                affected.add(tdays[pos + 1].date())
+            if d in affected:
+                return e
+        return None
+
     rows = [(r["d"], r["s"], r["t"], round(r["close"], 2), r["gap"], r["mv"], r["vr"],
-             last_d.date(), round(r["last"], 2), r["ret"], i + 1)
+             last_d.date(), round(r["last"], 2), r["ret"], i + 1, earnings_on(r["s"], r["d"]))
             for i, r in enumerate(keep)]
+    log.info("ep: %d of %d pivots on an earnings release", sum(1 for r in rows if r[-1]), len(rows))
     with conn.cursor() as cur:
         cur.execute("DELETE FROM scanner_us_ep")
         if rows:
             psycopg2.extras.execute_values(cur, """
                 INSERT INTO scanner_us_ep (run_date, symbol, ep_type, close, gap_pct, move_pct,
-                  vol_ratio, last_date, last_close, return_since_pivot, rnk)
+                  vol_ratio, last_date, last_close, return_since_pivot, rnk, earnings_date)
                 VALUES %s ON CONFLICT DO NOTHING""", rows, page_size=500)
     conn.commit()
     return len(rows)

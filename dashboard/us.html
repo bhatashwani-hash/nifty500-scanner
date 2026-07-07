@@ -149,10 +149,13 @@ table.table{ font-size:.82rem; } table.table td, table.table th{ vertical-align:
       <select id="ep-type" class="control" onchange="filterEP()">
         <option value="">All Types</option><option value="BULLISH">Bullish only</option><option value="BEARISH">Bearish only</option>
       </select>
+      <select id="ep-earn" class="control" onchange="filterEP()">
+        <option value="">All Pivots</option><option value="1">📅 On earnings only</option><option value="0">Non-earnings only</option>
+      </select>
     </div>
     <div class="panel"><div class="panel-head"><h2>Episodic Pivots — 6M Leaderboard</h2><span class="count" id="ep-count"></span></div>
       <div class="p-1"><table id="tbl-ep" class="table mb-0" style="width:100%">
-        <thead><tr><th>#</th><th>Symbol</th><th>Type</th><th>Pivot Date</th><th>Pivot Close</th>
+        <thead><tr><th>#</th><th>Symbol</th><th>Type</th><th>Pivot Date</th><th>Earnings</th><th>Pivot Close</th>
           <th>Last Close</th><th>Return</th><th>Gap %</th><th>Move %</th><th>Vol×</th></tr></thead>
         <tbody id="ep-body"></tbody></table></div>
     </div>
@@ -351,7 +354,11 @@ async function loadEP(){
 }
 function applyEP(data){
   const t=document.getElementById("ep-type").value;
-  return t ? data.filter(r=>r.ep_type===t) : data;
+  const e=document.getElementById("ep-earn").value;
+  let out = t ? data.filter(r=>r.ep_type===t) : data;
+  if(e==="1") out = out.filter(r=>r.earnings_date);
+  if(e==="0") out = out.filter(r=>!r.earnings_date);
+  return out;
 }
 function renderEP(data){
   if(dtEP){ dtEP.destroy(); dtEP=null; }
@@ -360,7 +367,9 @@ function renderEP(data){
     const bull=r.ep_type==="BULLISH", ret=r.return_since_pivot;
     return `<tr><td>${r.rnk??""}</td><td>${tk(r.symbol)}</td>
       <td><span class="tag ${bull?'tag-high':'tag-low'}">${r.ep_type}</span></td>
-      <td>${r.run_date??""}</td><td>${fmt(r.close,2)}</td><td>${fmt(r.last_close,2)}</td>
+      <td>${r.run_date??""}</td>
+      <td>${r.earnings_date?`<span class="tag tag-high" title="reported ${r.earnings_date}">📅 ${r.earnings_date}</span>`:""}</td>
+      <td>${fmt(r.close,2)}</td><td>${fmt(r.last_close,2)}</td>
       <td class="${ret>=0?'pos':'neg'}"><b>${fmt(ret,2)}%</b></td>
       <td class="${r.gap_pct>=0?'pos':'neg'}">${fmt(r.gap_pct,2)}%</td>
       <td class="${r.move_pct>=0?'pos':'neg'}">${fmt(r.move_pct,2)}%</td>
