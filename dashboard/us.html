@@ -16,6 +16,8 @@
 }
 html[data-regime="bull"]{ --accent:#2dd882; --accent-ink:#0a1f14;
   --bg0:#050f0a; --bg1:#0b2417; --glow-a:rgba(45,216,130,.16); --glow-b:rgba(45,216,130,.07); }
+html[data-regime="super"]{ --accent:#43f79c; --accent-ink:#062315;
+  --bg0:#04140c; --bg1:#0c2f1c; --glow-a:rgba(67,247,156,.24); --glow-b:rgba(67,247,156,.10); }
 html[data-regime="bear"]{ --accent:#ff5c6c; --accent-ink:#22090d;
   --bg0:#120507; --bg1:#2a0d13; --glow-a:rgba(255,92,108,.15); --glow-b:rgba(255,92,108,.06); }
 html[data-regime="mixed"]{ --accent:#f0b354; --accent-ink:#221806;
@@ -347,8 +349,9 @@ footer .fbrand{ font-family:var(--serif); font-size:1rem; color:var(--muted); ma
   <div class="fbrand">Daily US <em style="color:var(--accent)">Scan</em></div>
   Wilshire-style universe · NASDAQ + NYSE + AMEX, cap ≥ $150M · EOD via Yahoo Finance ·
   AAII sentiment survey · <span id="last-updated"></span><br/>
-  The page wears the market's colour: green when the S&amp;P 500 sits above its 50- and 200-day averages,
-  red when it's lost both, amber in between.
+  The page wears the market's colour: green when the S&amp;P 500 sits above its 50- and 200-day averages —
+  brightening to super-bullish when it also clears the 10- and 20-day — red when it's lost both long averages,
+  amber in between.
 </footer>
 
 <div class="overlay" id="overlay">
@@ -392,14 +395,19 @@ async function loadRegime(){
   const closes = data.map(r=>+r.close);            // newest first
   const last = closes[0];
   const ma = n => closes.length>=n ? closes.slice(0,n).reduce((a,b)=>a+b,0)/n : null;
-  const ma50 = ma(50), ma200 = ma(200);
+  const ma10 = ma(10), ma20 = ma(20), ma50 = ma(50), ma200 = ma(200);
   const d50  = ma50!=null  ? (last/ma50 -1)*100 : null;
   const d200 = ma200!=null ? (last/ma200-1)*100 : null;
+  const above10  = ma10!=null  ? last>=ma10  : null;
+  const above20  = ma20!=null  ? last>=ma20  : null;
   const above50  = d50 !=null ? d50 >=0 : null;
   const above200 = d200!=null ? d200>=0 : null;
 
   let regime="mixed", title, pill;
-  if(above50 && (above200 ?? true)){
+  if(above10 && above20 && above50 && (above200 ?? true)){
+    regime="super"; pill="SUPER BULLISH";
+    title=`The tape is <em>roaring</em>.`;
+  } else if(above50 && (above200 ?? true)){
     regime="bull"; pill="RISK ON";
     title=`The tape is <em>green</em>.`;
   } else if(above50===false && (above200===false || above200===null)){
@@ -435,7 +443,8 @@ async function loadRegime(){
 
   document.getElementById("hero-lede").innerHTML =
     `The S&amp;P 500 closed at <b>${fmt(last,0)}</b> — ${parts} moving average.` + weekLine +
-    (regime==="bull" ? " Trend followers have the wind at their backs."
+    (regime==="super" ? " It sits above every average that matters — the 10-, 20-, 50- and 200-day. Full trend alignment; dips are for buying until proven otherwise."
+     : regime==="bull" ? " Trend followers have the wind at their backs."
      : regime==="bear" ? " Until the index reclaims its averages, rallies are guilty until proven innocent."
      : " The index sits between its averages — a market still making up its mind.");
 
