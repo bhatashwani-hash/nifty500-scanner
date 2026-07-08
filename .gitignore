@@ -6,3 +6,4 @@ outputs/*.json
 enrich_progress.json
 commit.bat
 commit.ps1
+.claude/

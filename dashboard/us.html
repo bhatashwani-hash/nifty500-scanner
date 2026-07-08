@@ -1,200 +1,347 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-regime="mixed">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>US Scanner — Wilshire-style universe</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
-<link href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<title>The US Tape — a daily reading of the American market</title>
+<link href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
 <style>
+/* ── regime themes ─────────────────────────────────────────────────────── */
 :root{
-  --bg:#f6f8fb; --surface:#ffffff; --border:#e3e8f0; --text:#12263f; --muted:#5b6675;
-  --up:#15a34a; --upbg:rgba(21,163,74,.10); --down:#e23744; --downbg:rgba(226,55,68,.10);
-  --info:#2f7dd1; --warn:#b97a1a; --mono:'JetBrains Mono',monospace;
+  --ink:#eef2f6; --muted:#93a1b0; --faint:#5c6b7a;
+  --up:#2dd882; --down:#ff5c6c; --info:#5aa9ff; --warn:#f0b354;
+  --card:rgba(255,255,255,.035); --card-line:rgba(255,255,255,.09);
+  --mono:'JetBrains Mono',monospace; --serif:'Fraunces',serif; --sans:'Inter',sans-serif;
 }
-*{box-sizing:border-box}
-body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; font-size:.875rem; padding:1.2rem 1.4rem 3rem; }
-h1{ font-size:1.15rem; font-weight:700; margin:0; }
-.sub{ color:var(--muted); font-size:.72rem; }
-.kpis{ display:flex; gap:.6rem; flex-wrap:wrap; margin:1rem 0; }
-.kpi{ background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:.5rem .9rem; min-width:118px; }
-.kpi-label{ font-size:.62rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; }
-.kpi-val{ font-family:var(--mono); font-size:1.05rem; font-weight:700; }
-.kpi-val.up{color:var(--up)} .kpi-val.down{color:var(--down)} .kpi-val.neu{color:var(--info)}
-.tabbar{ border-bottom:2px solid var(--border); gap:.25rem; margin-bottom:1rem; }
-.tabbar .nav-link{ color:var(--muted); font-weight:600; font-size:.82rem; border:none; border-bottom:2px solid transparent; margin-bottom:-2px; }
-.tabbar .nav-link.active{ color:var(--text); background:transparent; border-bottom:2px solid var(--info); }
-.legend{ background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--info); border-radius:8px; padding:.6rem .9rem; font-size:.78rem; color:var(--muted); margin-bottom:1rem; }
-.legend strong{ color:var(--text); }
-.panel{ background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:1rem; }
-.panel-head{ display:flex; align-items:center; gap:.8rem; padding:.7rem 1rem; border-bottom:1px solid var(--border); }
-.panel-head h2{ font-size:.9rem; font-weight:700; margin:0; }
-.count{ font-size:.72rem; color:var(--muted); }
-.control{ background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:.78rem; padding:.35rem .6rem; }
-table.table{ font-size:.82rem; } table.table td, table.table th{ vertical-align:middle; }
-.pos{color:var(--up)} .neg{color:var(--down)} .neu{color:var(--muted)}
-.tag{ font-size:.66rem; font-weight:700; padding:.18rem .5rem; border-radius:6px; white-space:nowrap; }
-.tag-high{ background:var(--upbg); color:var(--up); } .tag-low{ background:var(--downbg); color:var(--down); }
+html[data-regime="bull"]{ --accent:#2dd882; --accent-ink:#0a1f14;
+  --bg0:#050f0a; --bg1:#0b2417; --glow-a:rgba(45,216,130,.16); --glow-b:rgba(45,216,130,.07); }
+html[data-regime="bear"]{ --accent:#ff5c6c; --accent-ink:#22090d;
+  --bg0:#120507; --bg1:#2a0d13; --glow-a:rgba(255,92,108,.15); --glow-b:rgba(255,92,108,.06); }
+html[data-regime="mixed"]{ --accent:#f0b354; --accent-ink:#221806;
+  --bg0:#0e0c07; --bg1:#221a0d; --glow-a:rgba(240,179,84,.13); --glow-b:rgba(240,179,84,.05); }
+
+/* ── base ──────────────────────────────────────────────────────────────── */
+*{ box-sizing:border-box }
+html{ scroll-behavior:smooth }
+body{
+  margin:0; color:var(--ink); font-family:var(--sans); font-size:.9rem; line-height:1.55;
+  background:
+    radial-gradient(1100px 700px at 85% -8%, var(--glow-a), transparent 60%),
+    radial-gradient(900px 700px at -12% 28%, var(--glow-b), transparent 62%),
+    linear-gradient(180deg, var(--bg1) 0%, var(--bg0) 46%);
+  background-attachment:fixed;
+  transition:background .9s ease;
+}
+::selection{ background:var(--accent); color:var(--accent-ink); }
+a{ color:inherit }
+
+/* ── top nav ───────────────────────────────────────────────────────────── */
+.topnav{
+  position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:1.4rem;
+  padding:.8rem clamp(1rem,4vw,3rem);
+  background:color-mix(in srgb, var(--bg0) 74%, transparent); backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--card-line);
+}
+.brand{ font-family:var(--serif); font-size:1.05rem; font-weight:600; letter-spacing:.01em; white-space:nowrap; }
+.brand em{ color:var(--accent); font-style:italic; }
+.navlinks{ display:flex; gap:1.1rem; overflow-x:auto; scrollbar-width:none; }
+.navlinks::-webkit-scrollbar{ display:none }
+.navlinks a{ color:var(--muted); text-decoration:none; font-size:.76rem; font-weight:600;
+  letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
+.navlinks a:hover{ color:var(--ink) }
+.pill{ margin-left:auto; font-family:var(--mono); font-size:.68rem; font-weight:700; letter-spacing:.14em;
+  color:var(--accent); border:1px solid var(--accent); border-radius:99px; padding:.28rem .8rem; white-space:nowrap; }
+.refresh-btn{ background:transparent; border:1px solid var(--card-line); color:var(--muted); border-radius:99px;
+  padding:.28rem .8rem; font-size:.72rem; cursor:pointer; }
+.refresh-btn:hover{ color:var(--ink); border-color:var(--muted) }
+
+/* ── hero ──────────────────────────────────────────────────────────────── */
+.hero{ min-height:88vh; display:flex; flex-direction:column; justify-content:center;
+  padding:4rem clamp(1rem,6vw,6rem) 3rem; }
+.eyebrow{ font-family:var(--mono); font-size:.72rem; letter-spacing:.22em; color:var(--accent);
+  text-transform:uppercase; margin-bottom:1.2rem; }
+.hero-title{ font-family:var(--serif); font-weight:560; font-size:clamp(2.9rem,8.5vw,7rem);
+  line-height:1.02; letter-spacing:-.02em; margin:0 0 1.4rem; max-width:14ch; }
+.hero-title em{ font-style:italic; color:var(--accent); }
+.hero-lede{ font-size:clamp(1rem,1.7vw,1.25rem); color:var(--muted); max-width:56ch; margin:0 0 2.6rem; }
+.hero-lede b{ color:var(--ink); font-weight:600 }
+.hero-stats{ display:flex; flex-wrap:wrap; gap:0; border-top:1px solid var(--card-line); max-width:1000px; }
+.chip{ padding:.9rem 1.6rem .9rem 0; margin-right:1.6rem; border-right:1px solid var(--card-line); }
+.chip:last-child{ border-right:none }
+.chip-label{ display:block; font-size:.62rem; font-weight:700; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--faint); margin-bottom:.15rem; }
+.kpi-val{ font-family:var(--mono); font-size:1.25rem; font-weight:700; }
+.kpi-val.up{ color:var(--up) } .kpi-val.down{ color:var(--down) } .kpi-val.neu{ color:var(--ink) }
+.scroll-hint{ margin-top:3.5rem; color:var(--faint); font-size:1.2rem; animation:bob 2.2s ease-in-out infinite; width:fit-content; }
+@keyframes bob{ 0%,100%{ transform:translateY(0)} 50%{ transform:translateY(8px)} }
+
+/* ── chapters ──────────────────────────────────────────────────────────── */
+main{ padding:0 clamp(1rem,6vw,6rem) 4rem; }
+.chapter{ padding:4.5rem 0 1rem; scroll-margin-top:4.5rem; max-width:1240px; margin:0 auto;
+  opacity:0; transform:translateY(26px); transition:opacity .7s ease, transform .7s ease; }
+.chapter.vis{ opacity:1; transform:none }
+.ch-head{ margin-bottom:1.8rem; max-width:70ch; }
+.ch-no{ font-family:var(--mono); font-size:.72rem; letter-spacing:.24em; color:var(--accent); }
+.ch-head h2{ font-family:var(--serif); font-weight:560; font-size:clamp(1.7rem,3.6vw,2.7rem);
+  letter-spacing:-.015em; line-height:1.1; margin:.4rem 0 .7rem; }
+.ch-lede{ color:var(--muted); font-size:.95rem; margin:0; }
+.ch-lede b{ color:var(--ink); font-weight:600 }
+
+.card{ background:var(--card); border:1px solid var(--card-line); border-radius:16px;
+  overflow:hidden; margin-bottom:1.2rem; }
+.card-head{ display:flex; align-items:baseline; gap:1rem; flex-wrap:wrap; padding:1rem 1.3rem .6rem; }
+.card-head h3{ font-size:.82rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--muted); margin:0; }
+.count{ font-size:.74rem; color:var(--faint); font-family:var(--mono); }
+.card-body{ padding: .4rem 1rem 1rem; }
+.controls{ display:flex; gap:.6rem; flex-wrap:wrap; margin-bottom:1.1rem; }
+.control{ background:rgba(255,255,255,.05); border:1px solid var(--card-line); border-radius:10px;
+  color:var(--ink); font-size:.78rem; padding:.42rem .7rem; font-family:var(--sans); }
+.control option{ background:var(--bg0); color:var(--ink); }
+
+/* ── tables ────────────────────────────────────────────────────────────── */
+table.dtable{ width:100%; border-collapse:collapse; font-size:.83rem; }
+table.dtable thead th{ text-align:left; font-size:.64rem; font-weight:700; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--faint); padding:.55rem .7rem; border-bottom:1px solid var(--card-line);
+  background:transparent; }
+table.dtable tbody td{ padding:.55rem .7rem; border-bottom:1px solid rgba(255,255,255,.045); vertical-align:middle; }
+table.dtable tbody tr:hover td{ background:rgba(255,255,255,.03) }
+.pos{ color:var(--up) } .neg{ color:var(--down) } .neu{ color:var(--muted) }
+.tag{ font-size:.64rem; font-weight:700; padding:.2rem .55rem; border-radius:6px; white-space:nowrap; }
+.tag-high{ background:rgba(45,216,130,.13); color:var(--up); }
+.tag-low{ background:rgba(255,92,108,.13); color:var(--down); }
 .ticker{ font-family:var(--mono); font-weight:700; color:var(--info); cursor:pointer; }
-.ticker:hover{ text-decoration:underline; }
-.sent-cards{ display:flex; gap:.8rem; flex-wrap:wrap; margin-bottom:1rem; }
-.sc-card{ flex:1; min-width:160px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding: .8rem 1rem; }
-.sc-card .t{ font-size:.68rem; font-weight:700; color:var(--muted); text-transform:uppercase; }
-.sc-card .v{ font-family:var(--mono); font-size:1.5rem; font-weight:700; }
-.sc-card .d{ font-size:.7rem; color:var(--muted); }
-.sector-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:.7rem; padding:1rem; }
-.sector-tile{ border:1px solid var(--border); border-radius:10px; padding:.7rem .9rem; background:var(--surface); }
-.sector-tile.up{ border-left:3px solid var(--up); } .sector-tile.down{ border-left:3px solid var(--down); }
-.st-name{ font-weight:700; font-size:.8rem; } .st-ret{ font-family:var(--mono); font-weight:700; font-size:1.05rem; }
-.st-sub{ font-size:.68rem; color:var(--muted); }
-.overlay{ display:none; position:fixed; inset:0; background:rgba(18,38,63,.55); z-index:60; }
-.overlay.open{ display:grid; place-items:center; }
-.modal-box{ background:var(--surface); border-radius:14px; width:min(980px,96vw); height:min(620px,90vh); display:flex; flex-direction:column; overflow:hidden; }
-.mb-head{ display:flex; align-items:center; gap:1rem; padding:.8rem 1.1rem; border-bottom:1px solid var(--border); }
-.mb-sym{ font-family:var(--mono); font-weight:700; font-size:1.05rem; }
-.mb-name{ color:var(--muted); font-size:.72rem; }
+.ticker:hover{ text-decoration:underline }
+
+/* DataTables chrome on dark */
+.dataTables_wrapper{ color:var(--muted); font-size:.78rem; padding:0 .3rem; }
+.dataTables_wrapper .dataTables_filter{ float:right; margin:.2rem 0 .8rem; }
+.dataTables_wrapper .dataTables_filter input{
+  background:rgba(255,255,255,.05); border:1px solid var(--card-line); border-radius:10px;
+  color:var(--ink); padding:.4rem .7rem; margin-left:0; outline:none; }
+.dataTables_wrapper .dataTables_info{ color:var(--faint); padding-top:.9rem; }
+.dataTables_wrapper .dataTables_paginate{ padding-top:.6rem }
+.dataTables_wrapper .dataTables_paginate .paginate_button{
+  color:var(--muted)!important; border:none!important; background:transparent!important; border-radius:8px; }
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover{
+  color:var(--ink)!important; background:rgba(255,255,255,.06)!important; }
+.dataTables_wrapper .dataTables_paginate .paginate_button.current{
+  color:var(--accent)!important; background:rgba(255,255,255,.06)!important; }
+table.dataTable thead .sorting, table.dataTable thead .sorting_asc, table.dataTable thead .sorting_desc{
+  background-image:none!important; }
+
+/* ── sentiment & sectors ───────────────────────────────────────────────── */
+.sent-cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1rem; margin-bottom:1.2rem; }
+.sc-card{ background:var(--card); border:1px solid var(--card-line); border-radius:16px; padding:1rem 1.2rem; }
+.sc-card .t{ font-size:.64rem; font-weight:700; color:var(--faint); text-transform:uppercase; letter-spacing:.12em; }
+.sc-card .v{ font-family:var(--mono); font-size:1.7rem; font-weight:700; margin:.15rem 0; }
+.sc-card .d{ font-size:.7rem; color:var(--faint); }
+.sector-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(215px,1fr)); gap:.8rem; padding:1.1rem; }
+.sector-tile{ border:1px solid var(--card-line); border-radius:12px; padding:.8rem 1rem; background:rgba(255,255,255,.02); }
+.sector-tile.up{ border-left:3px solid var(--up) } .sector-tile.down{ border-left:3px solid var(--down) }
+.st-name{ font-weight:600; font-size:.8rem } .st-ret{ font-family:var(--mono); font-weight:700; font-size:1.1rem }
+.st-sub{ font-size:.68rem; color:var(--faint) }
+
+/* ── modal ─────────────────────────────────────────────────────────────── */
+.overlay{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.62); backdrop-filter:blur(4px); z-index:60; }
+.overlay.open{ display:grid; place-items:center }
+.modal-box{ background:var(--bg0); border:1px solid var(--card-line); border-radius:18px;
+  width:min(980px,96vw); height:min(620px,90vh); display:flex; flex-direction:column; overflow:hidden; }
+.mb-head{ display:flex; align-items:center; gap:1rem; padding:.9rem 1.2rem; border-bottom:1px solid var(--card-line); }
+.mb-sym{ font-family:var(--mono); font-weight:700; font-size:1.05rem; color:var(--accent); }
+.mb-name{ color:var(--muted); font-size:.72rem }
 .mb-close{ margin-left:auto; border:none; background:transparent; font-size:1.1rem; color:var(--muted); cursor:pointer; }
-#chart{ flex:1; }
-#refresh{ margin-left:auto; }
+#chart{ flex:1 }
+
+/* ── footer ────────────────────────────────────────────────────────────── */
+footer{ border-top:1px solid var(--card-line); margin-top:3rem;
+  padding:2.2rem clamp(1rem,6vw,6rem) 3rem; color:var(--faint); font-size:.74rem; }
+footer .fbrand{ font-family:var(--serif); font-size:1rem; color:var(--muted); margin-bottom:.4rem; }
+.chart-note{ font-size:.72rem; color:var(--faint); padding:0 1.3rem .4rem; }
+@media (max-width:640px){
+  .hero{ min-height:74vh } .chip{ padding-right:1rem; margin-right:1rem }
+  .navlinks{ display:none }
+}
 </style>
 </head>
 <body>
 
-<div class="d-flex align-items-center gap-3 flex-wrap">
-  <div><h1>US Scanner — Breadth · Breakouts · RVOL · EP · VCP · Sentiment · Sectors</h1>
-    <div class="sub">Wilshire-style universe (NASDAQ+NYSE+AMEX, cap ≥ $150M) · EOD via Yahoo · <span id="last-updated"></span></div></div>
-  <button id="refresh" class="control" onclick="loadAll()">⟳ Refresh</button>
-</div>
+<nav class="topnav">
+  <span class="brand">The US <em>Tape</em></span>
+  <div class="navlinks">
+    <a href="#pulse">Pulse</a><a href="#breakouts">Breakouts</a><a href="#volume">Volume</a>
+    <a href="#pivots">Pivots</a><a href="#coils">Coils</a><a href="#mood">Mood</a><a href="#sectors">Sectors</a>
+  </div>
+  <span class="pill" id="regime-pill">READING…</span>
+  <button class="refresh-btn" id="refresh" onclick="loadAll()">⟳ refresh</button>
+</nav>
 
-<div class="kpis">
-  <div class="kpi"><div class="kpi-label">Up 4%+</div><div class="kpi-val up" id="kpi-up4">—</div></div>
-  <div class="kpi"><div class="kpi-label">Down 4%+</div><div class="kpi-val down" id="kpi-dn4">—</div></div>
-  <div class="kpi"><div class="kpi-label">% &gt; 200-DMA</div><div class="kpi-val neu" id="kpi-t2108">—</div></div>
-  <div class="kpi"><div class="kpi-label">S&amp;P 500</div><div class="kpi-val neu" id="kpi-spx">—</div></div>
-  <div class="kpi"><div class="kpi-label">Fresh Breakouts</div><div class="kpi-val up" id="kpi-bo">—</div></div>
-  <div class="kpi"><div class="kpi-label">RVOL Movers</div><div class="kpi-val neu" id="kpi-rvol">—</div></div>
-  <div class="kpi"><div class="kpi-label">Bullish EPs · 6M</div><div class="kpi-val up" id="kpi-ep">—</div></div>
-  <div class="kpi"><div class="kpi-label">VCP Setups</div><div class="kpi-val neu" id="kpi-vcp">—</div></div>
-</div>
+<header class="hero" id="top">
+  <div class="eyebrow">US Market · <span id="hero-date">—</span></div>
+  <h1 class="hero-title" id="hero-title">Reading the tape<em>…</em></h1>
+  <p class="hero-lede" id="hero-lede">Fetching a year of S&amp;P 500 history to place today's close against its 50- and 200-day moving averages.</p>
+  <div class="hero-stats">
+    <div class="chip"><span class="chip-label">S&amp;P 500</span><span class="kpi-val neu" id="kpi-spx">—</span></div>
+    <div class="chip"><span class="chip-label">Up 4%+</span><span class="kpi-val up" id="kpi-up4">—</span></div>
+    <div class="chip"><span class="chip-label">Down 4%+</span><span class="kpi-val down" id="kpi-dn4">—</span></div>
+    <div class="chip"><span class="chip-label">&gt; 200-DMA</span><span class="kpi-val neu" id="kpi-t2108">—</span></div>
+    <div class="chip"><span class="chip-label">Fresh Breakouts</span><span class="kpi-val up" id="kpi-bo">—</span></div>
+    <div class="chip"><span class="chip-label">RVOL Movers</span><span class="kpi-val neu" id="kpi-rvol">—</span></div>
+    <div class="chip"><span class="chip-label">Bullish EPs</span><span class="kpi-val up" id="kpi-ep">—</span></div>
+    <div class="chip"><span class="chip-label">VCP Coils</span><span class="kpi-val neu" id="kpi-vcp">—</span></div>
+  </div>
+  <a class="scroll-hint" href="#pulse" aria-label="scroll">↓</a>
+</header>
 
-<ul class="nav tabbar" role="tablist">
-  <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-breadth">📊 Breadth</a></li>
-  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-bo">🚀 Fresh Breakouts</a></li>
-  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-rvol">📶 RVOL Daily</a></li>
-  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-ep">⚡ Episodic Pivot</a></li>
-  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-vcp">🎯 VCP</a></li>
-  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-sent">🐂 Sentiment</a></li>
-  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-sec">🌐 Sectors</a></li>
-</ul>
+<main>
 
-<div class="tab-content">
-
-  <div class="tab-pane fade show active" id="tab-breadth">
-    <div class="panel">
-      <div class="panel-head"><h2>S&amp;P 500 vs Breadth</h2>
-        <span class="count"><span style="color:var(--up)">▮</span>/<span style="color:var(--down)">▮</span> 4% up/down ·
-          <span style="color:var(--info)">━</span> % &gt; 200-DMA · candles = S&amp;P 500</span></div>
-      <div style="position:relative"><div id="breadth-chart" style="height:430px"></div></div>
-    </div>
-    <div class="panel"><div class="panel-head"><h2>Market Breadth</h2><span class="count" id="br-count"></span></div>
-      <div class="p-0" style="overflow:auto;max-height:55vh">
-        <table class="table mb-0" style="width:100%">
-          <thead><tr><th>Date</th><th>↑4%</th><th>↓4%</th><th>5d Ratio</th><th>10d Ratio</th>
-            <th>% &gt; 200-DMA</th><th>Universe</th><th>S&amp;P 500</th></tr></thead>
-          <tbody id="br-body"></tbody></table>
-      </div>
+<section class="chapter" id="pulse">
+  <div class="ch-head"><span class="ch-no">01 · BREADTH</span>
+    <h2>The market's pulse</h2>
+    <p class="ch-lede">Each session we count how many of roughly <b>4,000 US stocks</b> moved 4% either way, and what share
+      still trades above its 200-day average. Candles are the S&amp;P 500; the bars underneath are the day's 4% up and down counts.</p>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>S&amp;P 500 vs breadth</h3><span class="count" id="br-count"></span></div>
+    <div class="chart-note"><span style="color:var(--up)">▮</span>/<span style="color:var(--down)">▮</span> 4% up/down ·
+      <span style="color:var(--info)">━</span> % above 200-DMA · candles = S&amp;P 500</div>
+    <div style="position:relative"><div id="breadth-chart" style="height:430px"></div></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Session log</h3></div>
+    <div style="overflow:auto;max-height:55vh">
+      <table class="dtable">
+        <thead><tr><th>Date</th><th>↑4%</th><th>↓4%</th><th>5d Ratio</th><th>10d Ratio</th>
+          <th>% &gt; 200-DMA</th><th>Universe</th><th>S&amp;P 500</th></tr></thead>
+        <tbody id="br-body"></tbody></table>
     </div>
   </div>
+</section>
 
-  <div class="tab-pane fade" id="tab-bo">
-    <div class="legend"><strong>Fresh Breakouts</strong> — first day at a new 3M / 6M / 1Y closing high or low
-      (wasn't one yesterday); continuation days excluded; longest window shown. 1Y activates as history accrues
-      beyond the initial 1-year backfill.</div>
-    <div class="d-flex gap-2 mb-3 flex-wrap">
-      <select id="bo-type" class="control" onchange="filterBO()">
-        <option value="">All Types</option><option value="HIGH">Highs only</option><option value="LOW">Lows only</option>
-        <option value="1Y">1Y</option><option value="6M">6M</option><option value="3M">3M</option>
-      </select>
-    </div>
-    <div class="panel"><div class="panel-head"><h2>Fresh Breakouts &amp; Breakdowns</h2><span class="count" id="bo-count"></span></div>
-      <div class="p-1"><table id="tbl-bo" class="table mb-0" style="width:100%">
-        <thead><tr><th>Symbol</th><th>Type</th><th>Close</th><th>Chg %</th><th>Volume</th><th>Sector</th></tr></thead>
-        <tbody id="bo-body"></tbody></table></div>
-    </div>
+<section class="chapter" id="breakouts">
+  <div class="ch-head"><span class="ch-no">02 · FRESH BREAKOUTS</span>
+    <h2>New ground, first day only</h2>
+    <p class="ch-lede">Stocks printing their <b>first</b> close at a new 3-month, 6-month or 1-year high or low —
+      continuation days are excluded, and the longest window wins. The 1-year list activates as history accrues past the initial backfill.</p>
   </div>
+  <div class="controls">
+    <select id="bo-type" class="control" onchange="filterBO()">
+      <option value="">All Types</option><option value="HIGH">Highs only</option><option value="LOW">Lows only</option>
+      <option value="1Y">1Y</option><option value="6M">6M</option><option value="3M">3M</option>
+    </select>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Breakouts &amp; breakdowns</h3><span class="count" id="bo-count"></span></div>
+    <div class="card-body"><table id="tbl-bo" class="dtable" style="width:100%">
+      <thead><tr><th>Symbol</th><th>Type</th><th>Close</th><th>Chg %</th><th>Volume</th><th>Sector</th></tr></thead>
+      <tbody id="bo-body"></tbody></table></div>
+  </div>
+</section>
 
-  <div class="tab-pane fade" id="tab-rvol">
-    <div class="legend"><strong>RVOL Daily</strong> — day change vs relative volume (today ÷ 20-day avg). RVOL ≥ 1.5 = unusually heavy trade.</div>
-    <div class="d-flex gap-2 mb-3 flex-wrap">
-      <select id="rv-dir" class="control" onchange="filterRV()">
-        <option value="">Up + Down</option><option value="up">Up only</option><option value="down">Down only</option>
-      </select>
-      <select id="rv-min" class="control" onchange="filterRV()">
-        <option value="1.5">RVOL ≥ 1.5</option><option value="2">RVOL ≥ 2</option>
-        <option value="3">RVOL ≥ 3</option><option value="1.2">RVOL ≥ 1.2</option>
-      </select>
-    </div>
-    <div class="panel"><div class="panel-head"><h2>Daily RVOL Movers</h2><span class="count" id="rv-count"></span></div>
-      <div class="p-1"><table id="tbl-rv" class="table mb-0" style="width:100%">
-        <thead><tr><th>Symbol</th><th>Close</th><th>Chg %</th><th>RVOL</th><th>Volume</th><th>20d Avg</th><th>Sector</th></tr></thead>
-        <tbody id="rv-body"></tbody></table></div>
-    </div>
+<section class="chapter" id="volume">
+  <div class="ch-head"><span class="ch-no">03 · RELATIVE VOLUME</span>
+    <h2>Where the crowd showed up</h2>
+    <p class="ch-lede">Day change against relative volume — today's turnover divided by its own 20-day average.
+      An RVOL of <b>1.5×</b> or more means unusually heavy trade; 3× means someone knows something.</p>
   </div>
+  <div class="controls">
+    <select id="rv-dir" class="control" onchange="filterRV()">
+      <option value="">Up + Down</option><option value="up">Up only</option><option value="down">Down only</option>
+    </select>
+    <select id="rv-min" class="control" onchange="filterRV()">
+      <option value="1.5">RVOL ≥ 1.5</option><option value="2">RVOL ≥ 2</option>
+      <option value="3">RVOL ≥ 3</option><option value="1.2">RVOL ≥ 1.2</option>
+    </select>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Daily RVOL movers</h3><span class="count" id="rv-count"></span></div>
+    <div class="card-body"><table id="tbl-rv" class="dtable" style="width:100%">
+      <thead><tr><th>Symbol</th><th>Close</th><th>Chg %</th><th>RVOL</th><th>Volume</th><th>20d Avg</th><th>Sector</th></tr></thead>
+      <tbody id="rv-body"></tbody></table></div>
+  </div>
+</section>
 
-  <div class="tab-pane fade" id="tab-ep">
-    <div class="legend"><strong>Episodic Pivot</strong> — gap ≥1%, move ≥7%, volume ≥3× the 50-day average on the same day.
-      6-month leaderboard ranked by return from pivot close to latest close.</div>
-    <div class="d-flex gap-2 mb-3 flex-wrap">
-      <select id="ep-type" class="control" onchange="filterEP()">
-        <option value="">All Types</option><option value="BULLISH">Bullish only</option><option value="BEARISH">Bearish only</option>
-      </select>
-      <select id="ep-earn" class="control" onchange="filterEP()">
-        <option value="">All Pivots</option><option value="1">📅 On earnings only</option><option value="0">Non-earnings only</option>
-      </select>
-    </div>
-    <div class="panel"><div class="panel-head"><h2>Episodic Pivots — 6M Leaderboard</h2><span class="count" id="ep-count"></span></div>
-      <div class="p-1"><table id="tbl-ep" class="table mb-0" style="width:100%">
-        <thead><tr><th>#</th><th>Symbol</th><th>Type</th><th>Pivot Date</th><th>Earnings</th><th>Pivot Close</th>
-          <th>Last Close</th><th>Return</th><th>Gap %</th><th>Move %</th><th>Vol×</th></tr></thead>
-        <tbody id="ep-body"></tbody></table></div>
-    </div>
+<section class="chapter" id="pivots">
+  <div class="ch-head"><span class="ch-no">04 · EPISODIC PIVOTS</span>
+    <h2>Days that changed the story</h2>
+    <p class="ch-lede">A gap of <b>1%+</b>, a move of <b>7%+</b>, on <b>3×</b> normal volume — the day a stock's narrative turns.
+      Six months of pivots, ranked by the return since. Pivots that landed on an <b>earnings release</b> carry the date they reported.</p>
   </div>
+  <div class="controls">
+    <select id="ep-type" class="control" onchange="filterEP()">
+      <option value="">All Types</option><option value="BULLISH">Bullish only</option><option value="BEARISH">Bearish only</option>
+    </select>
+    <select id="ep-earn" class="control" onchange="filterEP()">
+      <option value="">All Pivots</option><option value="1">📅 On earnings only</option><option value="0">Non-earnings only</option>
+    </select>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>6-month leaderboard</h3><span class="count" id="ep-count"></span></div>
+    <div class="card-body"><table id="tbl-ep" class="dtable" style="width:100%">
+      <thead><tr><th>#</th><th>Symbol</th><th>Type</th><th>Pivot Date</th><th>Earnings</th><th>Pivot Close</th>
+        <th>Last Close</th><th>Return</th><th>Gap %</th><th>Move %</th><th>Vol×</th></tr></thead>
+      <tbody id="ep-body"></tbody></table></div>
+  </div>
+</section>
 
-  <div class="tab-pane fade" id="tab-vcp">
-    <div class="legend"><strong>VCP</strong> — +25% or more in 3 months, then a tight 15-day range (&lt;15%).</div>
-    <div class="panel"><div class="panel-head"><h2>Volatility Contraction Pattern</h2><span class="count" id="vcp-count"></span></div>
-      <div class="p-1"><table id="tbl-vcp" class="table mb-0" style="width:100%">
-        <thead><tr><th>Symbol</th><th>Close</th><th>3M Return</th><th>15d High</th><th>15d Low</th><th>15d Range</th><th>Sector</th></tr></thead>
-        <tbody id="vcp-body"></tbody></table></div>
-    </div>
+<section class="chapter" id="coils">
+  <div class="ch-head"><span class="ch-no">05 · VCP</span>
+    <h2>Coiled springs</h2>
+    <p class="ch-lede">Up <b>25% or more</b> in three months, then a tight 15-day range under <b>15%</b> —
+      strength that paused instead of unwinding. Tightest coils first.</p>
   </div>
+  <div class="card">
+    <div class="card-head"><h3>Volatility contraction</h3><span class="count" id="vcp-count"></span></div>
+    <div class="card-body"><table id="tbl-vcp" class="dtable" style="width:100%">
+      <thead><tr><th>Symbol</th><th>Close</th><th>3M Return</th><th>15d High</th><th>15d Low</th><th>15d Range</th><th>Sector</th></tr></thead>
+      <tbody id="vcp-body"></tbody></table></div>
+  </div>
+</section>
 
-  <div class="tab-pane fade" id="tab-sent">
-    <div class="legend"><strong>AAII Investor Sentiment Survey</strong> — weekly US individual-investor poll.
-      Long-run averages: bulls 37.5 · neutral 31.5 · bears 31.0. Extremes are contrarian signals.</div>
-    <div class="sent-cards">
-      <div class="sc-card"><div class="t">Bullish</div><div class="v pos" id="sn-bull">—</div><div class="d" id="sn-bull-d"></div></div>
-      <div class="sc-card"><div class="t">Neutral</div><div class="v neu" id="sn-neu">—</div><div class="d" id="sn-neu-d"></div></div>
-      <div class="sc-card"><div class="t">Bearish</div><div class="v neg" id="sn-bear">—</div><div class="d" id="sn-bear-d"></div></div>
-      <div class="sc-card"><div class="t">Bull − Bear Spread</div><div class="v" id="sn-spread">—</div><div class="d" id="sn-week"></div></div>
-    </div>
-    <div class="panel"><div class="panel-head"><h2>Bulls vs Bears — history</h2><span class="count" id="sn-count"></span></div>
-      <div id="sent-chart" style="padding:1rem"></div>
-    </div>
+<section class="chapter" id="mood">
+  <div class="ch-head"><span class="ch-no">06 · SENTIMENT</span>
+    <h2>What the crowd believes</h2>
+    <p class="ch-lede">The weekly AAII poll of US individual investors. Long-run averages: bulls <b>37.5</b>,
+      neutral <b>31.5</b>, bears <b>31.0</b>. Extremes are contrarian — maximum bullishness rarely pays.</p>
   </div>
+  <div class="sent-cards">
+    <div class="sc-card"><div class="t">Bullish</div><div class="v pos" id="sn-bull">—</div><div class="d" id="sn-bull-d"></div></div>
+    <div class="sc-card"><div class="t">Neutral</div><div class="v neu" id="sn-neu">—</div><div class="d" id="sn-neu-d"></div></div>
+    <div class="sc-card"><div class="t">Bearish</div><div class="v neg" id="sn-bear">—</div><div class="d" id="sn-bear-d"></div></div>
+    <div class="sc-card"><div class="t">Bull − Bear Spread</div><div class="v" id="sn-spread">—</div><div class="d" id="sn-week"></div></div>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Bulls vs bears — history</h3><span class="count" id="sn-count"></span></div>
+    <div id="sent-chart" style="padding:1rem"></div>
+  </div>
+</section>
 
-  <div class="tab-pane fade" id="tab-sec">
-    <div class="d-flex gap-2 mb-3">
-      <select id="sec-period" class="control" onchange="renderSectors()">
-        <option value="day">Day</option><option value="week">Week</option><option value="month">Month</option>
-      </select>
-    </div>
-    <div class="panel"><div class="panel-head"><h2>Sector Rotation</h2><span class="count" id="sec-count"></span></div>
-      <div class="sector-grid" id="sec-grid"></div>
-    </div>
+<section class="chapter" id="sectors">
+  <div class="ch-head"><span class="ch-no">07 · SECTORS</span>
+    <h2>Where money rotated</h2>
+    <p class="ch-lede">Average stock return by sector over the day, week and month — the rotation beneath the index.</p>
   </div>
-</div>
+  <div class="controls">
+    <select id="sec-period" class="control" onchange="renderSectors()">
+      <option value="day">Day</option><option value="week">Week</option><option value="month">Month</option>
+    </select>
+  </div>
+  <div class="card">
+    <div class="card-head"><h3>Sector rotation</h3><span class="count" id="sec-count"></span></div>
+    <div class="sector-grid" id="sec-grid"></div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="fbrand">The US <em style="color:var(--accent)">Tape</em></div>
+  Wilshire-style universe · NASDAQ + NYSE + AMEX, cap ≥ $150M · EOD via Yahoo Finance ·
+  AAII sentiment survey · <span id="last-updated"></span><br/>
+  The page wears the market's colour: green when the S&amp;P 500 sits above its 50- and 200-day averages,
+  red when it's lost both, amber in between.
+</footer>
 
 <div class="overlay" id="overlay">
   <div class="modal-box">
@@ -206,10 +353,8 @@ table.table{ font-size:.82rem; } table.table td, table.table th{ vertical-align:
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <script>
@@ -229,6 +374,47 @@ const setText=(id,val,cls)=>{ const el=document.getElementById(id); if(!el) retu
 const dtOpts=extra=>Object.assign({ pageLength:25, dom:"ftip", deferRender:true,
   language:{ search:"", searchPlaceholder:"Filter…", zeroRecords:"No results" } }, extra);
 const secOf=s=>sectorMap[s]?`<span class="neu" style="font-size:.75rem">${sectorMap[s]}</span>`:"";
+const cssVar=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+// ── Regime: S&P 500 vs 50/200-DMA drives the whole page's colour ──
+async function loadRegime(){
+  const { data } = await sb.from("us_index_ohlcv").select("time,close")
+    .eq("symbol","^GSPC").order("time",{ascending:false}).limit(260);
+  if(!data?.length) return;
+  const closes = data.map(r=>+r.close);            // newest first
+  const last = closes[0];
+  const ma = n => closes.length>=n ? closes.slice(0,n).reduce((a,b)=>a+b,0)/n : null;
+  const ma50 = ma(50), ma200 = ma(200);
+  const d50  = ma50!=null  ? (last/ma50 -1)*100 : null;
+  const d200 = ma200!=null ? (last/ma200-1)*100 : null;
+  const above50  = d50 !=null ? d50 >=0 : null;
+  const above200 = d200!=null ? d200>=0 : null;
+
+  let regime="mixed", title, pill;
+  if(above50 && (above200 ?? true)){
+    regime="bull"; pill="RISK ON";
+    title=`The tape is <em>green</em>.`;
+  } else if(above50===false && (above200===false || above200===null)){
+    regime="bear"; pill="RISK OFF";
+    title=`The tape is <em>red</em>.`;
+  } else {
+    pill="CROSSCURRENTS";
+    title=`The tape is <em>torn</em>.`;
+  }
+  document.documentElement.dataset.regime = regime;
+  document.getElementById("regime-pill").textContent = pill;
+  document.getElementById("hero-title").innerHTML = title;
+  document.getElementById("hero-date").textContent = data[0].time.slice(0,10);
+
+  const rel=(d,n)=> d==null ? `` :
+    `<b>${fmt(Math.abs(d),1)}%</b> ${d>=0?"above":"below"} the ${n}-day`;
+  const parts=[rel(d50,50), rel(d200,200)].filter(Boolean).join(" and ");
+  document.getElementById("hero-lede").innerHTML =
+    `The S&amp;P 500 closed at <b>${fmt(last,0)}</b> — ${parts} moving average.` +
+    (regime==="bull" ? " Trend followers have the wind at their backs."
+     : regime==="bear" ? " Until the index reclaims its averages, rallies are guilty until proven innocent."
+     : " The index sits between its averages — a market still making up its mind.");
+}
 
 async function loadSectorsMap(){
   let all=[], page=0;
@@ -266,20 +452,20 @@ async function drawBreadthChart(rows){
   const { data: spx } = await sb.from("us_index_ohlcv").select("time,open,high,low,close")
     .eq("symbol","^GSPC").order("time",{ascending:false}).limit(260);
   bChart = LightweightCharts.createChart(el, {
-    layout:{ background:{type:"solid", color:"transparent"}, textColor:"#5b6675", fontFamily:"JetBrains Mono" },
-    grid:{ vertLines:{color:"rgba(18,38,63,.07)"}, horzLines:{color:"rgba(18,38,63,.07)"} },
+    layout:{ background:{type:"solid", color:"transparent"}, textColor:cssVar("--muted"), fontFamily:"JetBrains Mono" },
+    grid:{ vertLines:{color:"rgba(255,255,255,.05)"}, horzLines:{color:"rgba(255,255,255,.05)"} },
     width:el.clientWidth, height:el.clientHeight, rightPriceScale:{visible:true}, leftPriceScale:{visible:true} });
   if(spx?.length){
-    const cs=bChart.addCandlestickSeries({ upColor:"#26d07c", downColor:"#ff5a6a", borderVisible:false,
-      wickUpColor:"#26d07c", wickDownColor:"#ff5a6a", priceScaleId:"right" });
+    const cs=bChart.addCandlestickSeries({ upColor:cssVar("--up"), downColor:cssVar("--down"), borderVisible:false,
+      wickUpColor:cssVar("--up"), wickDownColor:cssVar("--down"), priceScaleId:"right" });
     cs.setData(spx.reverse().map(b=>({time:b.time.slice(0,10), open:+b.open, high:+b.high, low:+b.low, close:+b.close})));
   }
-  const up=bChart.addHistogramSeries({ color:"rgba(21,163,74,.5)", priceScaleId:"vol" });
-  const dn=bChart.addHistogramSeries({ color:"rgba(226,55,68,.5)", priceScaleId:"vol" });
+  const up=bChart.addHistogramSeries({ color:"rgba(45,216,130,.45)", priceScaleId:"vol" });
+  const dn=bChart.addHistogramSeries({ color:"rgba(255,92,108,.45)", priceScaleId:"vol" });
   bChart.priceScale("vol").applyOptions({ scaleMargins:{ top:.75, bottom:0 } });
   up.setData(rows.map(r=>({time:r.date, value:+r.up_4pct})));
   dn.setData(rows.map(r=>({time:r.date, value:-r.down_4pct})));
-  const t21=bChart.addLineSeries({ color:"#2f7dd1", lineWidth:1.6, priceScaleId:"left",
+  const t21=bChart.addLineSeries({ color:cssVar("--info"), lineWidth:1.6, priceScaleId:"left",
     priceLineVisible:false, lastValueVisible:true });
   t21.setData(rows.filter(r=>r.pct_above_200dma!=null).map(r=>({time:r.date, value:+r.pct_above_200dma})));
   bChart.timeScale().fitContent();
@@ -418,13 +604,13 @@ async function loadSent(){
   const xs=i=>pad+i*(W-2*pad)/((data.length-1)||1), ys=v=>H-20-(v/60)*(H-40);
   const line=(key)=>data.map((r,i)=>(i?"L":"M")+xs(i).toFixed(1)+" "+ys(+r[key]).toFixed(1)).join("");
   el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%">
-    <line x1="${pad}" y1="${ys(37.5)}" x2="${W-pad}" y2="${ys(37.5)}" stroke="rgba(21,163,74,.3)" stroke-dasharray="4 4"/>
-    <line x1="${pad}" y1="${ys(31)}" x2="${W-pad}" y2="${ys(31)}" stroke="rgba(226,55,68,.3)" stroke-dasharray="4 4"/>
-    <path d="${line("bullish")}" fill="none" stroke="#15a34a" stroke-width="1.8"/>
-    <path d="${line("bearish")}" fill="none" stroke="#e23744" stroke-width="1.8"/>
-    <text x="${pad}" y="14" font-size="11" fill="#15a34a">Bulls</text>
-    <text x="${pad+42}" y="14" font-size="11" fill="#e23744">Bears</text>
-    <text x="${W-pad}" y="${H-4}" font-size="10" fill="#5b6675" text-anchor="end">${data[0].week_ending} → ${d0.week_ending}</text>
+    <line x1="${pad}" y1="${ys(37.5)}" x2="${W-pad}" y2="${ys(37.5)}" stroke="rgba(45,216,130,.3)" stroke-dasharray="4 4"/>
+    <line x1="${pad}" y1="${ys(31)}" x2="${W-pad}" y2="${ys(31)}" stroke="rgba(255,92,108,.3)" stroke-dasharray="4 4"/>
+    <path d="${line("bullish")}" fill="none" stroke="var(--up)" stroke-width="1.8"/>
+    <path d="${line("bearish")}" fill="none" stroke="var(--down)" stroke-width="1.8"/>
+    <text x="${pad}" y="14" font-size="11" fill="var(--up)">Bulls</text>
+    <text x="${pad+42}" y="14" font-size="11" fill="var(--down)">Bears</text>
+    <text x="${W-pad}" y="${H-4}" font-size="10" fill="var(--faint)" text-anchor="end">${data[0].week_ending} → ${d0.week_ending}</text>
   </svg>`;
 }
 
@@ -469,11 +655,11 @@ async function openChart(sym){
   if(!bars?.length) return;
   bars.reverse();
   chart = LightweightCharts.createChart(el, {
-    layout:{ background:{type:"solid", color:"transparent"}, textColor:"#5b6675", fontFamily:"JetBrains Mono" },
-    grid:{ vertLines:{color:"rgba(18,38,63,.07)"}, horzLines:{color:"rgba(18,38,63,.07)"} },
+    layout:{ background:{type:"solid", color:"transparent"}, textColor:cssVar("--muted"), fontFamily:"JetBrains Mono" },
+    grid:{ vertLines:{color:"rgba(255,255,255,.05)"}, horzLines:{color:"rgba(255,255,255,.05)"} },
     width:el.clientWidth, height:el.clientHeight });
-  const cs=chart.addCandlestickSeries({ upColor:"#26d07c", downColor:"#ff5a6a",
-    borderVisible:false, wickUpColor:"#26d07c", wickDownColor:"#ff5a6a" });
+  const cs=chart.addCandlestickSeries({ upColor:cssVar("--up"), downColor:cssVar("--down"),
+    borderVisible:false, wickUpColor:cssVar("--up"), wickDownColor:cssVar("--down") });
   cs.setData(bars.map(b=>({time:b.time.slice(0,10), open:+b.open, high:+b.high, low:+b.low, close:+b.close})));
   chart.timeScale().fitContent();
 }
@@ -485,7 +671,13 @@ document.addEventListener("click", e=>{
 });
 document.addEventListener("keydown", e=>{ if(e.key==="Escape") closeChart(); });
 
+// ── scroll-reveal chapters ──
+const io=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting) e.target.classList.add("vis"); }),
+  { threshold:.06 });
+document.querySelectorAll(".chapter").forEach(el=>io.observe(el));
+
 async function loadAll(){
+  await loadRegime();                      // theme first, charts read its colours
   await loadSectorsMap();
   await Promise.all([loadBreadth(), loadBO(), loadRV(), loadEP(), loadVCP(), loadSent(), loadSecTab()]);
   document.getElementById("last-updated").textContent="updated "+new Date().toLocaleTimeString();
