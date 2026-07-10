@@ -44,14 +44,15 @@ def main():
     run_date = date.fromisoformat(args.date) if args.date else None
 
     # Import here so each module picks up logging config above
-    from scan_breakouts  import run as run_breakouts
-    from scan_ep         import run as run_ep
-    from scan_manas      import run as run_manas
-    from scan_rvol       import run as run_rvol
-    from scan_screens    import run as run_screens
-    from scan_sectors    import run as run_sectors
-    from scan_vcp        import run as run_vcp
-    from scan_vcp_pro    import run as run_vcp_pro
+    from scan_breakouts   import run as run_breakouts
+    from scan_ep          import run as run_ep
+    from scan_manas       import run as run_manas
+    from scan_move_alerts import run as run_move_alerts
+    from scan_rvol        import run as run_rvol
+    from scan_screens     import run as run_screens
+    from scan_sectors     import run as run_sectors
+    from scan_vcp         import run as run_vcp
+    from scan_vcp_pro     import run as run_vcp_pro
 
     scanners = [
         ("breakouts", run_breakouts),   # fresh 6M/1Y/2Y highs & lows only
@@ -59,6 +60,7 @@ def main():
         ("vcp",       run_vcp),
         ("vcp_pro",   run_vcp_pro),
         ("manas",     run_manas),
+        ("move",      run_move_alerts), # 10%+ move alerts (calibrated ignition)
         ("rvol",      run_rvol),        # daily RVOL movers (all stocks)
         ("screens",   run_screens),     # JFS multi-screen scanner (10 screens)
         ("sectors",   run_sectors),

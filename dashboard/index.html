@@ -392,6 +392,7 @@
     <div class="kpi k-info"><div class="kpi-label">VCP Setups</div><div class="kpi-val neu" id="kpi-vcp">—</div></div>
     <div class="kpi k-up"><div class="kpi-label">VCP Pro Active</div><div class="kpi-val up" id="kpi-vcppro">—</div></div>
     <div class="kpi k-up"><div class="kpi-label">Manas Ready</div><div class="kpi-val up" id="kpi-manas">—</div></div>
+    <div class="kpi k-up"><div class="kpi-label">10% Move Ready</div><div class="kpi-val up" id="kpi-move">—</div></div>
   </div>
 
   <ul class="nav tabbar" id="mainTabs" role="tablist">
@@ -402,6 +403,7 @@
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-vcp">🎯 VCP</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-vcppro">🌀 VCP Pro</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-manas">🧭 Manas Scan</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-move">💥 10% Move</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-sentiment">🐂 Sentiment</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-sectors">🌐 Sectors</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-hourly">⏱ Hourly F&O</a></li>
@@ -564,6 +566,46 @@
             <th>Prior Move</th><th>5d Range</th><th>Vol×</th><th>Setup</th><th>Score</th><th>Ready</th><th>F&O</th>
           </tr></thead>
           <tbody id="manas-body"></tbody></table></div>
+      </div>
+    </div>
+
+    <!-- 10% MOVE ALERTS TAB -->
+    <div class="tab-pane fade" id="tab-move">
+      <div class="manas-legend">
+        <strong>10% Move Alerts</strong> — stocks primed for a <b>10%+ upside move within
+        ~10 sessions</b>. Score weights are <em>calibrated</em>, not assumed: every signal is
+        replayed over the trailing year vs the matched base rate. What works: high-energy
+        names (typical ATR ≥3%/day) + <b>volume-surge ignition</b> (RVOL ≥2.5× on an up day)
+        + trend, levels &amp; accumulation. The classic quiet-squeeze setup <em>underperforms</em>
+        at this horizon and earns no points. Entry idea: strength through the Trigger
+        (prior 20-day high) with volume · stop −4% · target +10%. Not investment advice.
+        <div id="move-valnote" class="sent-asof"></div>
+      </div>
+      <div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
+        <select id="move-tier-filter" class="control" onchange="filterMove()">
+          <option value="">All tiers</option>
+          <option value="READY">🔥 Ready only</option>
+          <option value="SETUP">Ready + Setup</option>
+        </select>
+        <select id="move-fno-filter" class="control" onchange="filterMove()">
+          <option value="">All Stocks</option><option value="fno">F&O Only</option>
+        </select>
+      </div>
+      <div class="panel"><div class="panel-head"><h2>💥 Move Candidates</h2><span class="count" id="move-count"></span></div>
+        <div class="p-1"><table id="tbl-move" class="table mb-0" style="width:100%">
+          <thead><tr>
+            <th>Symbol</th><th>Close</th><th>Chg %</th><th>Score</th><th>Tier</th>
+            <th>RVOL</th><th>ATR %</th><th>To 20D Hi</th><th>Trigger</th><th>Target</th>
+            <th>Stop</th><th>Why</th><th>F&O</th>
+          </tr></thead>
+          <tbody id="move-body"></tbody></table></div>
+      </div>
+      <div class="panel" style="margin-top:1rem"><div class="panel-head">
+        <h2>Signal Research — 1y hit rate of each candidate signal</h2>
+        <span class="count" id="move-val-count"></span></div>
+        <div class="p-1"><table id="tbl-move-val" class="table mb-0" style="width:100%">
+          <thead><tr><th>Signal</th><th>Days</th><th>Hits</th><th>Hit rate</th><th>Lift vs base</th></tr></thead>
+          <tbody id="move-val-body"></tbody></table></div>
       </div>
     </div>
 
@@ -754,15 +796,16 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let fnoSymbols = new Set(), latestDate = null, boData = [], sectorPeriod = "day";
-let dtBreakouts, dtEP, dtVCP, dtVCPPro, dtManas, dtRVOL, dtHourly;
+let dtBreakouts, dtEP, dtVCP, dtVCPPro, dtManas, dtRVOL, dtHourly, dtMove;
 let manasData = [], sentData = [], rvolData = [], hourlyData = [], hourlyTimer = null;
+let moveData = [];
 let breadthChart, roBreadth;
 
 async function loadAll(){
   const btn = document.getElementById("refresh-btn"); btn.classList.add("spin");
   toast("Refreshing…");
   await loadFNO();   // hourly + F&O filters need the F&O symbol list first
-  await Promise.all([loadIndices(), loadBreadth(), loadBreakouts(), loadRVOL(), loadHourly(), loadEP(), loadVCP(), loadVCPPro(), loadManas(), loadSentiment(), loadSectors(), loadFNOSectors()]);
+  await Promise.all([loadIndices(), loadBreadth(), loadBreakouts(), loadRVOL(), loadHourly(), loadEP(), loadVCP(), loadVCPPro(), loadManas(), loadMove(), loadSentiment(), loadSectors(), loadFNOSectors()]);
   if(hourlyTimer) clearInterval(hourlyTimer);
   hourlyTimer = setInterval(loadHourly, 300000);   // refresh hourly feed every 5 min
   if(fnoStocks.length) renderFNOSectors();   // re-render with scan-hit badges once every scanner has loaded
@@ -1085,6 +1128,74 @@ function renderManas(data){
   dtManas = $("#tbl-manas").DataTable(dtOpts({ order:[], columnDefs:[{ orderable:false, targets:[7,9] }] }));
 }
 function filterManas(){ renderManas(applyManasFilters(manasData)); }
+
+// ── 10% Move Alerts tab (scanner_move_alerts + scanner_move_validation) ──
+async function loadMove(){
+  const { data, error } = await sb.from("scanner_move_alerts").select("*")
+    .order("run_date", { ascending:false }).order("score", { ascending:false }).limit(500);
+  if(error||!data||!data.length){ setText("kpi-move", 0, "up"); return; }
+  const latest = data[0].run_date;
+  moveData = data.filter(r=>r.run_date===latest);
+  setText("kpi-move", moveData.filter(r=>r.tier==="READY").length, "up");
+  renderMove(applyMoveFilters(moveData));
+  loadMoveValidation(latest);
+}
+async function loadMoveValidation(runDate){
+  const { data } = await sb.from("scanner_move_validation").select("*")
+    .eq("run_date", runDate).limit(1);
+  const v = data?.[0];
+  if(!v) return;
+  const vars = (typeof v.variants==="string" ? JSON.parse(v.variants) : v.variants) || [];
+  const ign = vars.find(x=>x.name.startsWith("ignition (")), ignT = vars.find(x=>x.name==="ignition + uptrend");
+  if(ign) document.getElementById("move-valnote").innerHTML =
+    `Self-check (past 1y, matched base rate ${(v.base_hit_rate*100).toFixed(0)}%): ignition days hit +10% within ` +
+    `${v.fwd_window} sessions <b>${(ign.hit_rate*100).toFixed(0)}%</b> of the time (${ign.hits}/${ign.days}, <b>${ign.lift}× lift</b>)` +
+    (ignT ? `; inside an uptrend ${(ignT.hit_rate*100).toFixed(0)}% (${ignT.hits}/${ignT.days}, ${ignT.lift}×).` : ".");
+  document.getElementById("move-val-count").textContent = `base rate ${(v.base_hit_rate*100).toFixed(1)}% · ${v.base_days} stock-days · ${runDate}`;
+  document.getElementById("move-val-body").innerHTML =
+    [...vars].sort((a,b)=>(b.lift??0)-(a.lift??0)).map(x=>`<tr>
+      <td>${x.name}</td><td>${x.days}</td><td>${x.hits}</td>
+      <td>${(x.hit_rate*100).toFixed(1)}%</td>
+      <td class="${(x.lift??0)>=1.1?'pos':(x.lift??0)<0.95?'neg':'neu'}"><b>${x.lift ?? "—"}×</b></td></tr>`).join("");
+}
+function applyMoveFilters(data){
+  data = applyFno(data, "move-fno-filter");
+  const t = document.getElementById("move-tier-filter");
+  if(t && t.value==="READY") data = data.filter(r=>r.tier==="READY");
+  else if(t && t.value==="SETUP") data = data.filter(r=>r.tier==="READY"||r.tier==="SETUP");
+  return data;
+}
+function moveTierTag(t){
+  return t==="READY" ? '<span class="tag tag-ready">🔥 Ready</span>'
+       : t==="SETUP" ? '<span class="tag tag-fno">Setup</span>'
+       : '<span class="tag">Watch</span>';
+}
+function renderMove(data){
+  if(dtMove){ dtMove.destroy(); dtMove=null; }
+  const ready = data.filter(r=>r.tier==="READY").length;
+  document.getElementById("move-count").textContent =
+    `${data.length} candidates · ${ready} ready · ${moveData[0]?.run_date ?? ""}`;
+  document.getElementById("move-body").innerHTML = data.map(r=>{
+    const reasons = (typeof r.reasons==="string" ? JSON.parse(r.reasons) : r.reasons) || [];
+    const sb2 = r.score>=70?"scorebar s5":r.score>=55?"scorebar s4":"scorebar";
+    return `<tr>
+      <td>${tk(r.symbol)}</td>
+      <td>${fmt(r.close,2)}</td>
+      <td class="${r.chg_pct>=0?'pos':'neg'}"><b>${r.chg_pct>=0?'+':''}${fmt(r.chg_pct,2)}%</b></td>
+      <td><span class="${sb2}">${r.score}</span></td>
+      <td>${moveTierTag(r.tier)}</td>
+      <td style="color:var(--warn)"><b>${fmt(r.rvol,1)}×</b></td>
+      <td>${fmt(r.atr_typ_pct,1)}%</td>
+      <td class="${r.dist_20d_high_pct<=0?'pos':'neu'}">${fmt(r.dist_20d_high_pct,1)}%</td>
+      <td>${fmt(r.trigger_price,2)}</td>
+      <td class="pos">${fmt(r.target_price,2)}</td>
+      <td class="neg">${fmt(r.stop_price,2)}</td>
+      <td style="white-space:normal;min-width:240px;font-size:.8rem;color:var(--muted)">${reasons.join(" · ")}</td>
+      <td>${fnoTag(r.symbol)}</td></tr>`;
+  }).join("");
+  dtMove = $("#tbl-move").DataTable(dtOpts({ order:[], columnDefs:[{ orderable:false, targets:[11] }] }));
+}
+function filterMove(){ renderMove(applyMoveFilters(moveData)); }
 
 // ── RVOL Daily tab (scanner_rvol — all stocks, EOD) ──
 async function loadRVOL(){

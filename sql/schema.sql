@@ -321,6 +321,54 @@ DROP POLICY IF EXISTS anon_read_scanner_vcp_pro ON scanner_vcp_pro;
 CREATE POLICY anon_read_scanner_vcp_pro ON scanner_vcp_pro
   FOR SELECT TO anon USING (true);
 
+-- 10%+ move alerts (calibrated "ignition" scanner): stocks primed for a 10%+
+-- upside move within ~10 sessions. Score 0-100 built from typical-ATR energy,
+-- RVOL surge on an up day, trend, levels and accumulation — weights calibrated
+-- against the measured 1y hit rate (see scanner_move_validation). Tiers:
+-- READY >= 70, SETUP 55-69, WATCH 45-54. Written by scan_move_alerts.py.
+CREATE TABLE IF NOT EXISTS scanner_move_alerts (
+  run_date           DATE NOT NULL,
+  symbol             TEXT NOT NULL REFERENCES stocks(symbol),
+  close              NUMERIC,
+  chg_pct            NUMERIC,
+  score              INTEGER,
+  tier               TEXT,                                 -- 'READY'|'SETUP'|'WATCH'
+  rvol               NUMERIC,
+  atr_typ_pct        NUMERIC,                              -- typical (median) ATR%
+  squeeze_pctile     NUMERIC,                              -- BB-width 1y percentile
+  dist_20d_high_pct  NUMERIC,                              -- <=0 means broken out
+  dist_52w_high_pct  NUMERIC,
+  updown_vol         NUMERIC,                              -- 20d up/down volume ratio
+  trigger_price      NUMERIC,                              -- prior 20-day high
+  target_price       NUMERIC,                              -- +10%
+  stop_price         NUMERIC,                              -- -4%
+  reasons            JSONB,                                -- list of reason strings
+  PRIMARY KEY (run_date, symbol)
+);
+CREATE INDEX IF NOT EXISTS idx_scanner_move_alerts_score
+  ON scanner_move_alerts (run_date, score DESC);
+ALTER TABLE scanner_move_alerts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS anon_read_scanner_move_alerts ON scanner_move_alerts;
+CREATE POLICY anon_read_scanner_move_alerts ON scanner_move_alerts
+  FOR SELECT TO anon USING (true);
+
+-- Self-validation for the move-alert scanner: hit rate of each candidate
+-- signal over the trailing year (+10% touch within fwd_window sessions) vs
+-- the matched base rate. One row per run_date; variants is a JSONB list of
+-- {name, days, hits, hit_rate, lift}. Written by scan_move_alerts.py.
+CREATE TABLE IF NOT EXISTS scanner_move_validation (
+  run_date       DATE PRIMARY KEY,
+  fwd_window     INTEGER,
+  target_move    NUMERIC,
+  base_days      INTEGER,
+  base_hit_rate  NUMERIC,
+  variants       JSONB
+);
+ALTER TABLE scanner_move_validation ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS anon_read_scanner_move_validation ON scanner_move_validation;
+CREATE POLICY anon_read_scanner_move_validation ON scanner_move_validation
+  FOR SELECT TO anon USING (true);
+
 -- Market breadth (Worden T2107/T2108-style), one row per trading day.
 CREATE TABLE IF NOT EXISTS scanner_breadth (
   date            DATE PRIMARY KEY,
