@@ -48,8 +48,8 @@ jobs:
             echo "Full 5-year backfill (stocks → ohlcv)"
             python ingestion/fetch_data.py --mode backfill --years 5 --universe stocks 2>&1 | tee ingestion/daily_ingest.log
           else
-            echo "Daily single-day ingest (last $DAYS day(s), 500 stocks → ohlcv)"
-            python ingestion/fetch_data.py --mode daily --universe stocks --days "$DAYS" 2>&1 | tee ingestion/daily_ingest.log
+            echo "Daily single-day ingest (last $DAYS day(s), stocks + indices → ohlcv/index_ohlcv)"
+            python ingestion/fetch_data.py --mode daily --universe both --days "$DAYS" 2>&1 | tee ingestion/daily_ingest.log
           fi
 
       - name: Upload log
