@@ -180,6 +180,7 @@ footer .fbrand{ font-family:var(--serif); font-size:1rem; color:var(--muted); ma
     <a href="#pivots">Pivots</a><a href="#coils">Coils</a><a href="#mood">Mood</a><a href="#sectors">Sectors</a>
   </div>
   <span class="pill" id="regime-pill">READING…</span>
+  <button class="refresh-btn" id="sp-toggle" onclick="toggleSP()" title="Filter the breakout / RVOL / EP / VCP tables to S&amp;P 500 members only">S&amp;P 500 only: OFF</button>
   <button class="refresh-btn" id="refresh" onclick="loadAll()">⟳ refresh</button>
 </nav>
 
@@ -373,8 +374,9 @@ const SUPABASE_URL = "https://lgsgcccasccxfofxsbge.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxnc2djY2Nhc2NjeGZvZnhzYmdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5NTI5MjMsImV4cCI6MjA5NzUyODkyM30.mUk6etxWdkxttwoHnG9-F2axvj680XXOKWmjaSRYuTA";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let boData=[], rvData=[], epData=[], sectorData=[], sectorMap={};
+let boData=[], rvData=[], epData=[], vcpData=[], sectorData=[], sectorMap={};
 let dtBO, dtRV, dtEP, dtVCP;
+let sp500=new Set(), spOnly=false;
 const fmt=(v,d=2)=>(v==null||isNaN(v))?"—":Number(v).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
 const fmtVol=v=>{ if(!v) return "—"; v=+v;
   if(v>=1e9) return (v/1e9).toFixed(2)+"B"; if(v>=1e6) return (v/1e6).toFixed(2)+"M";
@@ -480,6 +482,22 @@ function drawSpark(chrono){
   const cap=document.getElementById("spark-cap"); if(cap) cap.style.display="";
 }
 
+// ── S&P 500 filter (us_stocks.is_sp500, set by us/build_us_universe.py) ──
+async function loadSP500(){
+  const { data } = await sb.from("us_stocks").select("symbol").eq("is_sp500", true).limit(1000);
+  if(data) sp500 = new Set(data.map(r=>r.symbol));
+}
+const spf = data => spOnly ? data.filter(r=>sp500.has(r.symbol)) : data;
+function toggleSP(){
+  spOnly = !spOnly;
+  const b=document.getElementById("sp-toggle");
+  b.textContent = "S&P 500 only: " + (spOnly?"ON":"OFF");
+  b.style.color = spOnly ? "var(--accent)" : "";
+  b.style.borderColor = spOnly ? "var(--accent)" : "";
+  renderBO(applyBO(boData)); renderRV(applyRV(rvData));
+  renderEP(applyEP(epData)); renderVCP(vcpData);
+}
+
 async function loadSectorsMap(){
   let all=[], page=0;
   while(true){
@@ -550,7 +568,7 @@ async function loadBO(){
 }
 function applyBO(data){
   const t=document.getElementById("bo-type").value;
-  return t ? data.filter(r=>r.breakout_type.includes(t)) : data;
+  return spf(t ? data.filter(r=>r.breakout_type.includes(t)) : data);
 }
 function renderBO(data){
   if(dtBO){ dtBO.destroy(); dtBO=null; }
@@ -579,7 +597,7 @@ function applyRV(data){
   const d=document.getElementById("rv-dir").value, m=+document.getElementById("rv-min").value;
   if(d==="up") data=data.filter(r=>(r.chg_pct??0)>0);
   if(d==="down") data=data.filter(r=>(r.chg_pct??0)<0);
-  return data.filter(r=>r.rvol>=m);
+  return spf(data.filter(r=>r.rvol>=m));
 }
 function renderRV(data){
   if(dtRV){ dtRV.destroy(); dtRV=null; }
@@ -608,7 +626,7 @@ function applyEP(data){
   let out = t ? data.filter(r=>r.ep_type===t) : data;
   if(e==="1") out = out.filter(r=>r.earnings_date);
   if(e==="0") out = out.filter(r=>!r.earnings_date);
-  return out;
+  return spf(out);
 }
 function renderEP(data){
   if(dtEP){ dtEP.destroy(); dtEP=null; }
@@ -633,12 +651,16 @@ async function loadVCP(){
   const { data: rd } = await sb.from("scanner_us_vcp").select("run_date")
     .order("run_date",{ascending:false}).limit(1);
   const latest = rd?.[0]?.run_date;
-  let data=[];
+  vcpData=[];
   if(latest){
     const res = await sb.from("scanner_us_vcp").select("*").eq("run_date", latest).order("range_15d_pct");
-    data = res.data||[];
+    vcpData = res.data||[];
   }
-  setText("kpi-vcp", data.length, "neu");
+  setText("kpi-vcp", vcpData.length, "neu");
+  renderVCP(vcpData);
+}
+function renderVCP(data){
+  data = spf(data);
   if(dtVCP){ dtVCP.destroy(); dtVCP=null; }
   document.getElementById("vcp-count").textContent = data.length ? data.length+" setups" : "no data yet";
   document.getElementById("vcp-body").innerHTML = data.map(r=>`<tr>
@@ -742,7 +764,7 @@ document.querySelectorAll(".chapter").forEach(el=>io.observe(el));
 
 async function loadAll(){
   await loadRegime();                      // theme first, charts read its colours
-  await loadSectorsMap();
+  await Promise.all([loadSectorsMap(), loadSP500()]);
   await Promise.all([loadBreadth(), loadBO(), loadRV(), loadEP(), loadVCP(), loadSent(), loadSecTab()]);
   document.getElementById("last-updated").textContent="updated "+new Date().toLocaleTimeString();
 }
