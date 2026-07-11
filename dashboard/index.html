@@ -110,6 +110,10 @@
   .panel-head{ display:flex; align-items:center; gap:.6rem; padding:.9rem 1.1rem; border-bottom:1px solid var(--border); }
   .panel-head h2{ font-size:.82rem; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin:0; font-weight:700; }
   .panel-head .count{ font-size:.72rem; color:var(--faint); font-family:var(--mono); }
+  .copy-btn{ display:inline-flex; align-items:center; gap:.35rem; font-size:.72rem; font-weight:600;
+             padding:.3rem .65rem; white-space:nowrap; }
+  .copy-btn:hover{ border-color:var(--accent); color:var(--accent); }
+  .panel-head .copy-btn{ margin-left:auto; }
 
   .control{ background:var(--surface2); color:var(--text); border:1px solid var(--border2); border-radius:10px;
             padding:.4rem .7rem; font-size:.82rem; font-weight:500; cursor:pointer; }
@@ -455,7 +459,8 @@
           <option value="">All Stocks</option><option value="fno">F&O Only</option>
         </select>
       </div>
-      <div class="panel"><div class="panel-head"><h2>Fresh Breakouts &amp; Breakdowns (6M / 1Y / 2Y)</h2><span class="count" id="bo-count"></span></div>
+      <div class="panel"><div class="panel-head"><h2>Fresh Breakouts &amp; Breakdowns (6M / 1Y / 2Y)</h2><span class="count" id="bo-count"></span>
+        <button class="control copy-btn" onclick="copyTableSymbols('tbl-breakouts')" title="Copy filtered symbols as NSE:SYMBOL — paste into a TradingView watchlist">⧉ Copy</button></div>
         <div class="p-1"><table id="tbl-breakouts" class="table mb-0" style="width:100%">
           <thead><tr><th>Symbol</th><th>Type</th><th>Close</th><th>Chg %</th><th>Volume</th><th>F&O</th></tr></thead>
           <tbody id="bo-body"></tbody></table></div>
@@ -478,7 +483,8 @@
         </select>
       </div>
       <div class="panel"><div class="panel-head"><h2>Episodic Pivot · 6-Month Leaderboard</h2>
-        <span class="count" id="ep-count">newest pivots first</span></div>
+        <span class="count" id="ep-count">newest pivots first</span>
+        <button class="control copy-btn" onclick="copyTableSymbols('tbl-ep')" title="Copy filtered symbols as NSE:SYMBOL — paste into a TradingView watchlist">⧉ Copy</button></div>
         <div class="p-1"><table id="tbl-ep" class="table mb-0" style="width:100%">
           <thead><tr><th>#</th><th>Symbol</th><th>Type</th><th>Pivot Date</th><th>Pivot Close</th>
             <th>Last Close</th><th>Return</th><th>Gap %</th><th>Move %</th><th>Vol×</th><th>F&O</th></tr></thead>
@@ -492,7 +498,8 @@
           <option value="">All Stocks</option><option value="fno">F&O Only</option>
         </select>
       </div>
-      <div class="panel"><div class="panel-head"><h2>Volatility Contraction Pattern</h2><span class="count" id="vcp-count"></span></div>
+      <div class="panel"><div class="panel-head"><h2>Volatility Contraction Pattern</h2><span class="count" id="vcp-count"></span>
+        <button class="control copy-btn" onclick="copyTableSymbols('tbl-vcp')" title="Copy filtered symbols as NSE:SYMBOL — paste into a TradingView watchlist">⧉ Copy</button></div>
         <div class="p-1"><table id="tbl-vcp" class="table mb-0" style="width:100%">
           <thead><tr><th>Symbol</th><th>Close</th><th>3M Return</th><th>15d High</th><th>15d Low</th>
             <th>15d Range</th><th>F&O</th></tr></thead>
@@ -524,7 +531,8 @@
           <option value="">All Stocks</option><option value="fno">F&O Only</option>
         </select>
       </div>
-      <div class="panel"><div class="panel-head"><h2>VCP Pro — Contraction Bases (3M)</h2><span class="count" id="vcppro-count"></span></div>
+      <div class="panel"><div class="panel-head"><h2>VCP Pro — Contraction Bases (3M)</h2><span class="count" id="vcppro-count"></span>
+        <button class="control copy-btn" onclick="copyTableSymbols('tbl-vcppro')" title="Copy filtered symbols as NSE:SYMBOL — paste into a TradingView watchlist">⧉ Copy</button></div>
         <div class="p-1"><table id="tbl-vcppro" class="table mb-0" style="width:100%">
           <thead><tr>
             <th>Symbol</th><th>Status</th><th>Setup Date</th><th>Contractions</th>
@@ -559,7 +567,8 @@
           <option value="3">Score ≥ 3</option>
         </select>
       </div>
-      <div class="panel"><div class="panel-head"><h2>Manas Scan — Layer 1 Candidates</h2><span class="count" id="manas-count"></span></div>
+      <div class="panel"><div class="panel-head"><h2>Manas Scan — Layer 1 Candidates</h2><span class="count" id="manas-count"></span>
+        <button class="control copy-btn" onclick="copyTableSymbols('tbl-manas')" title="Copy filtered symbols as NSE:SYMBOL — paste into a TradingView watchlist">⧉ Copy</button></div>
         <div class="p-1"><table id="tbl-manas" class="table mb-0" style="width:100%">
           <thead><tr>
             <th>Symbol</th><th>Close</th><th>% from High</th><th>vs 21‑EMA</th>
@@ -653,7 +662,8 @@
           <option value="">All Stocks</option><option value="fno">F&O Only</option>
         </select>
       </div>
-      <div class="panel"><div class="panel-head"><h2>Daily RVOL Movers</h2><span class="count" id="rvol-count"></span></div>
+      <div class="panel"><div class="panel-head"><h2>Daily RVOL Movers</h2><span class="count" id="rvol-count"></span>
+        <button class="control copy-btn" onclick="copyTableSymbols('tbl-rvol')" title="Copy filtered symbols as NSE:SYMBOL — paste into a TradingView watchlist">⧉ Copy</button></div>
         <div class="p-1"><table id="tbl-rvol" class="table mb-0" style="width:100%">
           <thead><tr>
             <th>Symbol</th><th>Close</th><th>Chg %</th><th>RVOL</th><th>Volume</th><th>20d Avg Vol</th><th>F&O</th>
@@ -696,7 +706,8 @@
         </select>
         <span class="live-tag" id="hr-tag"></span>
       </div>
-      <div class="panel"><div class="panel-head"><h2>Hourly F&amp;O Feed</h2><span class="count" id="hr-count"></span></div>
+      <div class="panel"><div class="panel-head"><h2>Hourly F&amp;O Feed</h2><span class="count" id="hr-count"></span>
+        <button class="control copy-btn" onclick="copyTableSymbols('tbl-hourly')" title="Copy filtered symbols as NSE:SYMBOL — paste into a TradingView watchlist">⧉ Copy</button></div>
         <div class="p-1"><table id="tbl-hourly" class="table mb-0" style="width:100%">
           <thead><tr>
             <th>Symbol</th><th>Last</th><th>Day Chg %</th><th>RVOL</th><th></th>
@@ -715,6 +726,7 @@
           <button data-p="ret_month" onclick="setFnoPeriod('ret_month')">Month</button>
         </div>
         <span class="count" id="fno-count"></span>
+        <button class="control copy-btn" style="margin-left:auto" onclick="copyFnoSymbols()" title="Copy all F&amp;O symbols as NSE:SYMBOL — paste into a TradingView watchlist">⧉ Copy</button>
       </div>
       <div id="fno-sectors"></div>
     </div>
@@ -728,6 +740,7 @@
           <button class="active" data-s="chg" onclick="setTkSort('chg')">% Chg</button>
           <button data-s="sym" onclick="setTkSort('sym')">A–Z</button>
         </div>
+        <button class="control copy-btn" onclick="copyTickSymbols()" title="Copy live-tick symbols as NSE:SYMBOL — paste into a TradingView watchlist">⧉ Copy</button>
       </div>
       <div class="live-idx" id="tk-idx"></div>
       <div class="tk-grid" id="tk-grid"></div>
@@ -771,6 +784,7 @@
         <button data-p="ret_day">Day</button><button data-p="ret_week">Week</button><button data-p="ret_month" class="active">Month</button>
       </div>
       <span class="cm-legend">sorted by selected return · click a symbol for its 2-year chart</span>
+      <button class="control copy-btn" style="margin-left:auto" onclick="copyTableSymbols('tbl-sector')" title="Copy sector symbols as NSE:SYMBOL — paste into a TradingView watchlist">⧉ Copy</button>
     </div>
     <div style="overflow:auto; flex:1; min-height:0; padding:0 .3rem;">
       <table class="table mb-0" id="tbl-sector" style="width:100%">
@@ -840,6 +854,39 @@ const applyFno = (data, selectId) => {
   const el = document.getElementById(selectId);
   return el && el.value === "fno" ? data.filter(r => fnoSymbols.has(r.symbol)) : data;
 };
+// ── Copy symbols out — TradingView watchlist format (Exchange:Symbol, comma-separated) ──
+const tvSym = s => "NSE:" + String(s).replace(/[&\-]/g, "_");
+async function copyToClipboard(text){
+  try{ await navigator.clipboard.writeText(text); return true; }
+  catch(e){
+    const ta=document.createElement("textarea"); ta.value=text;
+    ta.style.cssText="position:fixed;opacity:0"; document.body.appendChild(ta);
+    ta.select(); let ok=false; try{ ok=document.execCommand("copy"); }catch(_){}
+    ta.remove(); return ok;
+  }
+}
+async function copySymbolList(syms){
+  syms = [...new Set(syms.filter(Boolean))];
+  if(!syms.length){ toast("No symbols to copy"); return; }
+  const ok = await copyToClipboard(syms.map(tvSym).join(","));
+  toast(ok ? `Copied ${syms.length} symbols · paste into TradingView` : "Copy failed — clipboard blocked");
+}
+function copyTableSymbols(tableId){
+  const syms=[];
+  if(window.$ && $.fn.dataTable && $.fn.dataTable.isDataTable("#"+tableId)){
+    $("#"+tableId).DataTable().rows({ search:"applied" }).nodes().each(n=>{
+      const t=n.querySelector(".ticker"); if(t) syms.push(t.dataset.sym);
+    });
+  } else {
+    document.querySelectorAll("#"+tableId+" .ticker").forEach(t=>syms.push(t.dataset.sym));
+  }
+  copySymbolList(syms);
+}
+function copyFnoSymbols(){ copySymbolList(fnoStocks.map(s=>s.symbol)); }
+function copyTickSymbols(){
+  copySymbolList([...document.querySelectorAll("#tk-grid .tk")].map(el=>el.dataset.sym));
+}
+
 function fmt(v,d=2){ if(v==null||isNaN(v)) return "—";
   return Number(v).toLocaleString("en-IN",{minimumFractionDigits:d,maximumFractionDigits:d}); }
 function fmtVol(v){ if(!v) return "—"; v=+v;
