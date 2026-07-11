@@ -587,8 +587,15 @@ function filterBO(){ renderBO(applyBO(boData)); }
 
 // ── RVOL ──
 async function loadRV(){
-  const { data } = await sb.from("scanner_us_rvol").select("*")
-    .gte("rvol",1.2).order("rvol",{ascending:false}).limit(1000);
+  const { data: rd } = await sb.from("scanner_us_rvol").select("run_date")
+    .order("run_date",{ascending:false}).limit(1);
+  const latest = rd?.[0]?.run_date;
+  let data = [];
+  if(latest){
+    const res = await sb.from("scanner_us_rvol").select("*").eq("run_date", latest)
+      .gte("rvol",1.2).order("rvol",{ascending:false}).limit(1000);
+    data = res.data;
+  }
   rvData = data||[];
   setText("kpi-rvol", rvData.filter(r=>r.rvol>=1.5 && r.chg_pct).length, "neu");
   renderRV(applyRV(rvData));

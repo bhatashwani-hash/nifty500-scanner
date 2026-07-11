@@ -1199,7 +1199,11 @@ function filterMove(){ renderMove(applyMoveFilters(moveData)); }
 
 // ── RVOL Daily tab (scanner_rvol — all stocks, EOD) ──
 async function loadRVOL(){
-  const { data, error } = await sb.from("scanner_rvol").select("*")
+  const { data: rd } = await sb.from("scanner_rvol").select("run_date")
+    .order("run_date", { ascending:false }).limit(1);
+  const latest = rd?.[0]?.run_date;
+  if(!latest) return;
+  const { data, error } = await sb.from("scanner_rvol").select("*").eq("run_date", latest)
     .gte("rvol", 1.2).order("rvol", { ascending:false }).limit(1000);
   if(error||!data) return;
   rvolData = data;
