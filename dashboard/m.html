@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="theme-color" content="#eaeef4"/>
+<title>NSE Scanner · Mobile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eaeef4; --surface:#ffffff; --surface2:#eff3f9;
+    --border:rgba(18,38,63,.10); --border2:rgba(18,38,63,.17);
+    --text:#15202e; --muted:#5b6675; --faint:#8a94a3;
+    --accent:#0aa982; --accent2:#13c79a;
+    --up:#15a34a; --down:#e23744; --info:#2563eb; --warn:#d97706;
+    --upbg:rgba(21,163,74,.13); --downbg:rgba(226,55,68,.12); --infobg:rgba(37,99,235,.12);
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html{ font-size:15px; }
+  body{ margin:0; background:var(--bg); color:var(--text);
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    padding-bottom:calc(1.2rem + env(safe-area-inset-bottom)); min-height:100vh; }
+  .mono{ font-family:var(--mono); font-feature-settings:"tnum" 1; }
+  .pos{ color:var(--up); } .neg{ color:var(--down); }
+
+  .topbar{ position:sticky; top:0; z-index:40; display:flex; align-items:center; gap:.55rem;
+    padding:.7rem .9rem calc(.7rem); padding-top:calc(.7rem + env(safe-area-inset-top));
+    background:rgba(255,255,255,.85); backdrop-filter:blur(12px); border-bottom:1px solid var(--border); }
+  .brand{ display:flex; align-items:center; gap:.5rem; font-weight:800; font-size:1rem; }
+  .brand .logo{ width:26px; height:26px; border-radius:8px; display:grid; place-items:center;
+    background:linear-gradient(135deg,var(--accent),#0a8f6c); color:#04130d; font-weight:900; font-size:.9rem; }
+  .brand .sub{ color:var(--accent); }
+  .updated{ font-size:.66rem; color:var(--faint); margin-left:.1rem; }
+  .btn-refresh{ margin-left:auto; border:1px solid var(--border2); background:var(--surface2); color:var(--text);
+    border-radius:10px; padding:.4rem .75rem; font-size:.78rem; font-weight:600; }
+  .btn-refresh.spin{ opacity:.6; pointer-events:none; }
+
+  .kpis{ display:flex; gap:.5rem; padding:.7rem .9rem 0; overflow-x:auto; scrollbar-width:none; }
+  .kpis::-webkit-scrollbar{ display:none; }
+  .kpi{ flex:0 0 auto; background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding:.5rem .8rem; box-shadow:0 2px 8px rgba(18,38,63,.05); }
+  .kpi .l{ font-size:.58rem; color:var(--muted); text-transform:uppercase; letter-spacing:.7px; font-weight:700; white-space:nowrap; }
+  .kpi .v{ font-family:var(--mono); font-weight:700; font-size:1.05rem; margin-top:.1rem; }
+
+  .tabs{ position:sticky; top:0; z-index:39; display:flex; gap:.35rem; padding:.6rem .9rem;
+    background:linear-gradient(var(--bg) 70%, transparent); overflow-x:auto; scrollbar-width:none; }
+  .tabs::-webkit-scrollbar{ display:none; }
+  body.has-topbar .tabs{ top:calc(48px + env(safe-area-inset-top)); }
+  .tabs button{ flex:0 0 auto; border:1px solid var(--border); background:var(--surface); color:var(--muted);
+    font-weight:700; font-size:.82rem; border-radius:999px; padding:.45rem 1rem; }
+  .tabs button.active{ background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#04130d; border-color:transparent; }
+
+  .pane{ display:none; padding:0 .9rem; }
+  .pane.active{ display:block; }
+
+  .toolrow{ display:flex; gap:.4rem; align-items:center; margin:.2rem 0 .7rem; flex-wrap:wrap; }
+  .seg{ display:inline-flex; background:var(--surface); border:1px solid var(--border2); border-radius:10px; padding:.18rem; gap:.15rem; }
+  .seg button{ border:none; background:transparent; color:var(--muted); font-weight:600; font-size:.74rem;
+    padding:.32rem .6rem; border-radius:8px; }
+  .seg button.active{ background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#04130d; }
+  .chip-toggle{ border:1px solid var(--border2); background:var(--surface); color:var(--muted);
+    font-weight:700; font-size:.72rem; border-radius:999px; padding:.36rem .7rem; }
+  .chip-toggle.on{ background:rgba(255,180,84,.16); color:var(--warn); border-color:rgba(217,119,6,.4); }
+  .copy-btn{ margin-left:auto; border:1px solid var(--border2); background:var(--surface); color:var(--text);
+    border-radius:10px; padding:.36rem .7rem; font-size:.72rem; font-weight:700; white-space:nowrap; }
+  .copy-btn:active{ border-color:var(--accent); color:var(--accent); }
+  .count{ font-size:.68rem; color:var(--faint); font-family:var(--mono); width:100%; }
+
+  .card{ display:flex; align-items:center; gap:.6rem; background:var(--surface); border:1px solid var(--border);
+    border-radius:13px; padding:.65rem .8rem; margin-bottom:.5rem; box-shadow:0 2px 8px rgba(18,38,63,.04); }
+  .card .main{ flex:1 1 auto; min-width:0; }
+  .card .sym{ font-family:var(--mono); font-weight:700; font-size:.92rem; display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; }
+  .card .sub{ font-size:.68rem; color:var(--muted); margin-top:.2rem; font-family:var(--mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .card .right{ flex:0 0 auto; text-align:right; }
+  .card .big{ font-family:var(--mono); font-weight:700; font-size:.95rem; }
+  .card .small{ font-size:.66rem; color:var(--faint); font-family:var(--mono); margin-top:.15rem; }
+  .rank{ flex:0 0 auto; width:30px; height:30px; border-radius:9px; display:grid; place-items:center;
+    font-family:var(--mono); font-weight:700; font-size:.72rem; background:var(--surface2); color:var(--muted); }
+  .rank.top{ background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#04130d; }
+
+  .tag{ font-size:.58rem; font-weight:700; padding:.14rem .42rem; border-radius:6px; letter-spacing:.4px; text-transform:uppercase; }
+  .tag-bull{ background:var(--upbg); color:var(--up); }
+  .tag-bear{ background:var(--downbg); color:var(--down); }
+  .tag-fno{ background:rgba(255,180,84,.14); color:var(--warn); }
+  .tag-ready{ background:var(--upbg); color:var(--up); }
+
+  .setup-chips{ display:inline-flex; gap:.2rem; }
+  .sc{ display:inline-grid; place-items:center; width:17px; height:17px; border-radius:5px;
+    font-family:var(--mono); font-weight:700; font-size:.6rem; background:var(--surface2);
+    color:var(--faint); border:1px solid var(--border); }
+  .sc.on{ background:var(--upbg); color:var(--up); border-color:transparent; }
+  .sc.on-p{ background:rgba(168,85,247,.16); color:#a855f7; border-color:transparent; }
+  .scorebar{ display:inline-grid; place-items:center; min-width:26px; height:22px; border-radius:7px;
+    font-family:var(--mono); font-weight:700; font-size:.74rem; background:var(--surface2); color:var(--muted); }
+  .scorebar.s4{ background:var(--infobg); color:var(--info); }
+  .scorebar.s5{ background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#04130d; }
+
+  .more-btn{ width:100%; border:1px dashed var(--border2); background:transparent; color:var(--muted);
+    border-radius:12px; padding:.7rem; font-weight:600; font-size:.8rem; margin:.2rem 0 .8rem; }
+
+  /* F&O sectors */
+  .fno-sector{ background:var(--surface); border:1px solid var(--border); border-radius:13px;
+    margin-bottom:.6rem; overflow:hidden; }
+  .fno-head{ display:flex; align-items:center; gap:.5rem; padding:.6rem .8rem; border-bottom:1px solid var(--border); }
+  .fno-head .fs-name{ font-weight:700; font-size:.8rem; flex:1; }
+  .fno-head .fs-avg{ font-family:var(--mono); font-weight:700; font-size:.8rem; }
+  .fno-head .fs-cnt{ font-size:.64rem; color:var(--faint); font-family:var(--mono); }
+  .fno-chips{ display:flex; flex-wrap:wrap; gap:.35rem; padding:.55rem .6rem; }
+  .fno-chip{ display:flex; flex-direction:column; gap:.05rem; border:1px solid var(--border);
+    border-radius:9px; padding:.32rem .5rem; background:var(--surface2); min-width:86px; }
+  .fno-chip .fc-sym{ font-family:var(--mono); font-weight:700; font-size:.68rem; }
+  .fno-chip .fc-px{ font-family:var(--mono); font-size:.6rem; color:var(--faint); }
+  .fno-chip .fc-ret{ font-family:var(--mono); font-weight:700; font-size:.66rem; }
+  .fno-chip .fc-ret.up{ color:var(--up); } .fno-chip .fc-ret.down{ color:var(--down); }
+
+  /* Chart modal */
+  .overlay{ position:fixed; inset:0; z-index:80; background:rgba(18,32,46,.55); display:none; }
+  .overlay.open{ display:block; }
+  .sheet{ position:absolute; inset:auto 0 0 0; top:6vh; background:var(--bg); border-radius:18px 18px 0 0;
+    display:flex; flex-direction:column; overflow:hidden; }
+  .sheet-head{ display:flex; align-items:center; gap:.6rem; padding:.8rem .9rem .4rem; }
+  .cm-sym{ font-family:var(--mono); font-weight:800; font-size:1.05rem; }
+  .cm-name{ font-size:.66rem; color:var(--muted); }
+  .cm-last{ font-family:var(--mono); font-weight:700; font-size:1rem; text-align:right; }
+  .cm-chg{ font-family:var(--mono); font-size:.7rem; font-weight:700; text-align:right; }
+  .cm-close{ border:none; background:var(--surface2); color:var(--muted); width:32px; height:32px;
+    border-radius:50%; font-size:.9rem; font-weight:700; }
+  .sheet-tools{ display:flex; align-items:center; gap:.5rem; padding:.3rem .9rem .5rem; }
+  .cm-chart{ flex:1; min-height:0; padding:0 .4rem calc(.6rem + env(safe-area-inset-bottom)); }
+  .cm-chart>div{ width:100%; height:100%; }
+  .cm-loading{ position:absolute; inset:0; display:grid; place-items:center; color:var(--muted); font-size:.8rem; }
+  .spinner{ width:22px; height:22px; border:3px solid var(--border2); border-top-color:var(--accent);
+    border-radius:50%; animation:sp 1s linear infinite; margin:0 auto .5rem; }
+  @keyframes sp{ to{ transform:rotate(360deg);} }
+
+  #toast{ position:fixed; left:50%; bottom:calc(1.4rem + env(safe-area-inset-bottom)); transform:translateX(-50%) translateY(20px);
+    background:#15202e; color:#fff; font-size:.78rem; font-weight:600; padding:.55rem 1rem; border-radius:999px;
+    opacity:0; transition:.25s; z-index:99; pointer-events:none; white-space:nowrap; }
+  #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .empty{ text-align:center; color:var(--faint); font-size:.8rem; padding:2rem 0; }
+</style>
+</head>
+<body class="has-topbar">
+
+<div class="topbar">
+  <div class="brand"><span class="logo">⚡</span>NSE&nbsp;<span class="sub">Scanner</span></div>
+  <span class="updated" id="last-updated"></span>
+  <button class="btn-refresh" id="refresh-btn" onclick="loadAll()">↻</button>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="l">Bullish EP</div><div class="v pos" id="kpi-bep">—</div></div>
+  <div class="kpi"><div class="l">Manas Ready</div><div class="v pos" id="kpi-manas">—</div></div>
+  <div class="kpi"><div class="l">F&O ▲ / ▼</div><div class="v" id="kpi-fno">—</div></div>
+  <div class="kpi"><div class="l">Nifty 50</div><div class="v" id="kpi-nifty">—</div></div>
+</div>
+
+<div class="tabs" id="tabs">
+  <button data-tab="ep" class="active" onclick="setTab('ep')">⚡ Episodic Pivot</button>
+  <button data-tab="manas" onclick="setTab('manas')">🧭 Manas Scan</button>
+  <button data-tab="fno" onclick="setTab('fno')">⭐ F&O Sectors</button>
+</div>
+
+<!-- EPISODIC PIVOT -->
+<div class="pane active" id="pane-ep">
+  <div class="toolrow">
+    <div class="seg" id="ep-type">
+      <button class="active" data-v="" onclick="setEpType('')">All</button>
+      <button data-v="BULLISH" onclick="setEpType('BULLISH')">Bull</button>
+      <button data-v="BEARISH" onclick="setEpType('BEARISH')">Bear</button>
+    </div>
+    <button class="chip-toggle" id="ep-fno" onclick="toggleFilter('ep-fno'); renderEP()">F&O</button>
+    <button class="copy-btn" onclick="copyEP()">⧉ Copy</button>
+    <span class="count" id="ep-count"></span>
+  </div>
+  <div id="ep-list"></div>
+  <button class="more-btn" id="ep-more" onclick="epShown+=100; renderEP(true)" style="display:none">Show more</button>
+</div>
+
+<!-- MANAS -->
+<div class="pane" id="pane-manas">
+  <div class="toolrow">
+    <div class="seg" id="manas-mode">
+      <button class="active" data-v="" onclick="setManasMode('')">All</button>
+      <button data-v="ready" onclick="setManasMode('ready')">Ready</button>
+      <button data-v="3" onclick="setManasMode('3')">Score ≥3</button>
+    </div>
+    <button class="chip-toggle" id="manas-fno" onclick="toggleFilter('manas-fno'); renderManas()">F&O</button>
+    <button class="copy-btn" onclick="copyManas()">⧉ Copy</button>
+    <span class="count" id="manas-count"></span>
+  </div>
+  <div id="manas-list"></div>
+</div>
+
+<!-- F&O SECTORS -->
+<div class="pane" id="pane-fno">
+  <div class="toolrow">
+    <div class="seg" id="fno-period">
+      <button class="active" data-v="ret_day" onclick="setFnoPeriod('ret_day')">Day</button>
+      <button data-v="ret_week" onclick="setFnoPeriod('ret_week')">Week</button>
+      <button data-v="ret_month" onclick="setFnoPeriod('ret_month')">Month</button>
+    </div>
+    <button class="copy-btn" onclick="copyFno()">⧉ Copy</button>
+    <span class="count" id="fno-count"></span>
+  </div>
+  <div id="fno-sectors"></div>
+</div>
+
+<!-- Chart modal -->
+<div class="overlay" id="chart-overlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <div style="flex:1"><div class="cm-sym" id="cm-sym">—</div><div class="cm-name" id="cm-name"></div></div>
+      <div><div class="cm-last" id="cm-last">—</div><div class="cm-chg" id="cm-chg"></div></div>
+      <button class="cm-close" onclick="closeChart()">✕</button>
+    </div>
+    <div class="sheet-tools">
+      <div class="seg" id="cm-range">
+        <button data-r="63">3M</button><button data-r="126" class="active">6M</button>
+        <button data-r="252">1Y</button><button data-r="0">All</button>
+      </div>
+    </div>
+    <div class="cm-chart"><div id="cm-chart"></div>
+      <div class="cm-loading" id="cm-loading" style="display:none"><div><div class="spinner"></div>Loading…</div></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<script>
+const SUPABASE_URL = "https://lgsgcccasccxfofxsbge.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxnc2djY2Nhc2NjeGZvZnhzYmdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5NTI5MjMsImV4cCI6MjA5NzUyODkyM30.mUk6etxWdkxttwoHnG9-F2axvj680XXOKWmjaSRYuTA";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let fnoSymbols = new Set(), fnoStocks = [], fnoPeriod = "ret_day";
+let epData = [], epType = "", epShown = 100;
+let manasData = [], manasMode = "";
+
+function fmt(v,d=2){ if(v==null||isNaN(v)) return "—";
+  return Number(v).toLocaleString("en-IN",{minimumFractionDigits:d,maximumFractionDigits:d}); }
+let toastT;
+function toast(msg){ const el=document.getElementById("toast"); el.textContent=msg; el.classList.add("show");
+  clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove("show"), 2200); }
+const fnoTag = s => fnoSymbols.has(s) ? '<span class="tag tag-fno">F&O</span>' : "";
+const filterOn = id => document.getElementById(id).classList.contains("on");
+function toggleFilter(id){ document.getElementById(id).classList.toggle("on"); }
+
+// ── Copy symbols (TradingView watchlist format: NSE:SYMBOL, comma-separated) ──
+const tvSym = s => "NSE:" + String(s).replace(/[&\-]/g, "_");
+async function copySymbolList(syms){
+  syms = [...new Set(syms.filter(Boolean))];
+  if(!syms.length){ toast("No symbols to copy"); return; }
+  const text = syms.map(tvSym).join(",");
+  let ok = false;
+  try{ await navigator.clipboard.writeText(text); ok = true; }
+  catch(e){
+    const ta=document.createElement("textarea"); ta.value=text;
+    ta.style.cssText="position:fixed;opacity:0"; document.body.appendChild(ta);
+    ta.select(); try{ ok=document.execCommand("copy"); }catch(_){}
+    ta.remove();
+  }
+  toast(ok ? `Copied ${syms.length} symbols · paste into TradingView` : "Copy failed — clipboard blocked");
+}
+function copyEP(){ copySymbolList(epFiltered().map(r=>r.symbol)); }
+function copyManas(){ copySymbolList(manasFiltered().map(r=>r.symbol)); }
+function copyFno(){ copySymbolList(fnoStocks.map(s=>s.symbol)); }
+
+// ── Tabs ──
+function setTab(t){
+  document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("active",b.dataset.tab===t));
+  document.querySelectorAll(".pane").forEach(p=>p.classList.toggle("active",p.id==="pane-"+t));
+}
+
+// ── Load ──
+async function loadAll(){
+  const btn=document.getElementById("refresh-btn"); btn.classList.add("spin");
+  await loadFNO();
+  await Promise.all([loadEP(), loadManas(), loadFnoSectors(), loadNifty()]);
+  document.getElementById("last-updated").textContent =
+    "Updated " + new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"});
+  btn.classList.remove("spin");
+}
+async function loadFNO(){
+  const { data } = await sb.from("stocks").select("symbol").eq("is_fno", true);
+  if(data) fnoSymbols = new Set(data.map(r=>r.symbol));
+}
+async function loadNifty(){
+  const { data } = await sb.from("scanner_breadth").select("nifty50_close")
+    .order("date",{ascending:false}).limit(1);
+  const v = data?.[0]?.nifty50_close;
+  document.getElementById("kpi-nifty").textContent = v ? fmt(v,0) : "—";
+}
+
+// ── Episodic Pivot ──
+async function loadEP(){
+  const { data } = await sb.from("scanner_ep").select("*")
+    .order("run_date",{ascending:false}).order("rnk",{ascending:true});
+  if(!data) return;
+  epData = data;
+  document.getElementById("kpi-bep").textContent = data.filter(r=>r.ep_type==="BULLISH").length;
+  epShown = 100; renderEP();
+}
+function setEpType(v){ epType=v;
+  document.querySelectorAll("#ep-type button").forEach(b=>b.classList.toggle("active",b.dataset.v===v));
+  epShown=100; renderEP(); }
+function epFiltered(){
+  let d = epData;
+  if(epType) d = d.filter(r=>r.ep_type===epType);
+  if(filterOn("ep-fno")) d = d.filter(r=>fnoSymbols.has(r.symbol));
+  return d;
+}
+function renderEP(keepScroll){
+  const d = epFiltered();
+  document.getElementById("ep-count").textContent = d.length + " pivots · newest first · tap for chart";
+  const shown = d.slice(0, epShown);
+  document.getElementById("ep-list").innerHTML = shown.length ? shown.map(r=>{
+    const bull = r.ep_type==="BULLISH", ret = r.return_since_pivot;
+    return `<div class="card" data-sym="${r.symbol}">
+      <div class="rank ${r.rnk<=10?'top':''}">${r.rnk??""}</div>
+      <div class="main">
+        <div class="sym">${r.symbol}
+          <span class="tag ${bull?'tag-bull':'tag-bear'}">${bull?'Bull':'Bear'}</span>${fnoTag(r.symbol)}</div>
+        <div class="sub">${r.run_date??""} · gap ${fmt(r.gap_pct,1)}% · move ${fmt(r.move_pct,1)}% · vol ${fmt(r.vol_ratio,1)}×</div>
+      </div>
+      <div class="right">
+        <div class="big ${ret>=0?'pos':'neg'}">${ret>=0?'+':''}${fmt(ret,1)}%</div>
+        <div class="small">${fmt(r.last_close,2)}</div>
+      </div>
+    </div>`;}).join("") : '<div class="empty">No pivots match</div>';
+  document.getElementById("ep-more").style.display = d.length > epShown ? "" : "none";
+}
+
+// ── Manas ──
+async function loadManas(){
+  const { data: ld } = await sb.from("scanner_manas").select("run_date")
+    .order("run_date",{ascending:false}).limit(1);
+  const rd = ld?.[0]?.run_date; if(!rd) return;
+  const { data } = await sb.from("scanner_manas").select("*").eq("run_date", rd)
+    .order("setup_score",{ascending:false}).order("prior_move_pct",{ascending:false});
+  if(!data) return;
+  manasData = data;
+  document.getElementById("kpi-manas").textContent = data.filter(r=>r.setup_ready).length;
+  renderManas();
+}
+function setManasMode(v){ manasMode=v;
+  document.querySelectorAll("#manas-mode button").forEach(b=>b.classList.toggle("active",b.dataset.v===v));
+  renderManas(); }
+function manasFiltered(){
+  let d = manasData;
+  if(manasMode==="ready") d = d.filter(r=>r.setup_ready);
+  else if(manasMode==="3") d = d.filter(r=>r.setup_score>=3);
+  if(filterOn("manas-fno")) d = d.filter(r=>fnoSymbols.has(r.symbol));
+  return d;
+}
+function manasChips(r){
+  const c=(on,lbl,p)=>`<span class="sc ${on?(p?'on-p':'on'):''}">${lbl}</span>`;
+  const prior=r.prior_move_pct>=50, ema=r.pct_above_ema>=0&&r.pct_above_ema<=5,
+        contr=r.range_5d_pct<3&&r.vol_ratio!=null&&r.vol_ratio<1;
+  return `<span class="setup-chips">${c(prior,"P")}${c(ema,"E")}${c(contr,"C")}${c(r.inside_bar,"I")}${c(r.fast_mover,"●",true)}</span>`;
+}
+function renderManas(){
+  const d = manasFiltered();
+  const ready = d.filter(r=>r.setup_ready).length;
+  document.getElementById("manas-count").textContent = `${d.length} candidates · ${ready} ready · tap for chart`;
+  document.getElementById("manas-list").innerHTML = d.length ? d.map(r=>{
+    const cls = r.setup_score>=5?"scorebar s5":r.setup_score>=4?"scorebar s4":"scorebar";
+    return `<div class="card" data-sym="${r.symbol}">
+      <div class="main">
+        <div class="sym">${r.symbol}
+          ${r.setup_ready?'<span class="tag tag-ready">Ready</span>':''}${fnoTag(r.symbol)}</div>
+        <div class="sub">${manasChips(r)} &nbsp;hi ${fmt(r.pct_from_high,1)}% · ema ${fmt(r.pct_above_ema,1)}% · move ${fmt(r.prior_move_pct,0)}%</div>
+      </div>
+      <div class="right">
+        <span class="${cls}">${r.setup_score}</span>
+        <div class="small">${fmt(r.close,2)}</div>
+      </div>
+    </div>`;}).join("") : '<div class="empty">No candidates match</div>';
+}
+
+// ── F&O Sectors ──
+async function loadFnoSectors(){
+  const { data, error } = await sb.rpc("get_fno_stocks");
+  if(error){ document.getElementById("fno-sectors").innerHTML =
+    `<div class="empty">Couldn't load: ${error.message}</div>`; return; }
+  fnoStocks = data || [];
+  renderFnoSectors();
+}
+function setFnoPeriod(p){ fnoPeriod=p;
+  document.querySelectorAll("#fno-period button").forEach(b=>b.classList.toggle("active",b.dataset.v===p));
+  renderFnoSectors(); }
+function renderFnoSectors(){
+  const gv = s=>s[fnoPeriod];
+  const bySec = {};
+  fnoStocks.forEach(s=>{ (bySec[s.sector] ||= []).push(s); });
+  const secs = Object.entries(bySec).map(([sec,arr])=>{
+    const vals = arr.map(gv).filter(v=>v!=null);
+    const avg = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
+    return { sec, arr, avg };
+  }).sort((a,b)=>b.avg-a.avg);
+  const adv = fnoStocks.filter(s=>(gv(s)??0)>0).length, dec = fnoStocks.filter(s=>(gv(s)??0)<0).length;
+  document.getElementById("kpi-fno").innerHTML =
+    `<span class="pos">${adv}</span> / <span class="neg">${dec}</span>`;
+  document.getElementById("fno-count").textContent =
+    `${fnoStocks.length} F&O · ${secs.length} sectors · ${adv} ▲ ${dec} ▼ · tap for chart`;
+  document.getElementById("fno-sectors").innerHTML = secs.map(({sec,arr,avg})=>{
+    const aup = avg>=0;
+    const chips = [...arr].sort((a,b)=>(gv(b)??-1e9)-(gv(a)??-1e9)).map(s=>{
+      const v=gv(s), up=(v??0)>=0;
+      return `<div class="fno-chip" data-sym="${s.symbol}">
+        <span class="fc-sym">${s.symbol}</span>
+        <span class="fc-px">${s.last_close==null?'':fmt(s.last_close,1)}</span>
+        <span class="fc-ret ${up?'up':'down'}">${v==null?'—':(up?'+':'')+fmt(v,2)+'%'}</span>
+      </div>`;}).join("");
+    return `<div class="fno-sector">
+      <div class="fno-head">
+        <span class="fs-name">${sec}</span>
+        <span class="fs-avg ${aup?'pos':'neg'}">${aup?'+':''}${fmt(avg,2)}%</span>
+        <span class="fs-cnt">${arr.length}</span>
+      </div>
+      <div class="fno-chips">${chips}</div>
+    </div>`;}).join("");
+}
+
+// ── Chart modal ──
+let chart, candleSeries, volSeries, ma50, ma200, allCandles=[], allVols=[], roCm;
+function sma(arr,n){ const out=[]; let sum=0;
+  for(let i=0;i<arr.length;i++){ sum+=arr[i].close; if(i>=n) sum-=arr[i-n].close;
+    if(i>=n-1) out.push({ time:arr[i].time, value:+(sum/n).toFixed(2) }); } return out; }
+async function openChart(sym){
+  const ov=document.getElementById("chart-overlay"); ov.classList.add("open");
+  document.getElementById("cm-sym").textContent = sym;
+  document.getElementById("cm-name").textContent = "Loading…";
+  document.getElementById("cm-last").textContent = "—";
+  document.getElementById("cm-chg").textContent = "";
+  const ld=document.getElementById("cm-loading"); ld.style.display="grid";
+  const [{ data: meta }, { data: bars }] = await Promise.all([
+    sb.from("stocks").select("name, sector").eq("symbol", sym).maybeSingle(),
+    sb.from("ohlcv").select("time, open, high, low, close, volume").eq("symbol", sym)
+      .order("time",{ascending:false}).limit(600)
+  ]);
+  if(bars) bars.reverse();
+  document.getElementById("cm-name").textContent =
+    meta ? `${meta.name||""}${meta.sector?" · "+meta.sector:""}` : sym;
+  if(!bars || !bars.length){ ld.innerHTML="No price history."; return; }
+  allCandles = bars.map(b=>({ time:b.time.slice(0,10), open:+b.open, high:+b.high, low:+b.low, close:+b.close }));
+  allVols = bars.map(b=>({ time:b.time.slice(0,10), value:+b.volume,
+    color:(+b.close>=+b.open)?"rgba(38,208,124,.45)":"rgba(255,90,106,.45)" }));
+  const last=allCandles[allCandles.length-1], prev=allCandles[allCandles.length-2]||last;
+  const chg=last.close-prev.close, chgp=prev.close?chg/prev.close*100:0;
+  document.getElementById("cm-last").textContent = fmt(last.close,2);
+  const ce=document.getElementById("cm-chg");
+  ce.textContent = `${chg>=0?"▲":"▼"} ${fmt(Math.abs(chg),2)} (${fmt(chgp,2)}%)`;
+  ce.className = "cm-chg "+(chg>=0?"pos":"neg");
+  buildChart(); setRange(126);
+  ld.style.display="none";
+}
+function buildChart(){
+  const el=document.getElementById("cm-chart"); el.innerHTML="";
+  if(chart){ chart.remove(); chart=null; }
+  chart = LightweightCharts.createChart(el, {
+    layout:{ background:{type:"solid",color:"transparent"}, textColor:"#5b6675", fontFamily:"JetBrains Mono", fontSize:10 },
+    grid:{ vertLines:{color:"rgba(18,38,63,.07)"}, horzLines:{color:"rgba(18,38,63,.07)"} },
+    rightPriceScale:{ borderColor:"rgba(18,38,63,.13)" },
+    timeScale:{ borderColor:"rgba(18,38,63,.13)", rightOffset:2 },
+    handleScroll:{ mouseWheel:false }, width:el.clientWidth, height:el.clientHeight
+  });
+  candleSeries = chart.addCandlestickSeries({ upColor:"#26d07c", downColor:"#ff5a6a",
+    borderVisible:false, wickUpColor:"#26d07c", wickDownColor:"#ff5a6a" });
+  ma50  = chart.addLineSeries({ color:"#ffb454", lineWidth:1, priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false });
+  ma200 = chart.addLineSeries({ color:"#5aa9ff", lineWidth:1, priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false });
+  volSeries = chart.addHistogramSeries({ priceFormat:{type:"volume"}, priceScaleId:"vol" });
+  chart.priceScale("vol").applyOptions({ scaleMargins:{ top:0.84, bottom:0 } });
+  if(roCm) roCm.disconnect();
+  roCm = new ResizeObserver(()=>{ if(chart) chart.applyOptions({ width:el.clientWidth, height:el.clientHeight }); });
+  roCm.observe(el);
+}
+function setRange(n){
+  if(!chart||!candleSeries) return;
+  document.querySelectorAll("#cm-range button").forEach(b=>b.classList.toggle("active",+b.dataset.r===n));
+  const c = n>0 ? allCandles.slice(-n) : allCandles;
+  const v = n>0 ? allVols.slice(-n) : allVols;
+  candleSeries.setData(c); volSeries.setData(v);
+  const from = c.length ? c[0].time : "0000-00-00";
+  ma50.setData(sma(allCandles,50).filter(x=>x.time>=from));
+  ma200.setData(sma(allCandles,200).filter(x=>x.time>=from));
+  chart.timeScale().fitContent();
+}
+function closeChart(){ document.getElementById("chart-overlay").classList.remove("open");
+  if(roCm) roCm.disconnect(); }
+
+document.addEventListener("click", e=>{
+  const card=e.target.closest("[data-sym]"); if(card){ openChart(card.dataset.sym); return; }
+  const rb=e.target.closest("#cm-range button"); if(rb){ setRange(+rb.dataset.r); return; }
+  if(e.target.id==="chart-overlay") closeChart();
+});
+
+loadAll();
+</script>
+</body>
+</html>
