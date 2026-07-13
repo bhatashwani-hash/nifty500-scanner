@@ -1,14 +1,27 @@
 name: Hourly Ingestion — Yahoo 1h bars → ohlcv_hourly + hourly_feed
 
 # Hourly on NSE trading days, 9:30 AM – 3:30 PM IST.
-# 0 4-10 UTC = 9:30, 10:30, 11:30, 12:30, 13:30, 14:30, 15:30 IST.
-# Each run upserts today's 1h candles for the active stock universe and
-# rebuilds the hourly_feed snapshot (day change + time-adjusted RVOL).
-# The in-progress bar is refreshed each run; the 15:30 run finalizes the day.
+# GitHub's cron scheduler is best-effort and routinely SKIPS single hourly
+# slots (observed: only 2-3 of 7 fired per day). So instead of one :00 slot
+# per hour, we schedule three off-peak slots per hour and gate on data
+# freshness: if hourly_feed was updated < 50 min ago the run exits in
+# seconds; otherwise it performs the real ingest. Net effect: ~1 real
+# ingest/hour even when most slots are dropped, at ~30s per skipped slot.
+# 3-10 UTC covers 9:15-15:30 IST; the ~10:07+ UTC slots finalize the day
+# after the 15:30 IST close.
 on:
   schedule:
-    - cron: "0 4-10 * * 1-5"
+    - cron: "7,27,47 3-10 * * 1-5"
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Run even if hourly_feed is fresh"
+        type: boolean
+        default: true
+
+concurrency:
+  group: hourly-ingest
+  cancel-in-progress: false
 
 jobs:
   ingest:
@@ -17,19 +30,52 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      - name: Freshness gate — skip if hourly_feed updated < 50 min ago
+        id: gate
+        env:
+          SUPABASE_URL: https://lgsgcccasccxfofxsbge.supabase.co
+          # anon key (public by design, read-only via RLS)
+          ANON: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxnc2djY2Nhc2NjeGZvZnhzYmdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5NTI5MjMsImV4cCI6MjA5NzUyODkyM30.mUk6etxWdkxttwoHnG9-F2axvj680XXOKWmjaSRYuTA
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.force }}" != "false" ]; then
+            echo "manual run — skipping gate"; echo "run=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          # NSE market hours guard: 03:45–10:50 UTC (09:15 IST open → post-close finalize)
+          hm=$(date -u +%H%M)
+          if [ "$hm" -lt 0345 ] || [ "$hm" -gt 1050 ]; then
+            echo "outside market hours ($hm UTC) — skip"; echo "run=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          last=$(curl -sf "$SUPABASE_URL/rest/v1/hourly_feed?select=updated_at&order=updated_at.desc&limit=1" \
+                   -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
+                 | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['updated_at'] if d else '')" || true)
+          if [ -z "$last" ]; then
+            echo "no feed rows / check failed — running ingest"; echo "run=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          age=$(( $(date -u +%s) - $(date -u -d "$last" +%s) ))
+          echo "hourly_feed age: ${age}s (last: $last)"
+          if [ "$age" -lt 3000 ]; then
+            echo "fresh (<50 min) — skip"; echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "stale — running ingest"; echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout repo
+        if: steps.gate.outputs.run == 'true'
         uses: actions/checkout@v4
 
       - name: Set up Python
+        if: steps.gate.outputs.run == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: "pip"
 
       - name: Install dependencies
+        if: steps.gate.outputs.run == 'true'
         run: pip install -r requirements.txt
 
       - name: Run hourly ingestion
+        if: steps.gate.outputs.run == 'true'
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
@@ -37,7 +83,7 @@ jobs:
           python ingestion/fetch_hourly.py 2>&1 | tee ingestion/hourly_ingest.log
 
       - name: Upload log
-        if: always()
+        if: always() && steps.gate.outputs.run == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: hourly-ingest-log-${{ github.run_id }}
