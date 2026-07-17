@@ -234,6 +234,7 @@
   <button data-tab="ep" class="active" onclick="setTab('ep')">⚡ Episodic Pivot</button>
   <button data-tab="manas" onclick="setTab('manas')">🎯 VCP</button>
   <button data-tab="rvol" onclick="setTab('rvol')">📶 High RVOL</button>
+  <button data-tab="mv10" onclick="setTab('mv10')">💥 10% Move</button>
   <button data-tab="fno" onclick="setTab('fno')">⭐ F&O Sectors</button>
 </div>
 
@@ -288,6 +289,22 @@
   <div id="rvol-list"></div>
 </div>
 
+<!-- 10% MOVE ALERTS -->
+<div class="pane" id="pane-mv10">
+  <div class="toolrow">
+    <div class="seg" id="mv10-tier">
+      <button class="active" data-v="" onclick="setMv10Tier('')">All</button>
+      <button data-v="READY" onclick="setMv10Tier('READY')">🔥 Ready</button>
+      <button data-v="SETUP" onclick="setMv10Tier('SETUP')">Setup+</button>
+    </div>
+    <button class="chip-toggle" id="mv10-fno" onclick="toggleFilter('mv10-fno'); renderMv10()">F&O</button>
+    <button class="copy-btn" onclick="copyMv10()">⧉ Copy</button>
+    <span class="count" id="mv10-count"></span>
+    <span class="count" id="mv10-valnote"></span>
+  </div>
+  <div id="mv10-list"></div>
+</div>
+
 <!-- F&O SECTORS -->
 <div class="pane" id="pane-fno">
   <div class="toolrow">
@@ -335,6 +352,7 @@ let fnoSymbols = new Set(), fnoStocks = [], fnoPeriod = "ret_day";
 let epData = [], epType = "", epShown = 100;
 let manasData = [], manasMode = "";
 let rvolData = [], rvolDir = "", rvolMin = 1.5;
+let mv10Data = [], mv10Tier = "";
 
 function fmt(v,d=2){ if(v==null||isNaN(v)) return "—";
   return Number(v).toLocaleString("en-IN",{minimumFractionDigits:d,maximumFractionDigits:d}); }
@@ -367,6 +385,7 @@ async function copySymbolList(syms){
 function copyEP(){ copySymbolList(epFiltered().map(r=>r.symbol)); }
 function copyManas(){ copySymbolList(manasFiltered().map(r=>r.symbol)); }
 function copyRVOL(){ copySymbolList(rvolFiltered().map(r=>r.symbol)); }
+function copyMv10(){ copySymbolList(mv10Filtered().map(r=>r.symbol)); }
 function copyFno(){ copySymbolList(fnoStocks.map(s=>s.symbol)); }
 
 // ── Tabs ──
@@ -379,7 +398,7 @@ function setTab(t){
 async function loadAll(){
   const btn=document.getElementById("refresh-btn"); btn.classList.add("spin");
   await loadFNO();
-  await Promise.all([loadHero(), loadEP(), loadManas(), loadRVOL(), loadFnoSectors()]);
+  await Promise.all([loadHero(), loadEP(), loadManas(), loadRVOL(), loadMv10(), loadFnoSectors()]);
   document.getElementById("last-updated").textContent =
     "Updated " + new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"});
   btn.classList.remove("spin");
@@ -577,6 +596,57 @@ function renderRVOL(){
         <div class="small">${fmt(r.close,2)}</div>
       </div>
     </div>`;}).join("") : '<div class="empty">No movers match</div>';
+}
+
+// ── 10% Move Alerts (scanner_move_alerts — primed for +10% within ~10 sessions) ──
+async function loadMv10(){
+  const { data } = await sb.from("scanner_move_alerts").select("*")
+    .order("run_date",{ascending:false}).order("score",{ascending:false}).limit(500);
+  if(!data || !data.length){ mv10Data = []; renderMv10(); return; }
+  const latest = data[0].run_date;
+  mv10Data = data.filter(r=>r.run_date===latest);
+  renderMv10();
+  loadMv10Validation(latest);
+}
+async function loadMv10Validation(runDate){
+  const { data } = await sb.from("scanner_move_validation").select("*")
+    .eq("run_date", runDate).limit(1);
+  const v = data?.[0]; if(!v) return;
+  const vars = (typeof v.variants==="string" ? JSON.parse(v.variants) : v.variants) || [];
+  const ign = vars.find(x=>x.name.startsWith("ignition ("));
+  if(ign) document.getElementById("mv10-valnote").textContent =
+    `1y self-check: ignition hit +10% in ${v.fwd_window} sessions ${(ign.hit_rate*100).toFixed(0)}% of the time (${ign.lift}× base rate)`;
+}
+function setMv10Tier(v){ mv10Tier=v;
+  document.querySelectorAll("#mv10-tier button").forEach(b=>b.classList.toggle("active",b.dataset.v===v));
+  renderMv10(); }
+function mv10Filtered(){
+  let d = mv10Data;
+  if(mv10Tier==="READY") d = d.filter(r=>r.tier==="READY");
+  else if(mv10Tier==="SETUP") d = d.filter(r=>r.tier==="READY"||r.tier==="SETUP");
+  if(filterOn("mv10-fno")) d = d.filter(r=>fnoSymbols.has(r.symbol));
+  return d;
+}
+const mv10TierTag = t => t==="READY" ? '<span class="tag tag-ready">🔥 Ready</span>'
+  : t==="SETUP" ? '<span class="tag tag-fno">Setup</span>'
+  : '<span class="tag" style="background:var(--surface2);color:var(--faint)">Watch</span>';
+function renderMv10(){
+  const d = mv10Filtered();
+  const ready = d.filter(r=>r.tier==="READY").length;
+  document.getElementById("mv10-count").textContent =
+    `${d.length} candidates · ${ready} ready · ${mv10Data[0]?.run_date ?? ""} · trigger → +10% target, −4% stop · tap for chart`;
+  document.getElementById("mv10-list").innerHTML = d.length ? d.map(r=>{
+    const cls = r.score>=70?"scorebar s5":r.score>=55?"scorebar s4":"scorebar";
+    return `<div class="card" data-sym="${r.symbol}">
+      <div class="main">
+        <div class="sym">${r.symbol} ${mv10TierTag(r.tier)}${fnoTag(r.symbol)}</div>
+        <div class="sub">rvol ${fmt(r.rvol,1)}× · atr ${fmt(r.atr_typ_pct,1)}% · trig ${fmt(r.trigger_price,2)} · tgt ${fmt(r.target_price,2)} · stop ${fmt(r.stop_price,2)}</div>
+      </div>
+      <div class="right">
+        <span class="${cls}">${r.score}</span>
+        <div class="small ${r.chg_pct>=0?'pos':'neg'}">${r.chg_pct>=0?'+':''}${fmt(r.chg_pct,1)}% · ${fmt(r.close,2)}</div>
+      </div>
+    </div>`;}).join("") : '<div class="empty">No move candidates today</div>';
 }
 
 // ── F&O Sectors ──
