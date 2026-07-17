@@ -599,15 +599,49 @@ function renderRVOL(){
 }
 
 // ── 10% Move Alerts (scanner_move_alerts — primed for +10% within ~10 sessions) ──
+let mv10Since = {};   // symbol -> first run_date of its current alert streak
 async function loadMv10(){
   const { data } = await sb.from("scanner_move_alerts").select("*")
-    .order("run_date",{ascending:false}).order("score",{ascending:false}).limit(500);
+    .order("run_date",{ascending:false}).order("score",{ascending:false}).limit(1000);
   if(!data || !data.length){ mv10Data = []; renderMv10(); return; }
   const latest = data[0].run_date;
   mv10Data = data.filter(r=>r.run_date===latest);
   renderMv10();
   loadMv10Validation(latest);
+  loadMv10Since(latest);
 }
+async function loadMv10Since(latest){
+  // Trigger date = first day of the symbol's unbroken run of alerts ending today.
+  // Look back 3 weeks; paginate past PostgREST's 1000-row cap.
+  const cutoff = new Date(latest); cutoff.setDate(cutoff.getDate()-21);
+  const rows = [];
+  for(let page=0; page<8; page++){
+    const { data } = await sb.from("scanner_move_alerts").select("symbol, run_date")
+      .gte("run_date", cutoff.toISOString().slice(0,10))
+      .order("run_date",{ascending:false})
+      .range(page*1000, page*1000+999);
+    if(!data || !data.length) break;
+    rows.push(...data);
+    if(data.length < 1000) break;
+  }
+  if(!rows.length) return;
+  const byDate = {};
+  rows.forEach(r=>{ (byDate[r.run_date] ||= new Set()).add(r.symbol); });
+  const dates = Object.keys(byDate).sort().reverse();   // latest first
+  mv10Since = {};
+  (byDate[latest] || new Set()).forEach(sym=>{
+    let since = latest;
+    for(const d of dates){
+      if(!byDate[d].has(sym)) break;
+      since = d;
+    }
+    mv10Since[sym] = since;
+  });
+  renderMv10();
+}
+const shortDate = d => { if(!d) return "";
+  const [y,m,dd] = d.split("-");
+  return +dd + " " + ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][+m-1]; };
 async function loadMv10Validation(runDate){
   const { data } = await sb.from("scanner_move_validation").select("*")
     .eq("run_date", runDate).limit(1);
@@ -637,9 +671,12 @@ function renderMv10(){
     `${d.length} candidates · ${ready} ready · ${mv10Data[0]?.run_date ?? ""} · trigger → +10% target, −4% stop · tap for chart`;
   document.getElementById("mv10-list").innerHTML = d.length ? d.map(r=>{
     const cls = r.score>=70?"scorebar s5":r.score>=55?"scorebar s4":"scorebar";
+    const since = mv10Since[r.symbol];
+    const sinceTag = since === r.run_date ? ' <span class="tag tag-bull">New</span>'
+      : since ? ` <span class="tag" style="background:var(--infobg);color:var(--info)">since ${shortDate(since)}</span>` : "";
     return `<div class="card" data-sym="${r.symbol}">
       <div class="main">
-        <div class="sym">${r.symbol} ${mv10TierTag(r.tier)}${fnoTag(r.symbol)}</div>
+        <div class="sym">${r.symbol} ${mv10TierTag(r.tier)}${sinceTag}${fnoTag(r.symbol)}</div>
         <div class="sub">rvol ${fmt(r.rvol,1)}× · atr ${fmt(r.atr_typ_pct,1)}% · trig ${fmt(r.trigger_price,2)} · tgt ${fmt(r.target_price,2)} · stop ${fmt(r.stop_price,2)}</div>
       </div>
       <div class="right">
