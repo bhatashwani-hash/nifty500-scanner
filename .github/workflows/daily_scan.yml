@@ -20,9 +20,36 @@ jobs:
   scan:
     name: Run All Scanners
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90   # readiness gate may wait up to 50 min for ingest
 
     steps:
+      - name: Wait for today's ingest to finish (data-readiness gate)
+        if: github.event_name == 'schedule'
+        env:
+          SUPABASE_URL: https://lgsgcccasccxfofxsbge.supabase.co
+          # anon key (public by design, read-only via RLS)
+          ANON: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxnc2djY2Nhc2NjeGZvZnhzYmdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5NTI5MjMsImV4cCI6MjA5NzUyODkyM30.mUk6etxWdkxttwoHnG9-F2axvj680XXOKWmjaSRYuTA
+        run: |
+          # The ingest workflow takes ~41 min and GitHub cron start times drift,
+          # so the scan can land mid-ingest. That froze partial breadth rows
+          # (universe ~1700, no NIFTY close) on 2026-07-14..17. Wait until
+          # today's ohlcv is complete (>=2000 stocks) AND today's ^NSEI index
+          # row exists. Give up after 50 min (holiday => nothing to wait for).
+          TODAY=$(TZ=Asia/Kolkata date +%Y-%m-%d)
+          H="apikey: $ANON"; A="Authorization: Bearer $ANON"
+          for i in $(seq 1 50); do
+            N=$(curl -sf "$SUPABASE_URL/rest/v1/ohlcv?select=symbol&time=gte.${TODAY}T00:00:00&time=lt.${TODAY}T23:59:59&limit=2001" \
+                  -H "$H" -H "$A" -H "Prefer: count=exact" -I | tr -d '\r' | awk -F'/' 'tolower($0) ~ /^content-range/ {print $2}')
+            IDX=$(curl -sf "$SUPABASE_URL/rest/v1/index_ohlcv?select=close&symbol=eq.%5ENSEI&time=gte.${TODAY}T00:00:00&limit=1" \
+                  -H "$H" -H "$A" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" || echo 0)
+            echo "check $i: ohlcv rows today=$N, nsei row=$IDX"
+            if [ "${N:-0}" -ge 2000 ] && [ "$IDX" = "1" ]; then
+              echo "data ready — proceeding"; exit 0
+            fi
+            sleep 60
+          done
+          echo "::warning::Data for $TODAY never became ready (holiday or ingest failure) — scanning anyway with latest available data."
+
       - name: Checkout repo
         uses: actions/checkout@v4
 

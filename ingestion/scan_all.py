@@ -95,8 +95,12 @@ def main():
                     from scan_breadth import compute_breadth, write_breadth, load_existing_dates
                     result_df = compute_breadth(ohlcv, nifty50)
                     existing  = load_existing_dates(conn)
-                    new_dates = {d for d in result_df.index if d not in existing}
-                    write_breadth(conn, result_df, dates_filter=new_dates or None)
+                    # Also rewrite the trailing week: rows once written from a
+                    # partial ingest (low universe, missing NIFTY close) self-heal
+                    # on the next run instead of being frozen forever.
+                    recent    = set(sorted(result_df.index)[-7:])
+                    new_dates = {d for d in result_df.index if d not in existing} | recent
+                    write_breadth(conn, result_df, dates_filter=new_dates)
                     count = len(new_dates)
                 else:
                     count = fn(conn, run_date=run_date)
