@@ -84,6 +84,8 @@ th .arr{ color:var(--cyan); }
 tbody td{ padding:.3rem .5rem; border-bottom:1px solid #131c29; text-align:right; white-space:nowrap; }
 tbody tr:hover td{ background:#101827; }
 td.l, th.l{ text-align:left; }
+tr.grp td{ background:var(--panel2); color:var(--cyan); font-weight:800; letter-spacing:.1em;
+  font-size:.64rem; text-align:left; border-top:1px solid var(--line2); padding:.34rem .5rem; }
 .tick{ color:var(--cyan); font-weight:700; cursor:pointer; }
 .tick:hover{ text-decoration:underline; }
 .nm{ color:var(--muted); font-size:.68rem; max-width:200px; overflow:hidden; text-overflow:ellipsis; }
@@ -506,10 +508,29 @@ function renderEP(){
   if(epFilter==="earn") rows=rows.filter(r=>r.earnings_date);
   if(epFilter==="bull") rows=rows.filter(r=>r.ep_type==="BULLISH");
   if(epFilter==="bear") rows=rows.filter(r=>r.ep_type==="BEARISH");
-  if(epSort==="ret") rows=[...rows].sort((a,b)=>b.return_since_pivot-a.return_since_pivot);
   const nEarn = epData.filter(r=>r.earnings_date).length;
   $id("ep-meta").textContent = `${rows.length}/${epData.length} pivots · ${nEarn} on earnings`;
-  $id("ep-body").innerHTML = rows.map(r=>{
+  if(epSort==="ret"){
+    rows=[...rows].sort((a,b)=>b.return_since_pivot-a.return_since_pivot);
+    $id("ep-body").innerHTML = rows.map(epRow).join("")
+      || `<tr><td class="l neu" colspan="12">no pivots match</td></tr>`;
+    return;
+  }
+  // default view: grouped by pivot date, most recent first (return-desc inside a day)
+  rows=[...rows].sort((a,b)=> String(b.run_date).localeCompare(String(a.run_date))
+    || b.return_since_pivot - a.return_since_pivot);
+  let html="", cur=null;
+  rows.forEach(r=>{
+    if(r.run_date!==cur){
+      cur=r.run_date;
+      const n=rows.filter(x=>x.run_date===cur).length;
+      html+=`<tr class="grp"><td colspan="12">▸ ${cur} · ${n} pivot${n>1?"s":""}</td></tr>`;
+    }
+    html+=epRow(r);
+  });
+  $id("ep-body").innerHTML = html || `<tr><td class="l neu" colspan="12">no pivots match</td></tr>`;
+}
+function epRow(r){
     const bull=r.ep_type==="BULLISH";
     return `<tr><td class="neu">${r.rnk??""}</td><td class="l">${tk(r.symbol)}</td>
       <td class="l nm">${stockMap[r.symbol]?.name??""}</td>
@@ -521,7 +542,6 @@ function renderEP(){
       <td class="wrn">${fmt(r.vol_ratio,1)}×</td>
       <td>${fmt(r.close,2)}</td><td>${fmt(r.last_close,2)}</td>
       <td class="heat ${cls(r.return_since_pivot)}"><b>${sgn(r.return_since_pivot,1)}</b></td></tr>`;
-  }).join("") || `<tr><td class="l neu" colspan="12">no pivots match</td></tr>`;
 }
 $id("ep-chips").addEventListener("click", e=>{
   const c=e.target.closest(".chip"); if(!c) return;
