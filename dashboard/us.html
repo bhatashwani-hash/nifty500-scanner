@@ -1,372 +1,313 @@
 <!DOCTYPE html>
-<html lang="en" data-regime="mixed">
+<html lang="en">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Daily US Scan — a daily reading of the American market</title>
-<link href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<title>US-1000 TERMINAL</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet"/>
 <style>
-/* ── regime themes ─────────────────────────────────────────────────────── */
+/* ─────────────────────────── terminal chrome ─────────────────────────── */
 :root{
-  --ink:#eef2f6; --muted:#93a1b0; --faint:#5c6b7a;
-  --up:#2dd882; --down:#ff5c6c; --info:#5aa9ff; --warn:#f0b354;
-  --card:rgba(255,255,255,.035); --card-line:rgba(255,255,255,.09);
-  --mono:'JetBrains Mono',monospace; --serif:'Fraunces',serif; --sans:'Inter',sans-serif;
+  --bg:#070a0f; --panel:#0b101a; --panel2:#0e1520; --line:#1a2432; --line2:#233145;
+  --ink:#d6e2f0; --muted:#7d90a6; --faint:#4a5b70;
+  --up:#26d07c; --dn:#ff4d5e; --warn:#ffb454; --cyan:#39c5ff; --vio:#b18cff;
+  --up-bg:rgba(38,208,124,.10); --dn-bg:rgba(255,77,94,.10);
+  --mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
 }
-html[data-regime="bull"]{ --accent:#2dd882; --accent-ink:#0a1f14;
-  --bg0:#050f0a; --bg1:#0b2417; --glow-a:rgba(45,216,130,.16); --glow-b:rgba(45,216,130,.07); }
-html[data-regime="super"]{ --accent:#43f79c; --accent-ink:#062315;
-  --bg0:#04140c; --bg1:#0c2f1c; --glow-a:rgba(67,247,156,.24); --glow-b:rgba(67,247,156,.10); }
-html[data-regime="bear"]{ --accent:#ff5c6c; --accent-ink:#22090d;
-  --bg0:#120507; --bg1:#2a0d13; --glow-a:rgba(255,92,108,.15); --glow-b:rgba(255,92,108,.06); }
-html[data-regime="mixed"]{ --accent:#f0b354; --accent-ink:#221806;
-  --bg0:#0e0c07; --bg1:#221a0d; --glow-a:rgba(240,179,84,.13); --glow-b:rgba(240,179,84,.05); }
+*{ box-sizing:border-box; }
+html{ scroll-behavior:smooth; }
+body{ margin:0; background:var(--bg); color:var(--ink); font-family:var(--mono);
+  font-size:12.5px; line-height:1.45; }
+::selection{ background:var(--cyan); color:#04121c; }
+a{ color:inherit; }
+.pos{ color:var(--up); } .neg{ color:var(--dn); } .neu{ color:var(--muted); }
+.wrn{ color:var(--warn); } .cyn{ color:var(--cyan); }
 
-/* ── base ──────────────────────────────────────────────────────────────── */
-*{ box-sizing:border-box }
-html{ scroll-behavior:smooth }
-body{
-  margin:0; color:var(--ink); font-family:var(--sans); font-size:.9rem; line-height:1.55;
-  background:
-    radial-gradient(1100px 700px at 85% -8%, var(--glow-a), transparent 60%),
-    radial-gradient(900px 700px at -12% 28%, var(--glow-b), transparent 62%),
-    linear-gradient(180deg, var(--bg1) 0%, var(--bg0) 46%);
-  background-attachment:fixed;
-  transition:background .9s ease;
-}
-::selection{ background:var(--accent); color:var(--accent-ink); }
-a{ color:inherit }
+/* top bar + tape */
+#topbar{ position:sticky; top:0; z-index:90; background:#05080cf2; backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line); }
+.tb-row{ display:flex; align-items:center; gap:1.1rem; padding:.42rem 1rem; }
+.brand{ font-weight:800; letter-spacing:.1em; font-size:.85rem; white-space:nowrap; }
+.brand b{ color:var(--up); }
+.brand .cur{ animation:blink 1.1s steps(1) infinite; }
+@keyframes blink{ 50%{ opacity:0; } }
+#regime{ font-size:.66rem; font-weight:800; letter-spacing:.14em; padding:.14rem .55rem;
+  border:1px solid currentColor; white-space:nowrap; }
+#tape{ display:flex; gap:1.4rem; overflow-x:auto; scrollbar-width:none; flex:1; }
+#tape::-webkit-scrollbar{ display:none; }
+.tq{ white-space:nowrap; font-size:.74rem; }
+.tq .s{ color:var(--muted); font-weight:700; margin-right:.45rem; }
+#clock{ color:var(--faint); font-size:.7rem; white-space:nowrap; }
+.tb-nav{ display:flex; align-items:center; gap:.15rem; padding:0 .6rem; border-top:1px solid var(--line);
+  overflow-x:auto; scrollbar-width:none; }
+.tb-nav::-webkit-scrollbar{ display:none; }
+.tb-nav a{ text-decoration:none; color:var(--muted); font-size:.68rem; font-weight:700;
+  letter-spacing:.1em; padding:.42rem .7rem; white-space:nowrap; }
+.tb-nav a:hover, .tb-nav a.act{ color:var(--ink); background:var(--panel2); }
+.tb-nav a kbd{ color:var(--faint); font-weight:400; margin-right:.35rem; }
+#sym-search{ margin-left:auto; background:var(--panel); border:1px solid var(--line);
+  color:var(--ink); font-family:var(--mono); font-size:.72rem; padding:.3rem .6rem; width:150px; outline:none; }
+#sym-search:focus{ border-color:var(--cyan); }
 
-/* ── top nav ───────────────────────────────────────────────────────────── */
-.topnav{
-  position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:1.4rem;
-  padding:.8rem clamp(1rem,4vw,3rem);
-  background:color-mix(in srgb, var(--bg0) 74%, transparent); backdrop-filter:blur(14px);
-  border-bottom:1px solid var(--card-line);
-}
-.brand{ font-family:var(--serif); font-size:1.05rem; font-weight:600; letter-spacing:.01em; white-space:nowrap; }
-.brand em{ color:var(--accent); font-style:italic; }
-.navlinks{ display:flex; gap:1.1rem; overflow-x:auto; scrollbar-width:none; }
-.navlinks::-webkit-scrollbar{ display:none }
-.navlinks a{ color:var(--muted); text-decoration:none; font-size:.76rem; font-weight:600;
-  letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
-.navlinks a:hover{ color:var(--ink) }
-.pill{ margin-left:auto; font-family:var(--mono); font-size:.68rem; font-weight:700; letter-spacing:.14em;
-  color:var(--accent); border:1px solid var(--accent); border-radius:99px; padding:.28rem .8rem; white-space:nowrap; }
-.refresh-btn{ background:transparent; border:1px solid var(--card-line); color:var(--muted); border-radius:99px;
-  padding:.28rem .8rem; font-size:.72rem; cursor:pointer; }
-.refresh-btn:hover{ color:var(--ink); border-color:var(--muted) }
+/* layout */
+main{ max-width:1720px; margin:0 auto; padding:.8rem 1rem 4rem;
+  display:grid; grid-template-columns:repeat(12,1fr); gap:.8rem; }
+.panel{ background:var(--panel); border:1px solid var(--line); min-width:0; }
+.ph{ display:flex; align-items:baseline; gap:.8rem; padding:.5rem .8rem; border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,var(--panel2),var(--panel)); flex-wrap:wrap; }
+.ph h2{ margin:0; font-size:.72rem; font-weight:800; letter-spacing:.18em; color:var(--ink); }
+.ph h2::before{ content:"▮ "; color:var(--up); }
+.ph .meta{ color:var(--faint); font-size:.66rem; letter-spacing:.05em; }
+.ph .spacer{ flex:1; }
+.pb{ padding:.55rem .8rem .8rem; overflow-x:auto; }
+.span12{ grid-column:span 12; } .span8{ grid-column:span 8; } .span7{ grid-column:span 7; }
+.span6{ grid-column:span 6; } .span5{ grid-column:span 5; } .span4{ grid-column:span 4; }
+@media (max-width:1100px){ .span8,.span7,.span6,.span5,.span4{ grid-column:span 12; } }
+section{ display:contents; }
+.anchor{ grid-column:span 12; height:0; scroll-margin-top:78px; }
 
-/* ── hero ──────────────────────────────────────────────────────────────── */
-.hero{ min-height:88vh; display:flex; flex-direction:column; justify-content:center;
-  padding:4rem clamp(1rem,6vw,6rem) 3rem; }
-.eyebrow{ font-family:var(--mono); font-size:.72rem; letter-spacing:.22em; color:var(--accent);
-  text-transform:uppercase; margin-bottom:1.2rem; }
-.hero-title{ font-family:var(--serif); font-weight:560; font-size:clamp(2.9rem,8.5vw,7rem);
-  line-height:1.02; letter-spacing:-.02em; margin:0 0 1.4rem; max-width:14ch; }
-.hero-title em{ font-style:italic; color:var(--accent); }
-.hero-lede{ font-size:clamp(1rem,1.7vw,1.25rem); color:var(--muted); max-width:56ch; margin:0 0 1.8rem; }
-.hero-lede b{ color:var(--ink); font-weight:600 }
-.hero-spark{ max-width:760px; margin-bottom:.4rem; }
-.spark-cap{ font-family:var(--mono); font-size:.66rem; color:var(--faint); letter-spacing:.06em;
-  margin-bottom:2.2rem; }
-.spark-cap i{ font-style:normal }
-.hero-stats{ display:flex; flex-wrap:wrap; gap:0; border-top:1px solid var(--card-line); max-width:1000px; }
-.chip{ padding:.9rem 1.6rem .9rem 0; margin-right:1.6rem; border-right:1px solid var(--card-line); }
-.chip:last-child{ border-right:none }
-.chip-label{ display:block; font-size:.62rem; font-weight:700; letter-spacing:.12em;
-  text-transform:uppercase; color:var(--faint); margin-bottom:.15rem; }
-.kpi-val{ font-family:var(--mono); font-size:1.25rem; font-weight:700; }
-.kpi-val.up{ color:var(--up) } .kpi-val.down{ color:var(--down) } .kpi-val.neu{ color:var(--ink) }
-.scroll-hint{ margin-top:3.5rem; color:var(--faint); font-size:1.2rem; animation:bob 2.2s ease-in-out infinite; width:fit-content; }
-@keyframes bob{ 0%,100%{ transform:translateY(0)} 50%{ transform:translateY(8px)} }
+/* stat tiles */
+.tiles{ display:grid; grid-template-columns:repeat(auto-fit,minmax(105px,1fr)); gap:.5rem; }
+.tile{ background:var(--panel2); border:1px solid var(--line); padding:.5rem .6rem; }
+.tile .k{ font-size:.6rem; color:var(--faint); letter-spacing:.12em; font-weight:700; }
+.tile .v{ font-size:1.15rem; font-weight:800; margin-top:.1rem; }
+.tile .d{ font-size:.62rem; color:var(--muted); }
 
-/* ── chapters ──────────────────────────────────────────────────────────── */
-main{ padding:0 clamp(1rem,6vw,6rem) 4rem; }
-.chapter{ padding:4.5rem 0 1rem; scroll-margin-top:4.5rem; max-width:1240px; margin:0 auto;
-  opacity:0; transform:translateY(26px); transition:opacity .7s ease, transform .7s ease; }
-.chapter.vis{ opacity:1; transform:none }
-.ch-head{ margin-bottom:1.8rem; max-width:70ch; }
-.ch-no{ font-family:var(--mono); font-size:.72rem; letter-spacing:.24em; color:var(--accent); }
-.ch-head h2{ font-family:var(--serif); font-weight:560; font-size:clamp(1.7rem,3.6vw,2.7rem);
-  letter-spacing:-.015em; line-height:1.1; margin:.4rem 0 .7rem; }
-.ch-lede{ color:var(--muted); font-size:.95rem; margin:0; }
-.ch-lede b{ color:var(--ink); font-weight:600 }
+/* tables */
+table{ width:100%; border-collapse:collapse; font-size:.74rem; }
+thead th{ text-align:right; font-size:.6rem; color:var(--faint); font-weight:700; letter-spacing:.1em;
+  padding:.32rem .5rem; border-bottom:1px solid var(--line2); white-space:nowrap; position:sticky; top:0;
+  background:var(--panel); cursor:default; }
+thead th:first-child, tbody td:first-child{ text-align:left; }
+th.sortable{ cursor:pointer; } th.sortable:hover{ color:var(--ink); }
+th .arr{ color:var(--cyan); }
+tbody td{ padding:.3rem .5rem; border-bottom:1px solid #131c29; text-align:right; white-space:nowrap; }
+tbody tr:hover td{ background:#101827; }
+td.l, th.l{ text-align:left; }
+.tick{ color:var(--cyan); font-weight:700; cursor:pointer; }
+.tick:hover{ text-decoration:underline; }
+.nm{ color:var(--muted); font-size:.68rem; max-width:200px; overflow:hidden; text-overflow:ellipsis; }
+.heat{ font-weight:700; }
+.badge{ font-size:.6rem; font-weight:800; letter-spacing:.06em; padding:.1rem .38rem; white-space:nowrap; }
+.b-up{ background:var(--up-bg); color:var(--up); border:1px solid #1c5e40; }
+.b-dn{ background:var(--dn-bg); color:var(--dn); border:1px solid #6e2530; }
+.b-wa{ background:rgba(255,180,84,.1); color:var(--warn); border:1px solid #6e5122; }
+.b-nu{ background:rgba(125,144,166,.08); color:var(--muted); border:1px solid var(--line2); }
+.b-cy{ background:rgba(57,197,255,.08); color:var(--cyan); border:1px solid #1b5570; }
+.adbar{ display:inline-flex; width:64px; height:7px; background:#20130f; vertical-align:middle; }
+.adbar i{ display:block; height:100%; }
+.etftag{ color:var(--vio); font-weight:700; }
+.sub{ color:var(--faint); font-size:.64rem; }
+.ldr{ color:var(--muted); font-size:.66rem; }
+.ldr b{ color:var(--ink); font-weight:500; }
 
-.card{ background:var(--card); border:1px solid var(--card-line); border-radius:16px;
-  overflow:hidden; margin-bottom:1.2rem; }
-.card-head{ display:flex; align-items:baseline; gap:1rem; flex-wrap:wrap; padding:1rem 1.3rem .6rem; }
-.card-head h3{ font-size:.82rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
-  color:var(--muted); margin:0; }
-.count{ font-size:.74rem; color:var(--faint); font-family:var(--mono); }
-.card-body{ padding: .4rem 1rem 1rem; }
-.controls{ display:flex; gap:.6rem; flex-wrap:wrap; margin-bottom:1.1rem; }
-.control{ background:rgba(255,255,255,.05); border:1px solid var(--card-line); border-radius:10px;
-  color:var(--ink); font-size:.78rem; padding:.42rem .7rem; font-family:var(--sans); }
-.control option{ background:var(--bg0); color:var(--ink); }
+/* filter chips */
+.chips{ display:flex; gap:.35rem; flex-wrap:wrap; }
+.chip{ background:var(--panel2); border:1px solid var(--line); color:var(--muted); font-family:var(--mono);
+  font-size:.64rem; font-weight:700; letter-spacing:.08em; padding:.22rem .55rem; cursor:pointer; }
+.chip:hover{ color:var(--ink); }
+.chip.on{ color:var(--up); border-color:var(--up); background:var(--up-bg); }
 
-/* ── tables ────────────────────────────────────────────────────────────── */
-table.dtable{ width:100%; border-collapse:collapse; font-size:.83rem; }
-table.dtable thead th{ text-align:left; font-size:.64rem; font-weight:700; letter-spacing:.1em;
-  text-transform:uppercase; color:var(--faint); padding:.55rem .7rem; border-bottom:1px solid var(--card-line);
-  background:transparent; }
-table.dtable tbody td{ padding:.55rem .7rem; border-bottom:1px solid rgba(255,255,255,.045); vertical-align:middle; }
-table.dtable tbody tr:hover td{ background:rgba(255,255,255,.03) }
-.pos{ color:var(--up) } .neg{ color:var(--down) } .neu{ color:var(--muted) }
-.tag{ font-size:.64rem; font-weight:700; padding:.2rem .55rem; border-radius:6px; white-space:nowrap; }
-.tag-high{ background:rgba(45,216,130,.13); color:var(--up); }
-.tag-low{ background:rgba(255,92,108,.13); color:var(--down); }
-.ticker{ font-family:var(--mono); font-weight:700; color:var(--info); cursor:pointer; }
-.ticker:hover{ text-decoration:underline }
+/* charts */
+#breadth-chart{ width:100%; height:330px; }
+.legend{ font-size:.62rem; color:var(--faint); display:flex; gap:1rem; flex-wrap:wrap; padding:.2rem 0 0; }
+.legend i{ font-style:normal; }
 
-/* DataTables chrome on dark */
-.dataTables_wrapper{ color:var(--muted); font-size:.78rem; padding:0 .3rem; }
-.dataTables_wrapper .dataTables_filter{ float:right; margin:.2rem 0 .8rem; }
-.dataTables_wrapper .dataTables_filter input{
-  background:rgba(255,255,255,.05); border:1px solid var(--card-line); border-radius:10px;
-  color:var(--ink); padding:.4rem .7rem; margin-left:0; outline:none; }
-.dataTables_wrapper .dataTables_info{ color:var(--faint); padding-top:.9rem; }
-.dataTables_wrapper .dataTables_paginate{ padding-top:.6rem }
-.dataTables_wrapper .dataTables_paginate .paginate_button{
-  color:var(--muted)!important; border:none!important; background:transparent!important; border-radius:8px; }
-.dataTables_wrapper .dataTables_paginate .paginate_button:hover{
-  color:var(--ink)!important; background:rgba(255,255,255,.06)!important; }
-.dataTables_wrapper .dataTables_paginate .paginate_button.current{
-  color:var(--accent)!important; background:rgba(255,255,255,.06)!important; }
-table.dataTable thead .sorting, table.dataTable thead .sorting_asc, table.dataTable thead .sorting_desc{
-  background-image:none!important; }
+/* news */
+.news-item{ display:flex; gap:.7rem; padding:.42rem 0; border-bottom:1px solid #121a26; align-items:baseline; }
+.news-item .t{ color:var(--faint); font-size:.64rem; min-width:88px; }
+.news-item .h{ font-size:.76rem; }
+.news-item .h a{ text-decoration:none; }
+.news-item .h a:hover{ color:var(--cyan); }
+.news-item .src{ color:var(--faint); font-size:.62rem; }
 
-/* ── sentiment & sectors ───────────────────────────────────────────────── */
-.sent-cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1rem; margin-bottom:1.2rem; }
-.sc-card{ background:var(--card); border:1px solid var(--card-line); border-radius:16px; padding:1rem 1.2rem; }
-.sc-card .t{ font-size:.64rem; font-weight:700; color:var(--faint); text-transform:uppercase; letter-spacing:.12em; }
-.sc-card .v{ font-family:var(--mono); font-size:1.7rem; font-weight:700; margin:.15rem 0; }
-.sc-card .d{ font-size:.7rem; color:var(--faint); }
-.sector-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(215px,1fr)); gap:.8rem; padding:1.1rem; }
-.sector-tile{ border:1px solid var(--card-line); border-radius:12px; padding:.8rem 1rem; background:rgba(255,255,255,.02); }
-.sector-tile.up{ border-left:3px solid var(--up) } .sector-tile.down{ border-left:3px solid var(--down) }
-.st-name{ font-weight:600; font-size:.8rem } .st-ret{ font-family:var(--mono); font-weight:700; font-size:1.1rem }
-.st-sub{ font-size:.68rem; color:var(--faint) }
+/* earnings columns */
+.earn-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:.8rem; }
+.earn-col h3{ margin:.2rem 0 .4rem; font-size:.64rem; letter-spacing:.16em; color:var(--muted); font-weight:800; }
 
-/* ── modal ─────────────────────────────────────────────────────────────── */
-.overlay{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.62); backdrop-filter:blur(4px); z-index:60; }
-.overlay.open{ display:grid; place-items:center }
-.modal-box{ background:var(--bg0); border:1px solid var(--card-line); border-radius:18px;
-  width:min(980px,96vw); height:min(620px,90vh); display:flex; flex-direction:column; overflow:hidden; }
-.mb-head{ display:flex; align-items:center; gap:1rem; padding:.9rem 1.2rem; border-bottom:1px solid var(--card-line); }
-.mb-sym{ font-family:var(--mono); font-weight:700; font-size:1.05rem; color:var(--accent); }
-.mb-name{ color:var(--muted); font-size:.72rem }
-.mb-close{ margin-left:auto; border:none; background:transparent; font-size:1.1rem; color:var(--muted); cursor:pointer; }
-#chart{ flex:1 }
-
-/* ── footer ────────────────────────────────────────────────────────────── */
-footer{ border-top:1px solid var(--card-line); margin-top:3rem;
-  padding:2.2rem clamp(1rem,6vw,6rem) 3rem; color:var(--faint); font-size:.74rem; }
-footer .fbrand{ font-family:var(--serif); font-size:1rem; color:var(--muted); margin-bottom:.4rem; }
-.chart-note{ font-size:.72rem; color:var(--faint); padding:0 1.3rem .4rem; }
-@media (max-width:640px){
-  .hero{ min-height:74vh } .chip{ padding-right:1rem; margin-right:1rem }
-  .navlinks{ display:none }
-}
+/* modal */
+#modal{ position:fixed; inset:0; background:rgba(3,6,10,.82); z-index:200; display:none;
+  align-items:center; justify-content:center; padding:2rem; }
+#modal.open{ display:flex; }
+#modal .box{ background:var(--panel); border:1px solid var(--line2); width:min(1000px,96vw); }
+#modal .bh{ display:flex; align-items:center; gap:1rem; padding:.6rem .9rem; border-bottom:1px solid var(--line); }
+#modal .bh b{ color:var(--cyan); font-size:.95rem; }
+#modal .bh .x{ margin-left:auto; cursor:pointer; color:var(--muted); font-size:1rem; padding:.1rem .5rem; }
+#modal .bh .x:hover{ color:var(--dn); }
+#mchart{ width:100%; height:440px; }
+#loadbar{ position:fixed; top:0; left:0; height:2px; background:var(--up); width:0; z-index:300; transition:width .3s; }
+.err{ color:var(--dn); font-size:.72rem; padding:.6rem 0; }
 </style>
 </head>
 <body>
+<div id="loadbar"></div>
 
-<nav class="topnav">
-  <span class="brand">Daily US <em>Scan</em></span>
-  <div class="navlinks">
-    <a href="#pulse">Pulse</a><a href="#breakouts">Breakouts</a><a href="#volume">Volume</a>
-    <a href="#pivots">Pivots</a><a href="#coils">Coils</a><a href="#mood">Mood</a><a href="#sectors">Sectors</a>
+<header id="topbar">
+  <div class="tb-row">
+    <span class="brand">US-1000<b>_</b>TERMINAL<span class="cur">▍</span></span>
+    <span id="regime" class="neu">·····</span>
+    <div id="tape"><span class="tq neu">loading tape …</span></div>
+    <span id="clock"></span>
   </div>
-  <span class="pill" id="regime-pill">READING…</span>
-  <button class="refresh-btn" id="sp-toggle" onclick="toggleSP()" title="Filter the breakout / RVOL / EP / VCP tables to S&amp;P 500 members only">S&amp;P 500 only: OFF</button>
-  <button class="refresh-btn" id="refresh" onclick="loadAll()">⟳ refresh</button>
-</nav>
-
-<header class="hero" id="top">
-  <div class="eyebrow">US Market · <span id="hero-date">—</span></div>
-  <h1 class="hero-title" id="hero-title">Reading the tape<em>…</em></h1>
-  <p class="hero-lede" id="hero-lede">Fetching a year of S&amp;P 500 history to place today's close against its 50- and 200-day moving averages.</p>
-  <div class="hero-spark" id="hero-spark" aria-label="S&P 500 with 50- and 200-day moving averages"></div>
-  <div class="spark-cap" id="spark-cap" style="display:none">
-    <i style="color:var(--accent)">━</i> S&amp;P 500 &nbsp;·&nbsp; <i style="color:var(--info)">━</i> 50-day
-    &nbsp;·&nbsp; <i style="color:var(--muted)">┄</i> 200-day &nbsp;·&nbsp; last 6 months</div>
-  <div class="hero-stats">
-    <div class="chip"><span class="chip-label">S&amp;P 500</span><span class="kpi-val neu" id="kpi-spx">—</span></div>
-    <div class="chip"><span class="chip-label">Up 4%+</span><span class="kpi-val up" id="kpi-up4">—</span></div>
-    <div class="chip"><span class="chip-label">Down 4%+</span><span class="kpi-val down" id="kpi-dn4">—</span></div>
-    <div class="chip"><span class="chip-label">&gt; 200-DMA</span><span class="kpi-val neu" id="kpi-t2108">—</span></div>
-    <div class="chip"><span class="chip-label">Fresh Breakouts</span><span class="kpi-val up" id="kpi-bo">—</span></div>
-    <div class="chip"><span class="chip-label">RVOL Movers</span><span class="kpi-val neu" id="kpi-rvol">—</span></div>
-    <div class="chip"><span class="chip-label">Bullish EPs</span><span class="kpi-val up" id="kpi-ep">—</span></div>
-    <div class="chip"><span class="chip-label">VCP Coils</span><span class="kpi-val neu" id="kpi-vcp">—</span></div>
-  </div>
-  <a class="scroll-hint" href="#pulse" aria-label="scroll">↓</a>
+  <nav class="tb-nav">
+    <a href="#s-market" class="act"><kbd>1</kbd>MARKET</a>
+    <a href="#s-sectors"><kbd>2</kbd>SECTORS</a>
+    <a href="#s-themes"><kbd>3</kbd>THEMES</a>
+    <a href="#s-ep"><kbd>4</kbd>EPISODIC PIVOTS</a>
+    <a href="#s-vcp"><kbd>5</kbd>VCP</a>
+    <a href="#s-earnings"><kbd>6</kbd>EARNINGS</a>
+    <a href="#s-news"><kbd>7</kbd>NEWS</a>
+    <input id="sym-search" placeholder="SYMBOL ⏎ chart" autocomplete="off" spellcheck="false"/>
+  </nav>
 </header>
 
 <main>
 
-<section class="chapter" id="pulse">
-  <div class="ch-head"><span class="ch-no">01 · BREADTH</span>
-    <h2>The market's pulse</h2>
-    <p class="ch-lede">Each session we count how many of roughly <b>4,000 US stocks</b> moved 4% either way, and what share
-      still trades above its 200-day average. Candles are the S&amp;P 500; the bars underneath are the day's 4% up and down counts.</p>
-  </div>
-  <div class="card">
-    <div class="card-head"><h3>S&amp;P 500 vs breadth</h3><span class="count" id="br-count"></span></div>
-    <div class="chart-note"><span style="color:var(--up)">▮</span>/<span style="color:var(--down)">▮</span> 4% up/down ·
-      <span style="color:var(--info)">━</span> % above 200-DMA · candles = S&amp;P 500</div>
-    <div style="position:relative"><div id="breadth-chart" style="height:430px"></div></div>
-  </div>
-  <div class="card">
-    <div class="card-head"><h3>Session log</h3></div>
-    <div style="overflow:auto;max-height:55vh">
-      <table class="dtable">
-        <thead><tr><th>Date</th><th>↑4%</th><th>↓4%</th><th>5d Ratio</th><th>10d Ratio</th>
-          <th>% &gt; 200-DMA</th><th>Universe</th><th>S&amp;P 500</th></tr></thead>
-        <tbody id="br-body"></tbody></table>
+  <!-- ══ 1 · MARKET ══ -->
+  <div class="anchor" id="s-market"></div>
+  <div class="panel span8">
+    <div class="ph"><h2>MARKET BREADTH — S&amp;P 500 × TOP-1000 UNIVERSE</h2>
+      <span class="spacer"></span><span class="meta" id="br-meta">…</span></div>
+    <div class="pb">
+      <div id="breadth-chart"></div>
+      <div class="legend">
+        <i class="pos">▮ up ≥4% day</i><i class="neg">▮ down ≥4% day</i>
+        <i class="cyn">— % above 200-DMA (left)</i><i class="neu">candles: SPX (right)</i>
+      </div>
     </div>
   </div>
-</section>
+  <div class="panel span4">
+    <div class="ph"><h2>TAPE STATS</h2><span class="spacer"></span><span class="meta" id="ts-meta"></span></div>
+    <div class="pb">
+      <div class="tiles" id="tiles">
+        <div class="tile"><div class="k">UP ≥4%</div><div class="v pos" id="t-up4">—</div><div class="d">today</div></div>
+        <div class="tile"><div class="k">DOWN ≥4%</div><div class="v neg" id="t-dn4">—</div><div class="d">today</div></div>
+        <div class="tile"><div class="k">5D RATIO</div><div class="v" id="t-r5">—</div><div class="d">up4 ÷ dn4</div></div>
+        <div class="tile"><div class="k">10D RATIO</div><div class="v" id="t-r10">—</div><div class="d">up4 ÷ dn4</div></div>
+        <div class="tile"><div class="k">&gt;200-DMA</div><div class="v" id="t-t2107">—</div><div class="d">of universe</div></div>
+        <div class="tile"><div class="k">UNIVERSE</div><div class="v neu" id="t-uni">—</div><div class="d">stocks scanned</div></div>
+      </div>
+      <table style="margin-top:.7rem">
+        <thead><tr><th class="l">INDEX</th><th>LAST</th><th>1D%</th><th>1W%</th><th>1M%</th></tr></thead>
+        <tbody id="idx-body"><tr><td class="l neu" colspan="5">…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
 
-<section class="chapter" id="breakouts">
-  <div class="ch-head"><span class="ch-no">02 · FRESH BREAKOUTS</span>
-    <h2>New ground, first day only</h2>
-    <p class="ch-lede">Stocks printing their <b>first</b> close at a new 3-month, 6-month or 1-year high or low —
-      continuation days are excluded, and the longest window wins. The 1-year list activates as history accrues past the initial backfill.</p>
+  <!-- ══ 2 · SECTORS ══ -->
+  <div class="anchor" id="s-sectors"></div>
+  <div class="panel span12">
+    <div class="ph"><h2>SECTOR PERFORMANCE — DAY / WEEK / MONTH</h2>
+      <span class="meta">avg of constituents · <span class="etftag">ETF</span> = tracked fund return</span>
+      <span class="spacer"></span><span class="meta" id="sec-meta">…</span></div>
+    <div class="pb">
+      <table id="tbl-sec">
+        <thead><tr>
+          <th class="l">SECTOR</th><th>ETF</th>
+          <th class="sortable" data-t="sec" data-k="d">1D%</th><th class="sub">ETF 1D</th>
+          <th class="sortable" data-t="sec" data-k="w">1W%</th><th class="sub">ETF 1W</th>
+          <th class="sortable" data-t="sec" data-k="m">1M%</th><th class="sub">ETF 1M</th>
+          <th>A/D</th><th class="l">DAY LEADERS</th>
+        </tr></thead>
+        <tbody id="sec-body"><tr><td class="l neu" colspan="10">loading …</td></tr></tbody>
+      </table>
+    </div>
   </div>
-  <div class="controls">
-    <select id="bo-type" class="control" onchange="filterBO()">
-      <option value="">All Types</option><option value="HIGH">Highs only</option><option value="LOW">Lows only</option>
-      <option value="1Y">1Y</option><option value="6M">6M</option><option value="3M">3M</option>
-    </select>
-  </div>
-  <div class="card">
-    <div class="card-head"><h3>Breakouts &amp; breakdowns</h3><span class="count" id="bo-count"></span></div>
-    <div class="card-body"><table id="tbl-bo" class="dtable" style="width:100%">
-      <thead><tr><th>Symbol</th><th>Type</th><th>Close</th><th>Chg %</th><th>Volume</th><th>Sector</th></tr></thead>
-      <tbody id="bo-body"></tbody></table></div>
-  </div>
-</section>
 
-<section class="chapter" id="volume">
-  <div class="ch-head"><span class="ch-no">03 · RELATIVE VOLUME</span>
-    <h2>Where the crowd showed up</h2>
-    <p class="ch-lede">Day change against relative volume — today's turnover divided by its own 20-day average.
-      An RVOL of <b>1.5×</b> or more means unusually heavy trade; 3× means someone knows something.</p>
+  <!-- ══ 3 · THEMES ══ -->
+  <div class="anchor" id="s-themes"></div>
+  <div class="panel span12">
+    <div class="ph"><h2>GRANULAR THEMES — SEMIS · SOFTWARE · BIOTECH · BANKS …</h2>
+      <span class="meta">industry-mapped baskets from the top-1000 · click a column to sort</span>
+      <span class="spacer"></span><span class="meta" id="th-meta">…</span></div>
+    <div class="pb">
+      <table id="tbl-th">
+        <thead><tr>
+          <th class="l">THEME</th><th>ETF</th>
+          <th class="sortable" data-t="th" data-k="d">1D%</th><th class="sub">ETF 1D</th>
+          <th class="sortable" data-t="th" data-k="w">1W%</th><th class="sub">ETF 1W</th>
+          <th class="sortable" data-t="th" data-k="m">1M%</th><th class="sub">ETF 1M</th>
+          <th>N</th><th>A/D</th><th class="l">DAY LEADERS</th>
+        </tr></thead>
+        <tbody id="th-body"><tr><td class="l neu" colspan="11">loading …</td></tr></tbody>
+      </table>
+    </div>
   </div>
-  <div class="controls">
-    <select id="rv-dir" class="control" onchange="filterRV()">
-      <option value="">Up + Down</option><option value="up">Up only</option><option value="down">Down only</option>
-    </select>
-    <select id="rv-min" class="control" onchange="filterRV()">
-      <option value="1.5">RVOL ≥ 1.5</option><option value="2">RVOL ≥ 2</option>
-      <option value="3">RVOL ≥ 3</option><option value="1.2">RVOL ≥ 1.2</option>
-    </select>
-  </div>
-  <div class="card">
-    <div class="card-head"><h3>Daily RVOL movers</h3><span class="count" id="rv-count"></span></div>
-    <div class="card-body"><table id="tbl-rv" class="dtable" style="width:100%">
-      <thead><tr><th>Symbol</th><th>Close</th><th>Chg %</th><th>RVOL</th><th>Volume</th><th>20d Avg</th><th>Sector</th></tr></thead>
-      <tbody id="rv-body"></tbody></table></div>
-  </div>
-</section>
 
-<section class="chapter" id="pivots">
-  <div class="ch-head"><span class="ch-no">04 · EPISODIC PIVOTS</span>
-    <h2>Days that changed the story</h2>
-    <p class="ch-lede">A gap of <b>1%+</b>, a move of <b>7%+</b>, on <b>3×</b> normal volume — the day a stock's narrative turns.
-      Six months of pivots, ranked by the return since. Pivots that landed on an <b>earnings release</b> carry the date they reported.</p>
+  <!-- ══ 4 · EPISODIC PIVOTS ══ -->
+  <div class="anchor" id="s-ep"></div>
+  <div class="panel span12">
+    <div class="ph"><h2>EPISODIC PIVOTS — 6-MONTH LEADERBOARD</h2>
+      <span class="meta">gap ≥1% · move ≥7% · vol ≥3× 50d · top-1000 only</span>
+      <span class="spacer"></span>
+      <div class="chips" id="ep-chips">
+        <span class="chip on" data-f="all">ALL</span>
+        <span class="chip" data-f="earn">EARNINGS EP</span>
+        <span class="chip" data-f="bull">BULLISH</span>
+        <span class="chip" data-f="bear">BEARISH</span>
+      </div>
+      <span class="meta" id="ep-meta">…</span></div>
+    <div class="pb" style="max-height:560px; overflow-y:auto;">
+      <table id="tbl-ep">
+        <thead><tr>
+          <th>#</th><th class="l">SYM</th><th class="l">NAME</th><th>TYPE</th><th>PIVOT DATE</th>
+          <th>EARNINGS</th><th>GAP%</th><th>MOVE%</th><th>VOL×</th><th>PIVOT PX</th><th>LAST</th>
+          <th class="sortable" data-t="ep" data-k="ret">SINCE%</th>
+        </tr></thead>
+        <tbody id="ep-body"><tr><td class="l neu" colspan="12">loading …</td></tr></tbody>
+      </table>
+    </div>
   </div>
-  <div class="controls">
-    <select id="ep-type" class="control" onchange="filterEP()">
-      <option value="">All Types</option><option value="BULLISH">Bullish only</option><option value="BEARISH">Bearish only</option>
-    </select>
-    <select id="ep-earn" class="control" onchange="filterEP()">
-      <option value="">All Pivots</option><option value="1">📅 On earnings only</option><option value="0">Non-earnings only</option>
-    </select>
-  </div>
-  <div class="card">
-    <div class="card-head"><h3>6-month leaderboard</h3><span class="count" id="ep-count"></span></div>
-    <div class="card-body"><table id="tbl-ep" class="dtable" style="width:100%">
-      <thead><tr><th>#</th><th>Symbol</th><th>Type</th><th>Pivot Date</th><th>Earnings</th><th>Pivot Close</th>
-        <th>Last Close</th><th>Return</th><th>Gap %</th><th>Move %</th><th>Vol×</th></tr></thead>
-      <tbody id="ep-body"></tbody></table></div>
-  </div>
-</section>
 
-<section class="chapter" id="coils">
-  <div class="ch-head"><span class="ch-no">05 · VCP</span>
-    <h2>Coiled springs</h2>
-    <p class="ch-lede">Up <b>25% or more</b> in three months, then a tight 15-day range under <b>15%</b> —
-      strength that paused instead of unwinding. Tightest coils first.</p>
+  <!-- ══ 5 · VCP ══ -->
+  <div class="anchor" id="s-vcp"></div>
+  <div class="panel span12">
+    <div class="ph"><h2>VCP — VOLATILITY CONTRACTION</h2>
+      <span class="meta">3M return ≥25% · 15-day range &lt;15% · tightest first</span>
+      <span class="spacer"></span><span class="meta" id="vcp-meta">…</span></div>
+    <div class="pb" style="max-height:520px; overflow-y:auto;">
+      <table id="tbl-vcp">
+        <thead><tr>
+          <th class="l">SYM</th><th class="l">NAME</th><th class="l">SECTOR</th><th>CLOSE</th>
+          <th>3M%</th><th>15D HI</th><th>15D LO</th><th>RANGE%</th><th>PIVOT BUY&gt;</th>
+        </tr></thead>
+        <tbody id="vcp-body"><tr><td class="l neu" colspan="9">loading …</td></tr></tbody>
+      </table>
+    </div>
   </div>
-  <div class="card">
-    <div class="card-head"><h3>Volatility contraction</h3><span class="count" id="vcp-count"></span></div>
-    <div class="card-body"><table id="tbl-vcp" class="dtable" style="width:100%">
-      <thead><tr><th>Symbol</th><th>Close</th><th>3M Return</th><th>15d High</th><th>15d Low</th><th>15d Range</th><th>Sector</th></tr></thead>
-      <tbody id="vcp-body"></tbody></table></div>
-  </div>
-</section>
 
-<section class="chapter" id="mood">
-  <div class="ch-head"><span class="ch-no">06 · SENTIMENT</span>
-    <h2>What the crowd believes</h2>
-    <p class="ch-lede">The weekly AAII poll of US individual investors. Long-run averages: bulls <b>37.5</b>,
-      neutral <b>31.5</b>, bears <b>31.0</b>. Extremes are contrarian — maximum bullishness rarely pays.</p>
+  <!-- ══ 6 · EARNINGS ══ -->
+  <div class="anchor" id="s-earnings"></div>
+  <div class="panel span12">
+    <div class="ph"><h2>EARNINGS — BEAT / MISS vs ESTIMATES</h2>
+      <span class="meta">top-1000 reporters · NASDAQ consensus</span>
+      <span class="spacer"></span><span class="meta" id="er-meta">…</span></div>
+    <div class="pb">
+      <div class="earn-grid">
+        <div class="earn-col"><h3>◉ TODAY</h3><div id="er-today"><span class="neu">…</span></div></div>
+        <div class="earn-col"><h3>◈ REPORTED — LAST 7 SESSIONS</h3><div id="er-recent"><span class="neu">…</span></div></div>
+        <div class="earn-col"><h3>◇ UPCOMING — NEXT 7 DAYS</h3><div id="er-next"><span class="neu">…</span></div></div>
+      </div>
+    </div>
   </div>
-  <div class="sent-cards">
-    <div class="sc-card"><div class="t">Bullish</div><div class="v pos" id="sn-bull">—</div><div class="d" id="sn-bull-d"></div></div>
-    <div class="sc-card"><div class="t">Neutral</div><div class="v neu" id="sn-neu">—</div><div class="d" id="sn-neu-d"></div></div>
-    <div class="sc-card"><div class="t">Bearish</div><div class="v neg" id="sn-bear">—</div><div class="d" id="sn-bear-d"></div></div>
-    <div class="sc-card"><div class="t">Bull − Bear Spread</div><div class="v" id="sn-spread">—</div><div class="d" id="sn-week"></div></div>
-  </div>
-  <div class="card">
-    <div class="card-head"><h3>Bulls vs bears — history</h3><span class="count" id="sn-count"></span></div>
-    <div id="sent-chart" style="padding:1rem"></div>
-  </div>
-</section>
 
-<section class="chapter" id="sectors">
-  <div class="ch-head"><span class="ch-no">07 · SECTORS</span>
-    <h2>Where money rotated</h2>
-    <p class="ch-lede">Average stock return by sector over the day, week and month — the rotation beneath the index.</p>
+  <!-- ══ 7 · NEWS ══ -->
+  <div class="anchor" id="s-news"></div>
+  <div class="panel span12">
+    <div class="ph"><h2>NEWS WIRE — MOVERS &amp; MARKET</h2>
+      <span class="meta">headlines attached to today's biggest movers + SPY/QQQ</span>
+      <span class="spacer"></span><span class="meta" id="nw-meta">…</span></div>
+    <div class="pb" id="news-body" style="max-height:600px; overflow-y:auto;"><span class="neu">loading …</span></div>
   </div>
-  <div class="controls">
-    <select id="sec-period" class="control" onchange="renderSectors()">
-      <option value="day">Day</option><option value="week">Week</option><option value="month">Month</option>
-    </select>
-  </div>
-  <div class="card">
-    <div class="card-head"><h3>Sector rotation</h3><span class="count" id="sec-count"></span></div>
-    <div class="sector-grid" id="sec-grid"></div>
-  </div>
-</section>
 
 </main>
 
-<footer>
-  <div class="fbrand">Daily US <em style="color:var(--accent)">Scan</em></div>
-  Wilshire-style universe · NASDAQ + NYSE + AMEX, cap ≥ $150M · EOD via Yahoo Finance ·
-  AAII sentiment survey · <span id="last-updated"></span><br/>
-  The page wears the market's colour: green when the S&amp;P 500 sits above its 50- and 200-day averages —
-  brightening to super-bullish when it also clears the 10- and 20-day — red when it's lost both long averages,
-  amber in between.
-</footer>
+<div id="modal"><div class="box">
+  <div class="bh"><b id="m-sym">—</b><span id="m-name" class="neu"></span>
+    <span id="m-chg"></span><span class="x" onclick="closeModal()">✕ esc</span></div>
+  <div id="mchart"></div>
+</div></div>
 
-<div class="overlay" id="overlay">
-  <div class="modal-box">
-    <div class="mb-head">
-      <div><div class="mb-sym" id="mb-sym">—</div><div class="mb-name" id="mb-name"></div></div>
-      <button class="mb-close" onclick="closeChart()">✕</button>
-    </div>
-    <div id="chart"></div>
-  </div>
-</div>
-
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <script>
@@ -374,408 +315,389 @@ const SUPABASE_URL = "https://lgsgcccasccxfofxsbge.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxnc2djY2Nhc2NjeGZvZnhzYmdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5NTI5MjMsImV4cCI6MjA5NzUyODkyM30.mUk6etxWdkxttwoHnG9-F2axvj680XXOKWmjaSRYuTA";
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let boData=[], rvData=[], epData=[], vcpData=[], sectorData=[], sectorMap={};
-let dtBO, dtRV, dtEP, dtVCP;
-let sp500=new Set(), spOnly=false;
-const fmt=(v,d=2)=>(v==null||isNaN(v))?"—":Number(v).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
-const fmtVol=v=>{ if(!v) return "—"; v=+v;
-  if(v>=1e9) return (v/1e9).toFixed(2)+"B"; if(v>=1e6) return (v/1e6).toFixed(2)+"M";
-  if(v>=1e3) return (v/1e3).toFixed(1)+"K"; return String(v); };
-const tk=s=>`<span class="ticker" data-sym="${s}">${s}</span>`;
-const setText=(id,val,cls)=>{ const el=document.getElementById(id); if(!el) return;
-  el.textContent=val??"—"; if(cls) el.className="kpi-val "+cls; };
-const dtOpts=extra=>Object.assign({ pageLength:25, dom:"ftip", deferRender:true,
-  language:{ search:"", searchPlaceholder:"Filter…", zeroRecords:"No results" } }, extra);
-const secOf=s=>sectorMap[s]?`<span class="neu" style="font-size:.75rem">${sectorMap[s]}</span>`:"";
-const cssVar=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+/* ── helpers ── */
+const $id = i => document.getElementById(i);
+const fmt = (v,d=2) => (v==null||isNaN(v)) ? "—" : Number(v).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+const sgn = (v,d=2) => (v==null||isNaN(v)) ? "—" : (v>0?"+":"") + fmt(v,d);
+const cls = v => v==null ? "neu" : v>0 ? "pos" : v<0 ? "neg" : "neu";
+const tk  = s => `<span class="tick" data-sym="${s}">${s}</span>`;
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+// heat cell: colored bg scaled to |v| against a per-period cap
+function heat(v, cap){
+  if(v==null||isNaN(v)) return `<td class="neu">—</td>`;
+  const a = Math.min(Math.abs(v)/cap, 1) * .34;
+  const bg = v>=0 ? `rgba(38,208,124,${a})` : `rgba(255,77,94,${a})`;
+  return `<td class="heat ${cls(v)}" style="background:${bg}">${sgn(v,1)}</td>`;
+}
+const etfCell = v => `<td class="sub ${cls(v)}">${v==null?"—":sgn(v,1)}</td>`;
+function adBar(u,d){
+  const t=(u+d)||1, pu=Math.round(u/t*100);
+  return `<span class="adbar" title="${u} adv / ${d} dec">
+    <i style="width:${pu}%;background:var(--up)"></i><i style="width:${100-pu}%;background:var(--dn)"></i></span>`;
+}
+function ldr(s){
+  if(!s) return "";
+  return s.split(", ").map(x=>{ const [sym,...r]=x.split(" ");
+    return `<b class="tick" data-sym="${sym}">${sym}</b> <span class="${r.join("")[0]==="-"?"neg":"pos"}">${r.join(" ")}</span>`; }).join(" · ");
+}
+const mcapFmt = v => v==null ? "—" : v>=1e12 ? fmt(v/1e12,2)+"T" : v>=1e9 ? fmt(v/1e9,1)+"B" : fmt(v/1e6,0)+"M";
+let prog=0; const bump=()=>{ prog+=12; $id("loadbar").style.width=Math.min(prog,96)+"%";
+  if(prog>=96) setTimeout(()=>$id("loadbar").style.width="0",700); };
 
-// ── Regime: S&P 500 vs 50/200-DMA drives the whole page's colour ──
-async function loadRegime(){
-  const { data } = await sb.from("us_index_ohlcv").select("time,close")
-    .eq("symbol","^GSPC").order("time",{ascending:false}).limit(260);
-  if(!data?.length) return;
-  const closes = data.map(r=>+r.close);            // newest first
-  const last = closes[0];
-  const ma = n => closes.length>=n ? closes.slice(0,n).reduce((a,b)=>a+b,0)/n : null;
-  const ma10 = ma(10), ma20 = ma(20), ma50 = ma(50), ma200 = ma(200);
-  const d50  = ma50!=null  ? (last/ma50 -1)*100 : null;
-  const d200 = ma200!=null ? (last/ma200-1)*100 : null;
-  const above10  = ma10!=null  ? last>=ma10  : null;
-  const above20  = ma20!=null  ? last>=ma20  : null;
-  const above50  = d50 !=null ? d50 >=0 : null;
-  const above200 = d200!=null ? d200>=0 : null;
+/* ── clock (ET) ── */
+setInterval(()=>{ $id("clock").textContent =
+  new Date().toLocaleString("en-US",{timeZone:"America/New_York",weekday:"short",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}) + " ET";
+},1000);
 
-  let regime="mixed", title, pill;
-  if(above10 && above20 && above50 && (above200 ?? true)){
-    regime="super"; pill="SUPER BULLISH";
-    title=`The tape is <em>roaring</em>.`;
-  } else if(above50 && (above200 ?? true)){
-    regime="bull"; pill="RISK ON";
-    title=`The tape is <em>green</em>.`;
-  } else if(above50===false && (above200===false || above200===null)){
-    regime="bear"; pill="RISK OFF";
-    title=`The tape is <em>red</em>.`;
-  } else {
-    pill="CROSSCURRENTS";
-    title=`The tape is <em>torn</em>.`;
+/* ── state ── */
+let stockMap={};           // symbol -> {name, sector, market_cap}
+let epData=[], epFilter="all", epSort=null;
+let secRows=[], thRows=[], sortState={sec:{k:"d",asc:false}, th:{k:"d",asc:false}};
+
+/* ── stocks meta ── */
+async function loadStocks(){
+  const { data } = await sb.from("us_stocks").select("symbol,name,sector,market_cap")
+    .eq("is_active",true).order("cap_rank").range(0,1199);
+  const clean = n => (n||"")
+    .replace(/ (Common Stock|Common Shares|Ordinary Shares|Class [A-C].*|Depositary Shares.*|American Depositary.*|Sponsored ADR.*|Unsponsored.*)$/i,"")
+    .replace(/\s*\([^)]*\)\s*$/,"")
+    .replace(/,? Inc\.?$| Corporation$| Incorporated$| Company$| Holding Company$| plc\.?$| p\.l\.c\.?$/i,"");
+  (data||[]).forEach(r=>{ r.name=clean(r.name); stockMap[r.symbol]=r; });
+  bump();
+}
+
+/* ── tape + regime ── */
+async function loadTape(){
+  const IDX = [["^GSPC","SPX"],["^NDX","NDX"],["^DJI","DJI"],["^RUT","RUT"],["^VIX","VIX"]];
+  const { data } = await sb.from("us_index_ohlcv").select("symbol,time,close")
+    .in("symbol", IDX.map(x=>x[0])).order("time",{ascending:false}).limit(160);
+  const by={};
+  (data||[]).forEach(r=>{ (by[r.symbol]=by[r.symbol]||[]).push(+r.close); });
+  $id("tape").innerHTML = IDX.map(([sym,lab])=>{
+    const c=by[sym]||[]; if(!c.length) return "";
+    const chg = c.length>1 ? (c[0]/c[1]-1)*100 : null;
+    return `<span class="tq"><span class="s">${lab}</span><b>${fmt(c[0], sym==="^VIX"?2:0)}</b>
+      <span class="${cls(chg)}">${sgn(chg,2)}%</span></span>`;
+  }).join("");
+  // index table (1D/1W/1M)
+  $id("idx-body").innerHTML = IDX.map(([sym,lab])=>{
+    const c=by[sym]||[]; if(!c.length) return "";
+    const r=k=> c.length>k ? (c[0]/c[k]-1)*100 : null;
+    return `<tr><td class="l"><b>${lab}</b></td><td>${fmt(c[0], sym==="^VIX"?2:0)}</td>
+      <td class="${cls(r(1))}">${sgn(r(1),1)}</td><td class="${cls(r(5))}">${sgn(r(5),1)}</td>
+      <td class="${cls(r(21))}">${sgn(r(21),1)}</td></tr>`;
+  }).join("");
+  // regime off SPX closes
+  const c = by["^GSPC"]||[];
+  if(c.length>=20){
+    const ma=n=> c.length>=n ? c.slice(0,n).reduce((a,b)=>a+b,0)/n : null;
+    const last=c[0], m10=ma(10), m20=ma(20), m50=ma(50), m200=ma(200);
+    const above=[m10,m20,m50,m200].filter(m=>m!=null&&last>=m).length;
+    const known=[m10,m20,m50,m200].filter(m=>m!=null).length;
+    const el=$id("regime");
+    if(known>=3 && above===known){ el.textContent="REGIME: SUPER BULL"; el.className="pos"; }
+    else if(m50!=null&&last>=m50 && (m200==null||last>=m200)){ el.textContent="REGIME: BULL"; el.className="pos"; }
+    else if(m50!=null&&last<m50 && m200!=null&&last<m200){ el.textContent="REGIME: BEAR"; el.className="neg"; }
+    else { el.textContent="REGIME: MIXED"; el.className="wrn"; }
   }
-  document.documentElement.dataset.regime = regime;
-  document.getElementById("regime-pill").textContent = pill;
-  document.getElementById("hero-title").innerHTML = title;
-  document.getElementById("hero-date").textContent = data[0].time.slice(0,10);
-
-  const rel=(d,n)=> d==null ? `` :
-    `<b>${fmt(Math.abs(d),1)}%</b> ${d>=0?"above":"below"} the ${n}-day`;
-  const parts=[rel(d50,50), rel(d200,200)].filter(Boolean).join(" and ");
-
-  // character of the last week: net move vs path travelled (Kaufman efficiency)
-  let weekLine="";
-  if(closes.length>=6){
-    const w=closes.slice(0,6);                       // 6 closes = 5 sessions
-    const net=(w[0]/w[5]-1)*100;
-    let path=0; for(let i=0;i<5;i++) path+=Math.abs(w[i]-w[i+1]);
-    const er=path>0 ? Math.abs(w[0]-w[5])/path : 0;
-    const band=(Math.max(...w)/Math.min(...w)-1)*100;
-    const dir=net>=0?"higher":"lower";
-    const kind= er>=0.55 ? `<b>trending ${dir}</b>`
-              : er<0.30  ? `<b>stuck in a range</b>`
-              :            `<b>drifting ${dir}</b>`;
-    weekLine=` Over the past week it has been ${kind} — ${net>=0?"+":""}${fmt(net,1)}% net inside a ${fmt(band,1)}% band.`;
-  }
-
-  document.getElementById("hero-lede").innerHTML =
-    `The S&amp;P 500 closed at <b>${fmt(last,0)}</b> — ${parts} moving average.` + weekLine +
-    (regime==="super" ? " It sits above every average that matters — the 10-, 20-, 50- and 200-day. Full trend alignment; dips are for buying until proven otherwise."
-     : regime==="bull" ? " Trend followers have the wind at their backs."
-     : regime==="bear" ? " Until the index reclaims its averages, rallies are guilty until proven innocent."
-     : " The index sits between its averages — a market still making up its mind.");
-
-  drawSpark([...closes].reverse());                  // chronological
+  bump();
 }
 
-// hero sparkline: S&P with its 50/200-day averages over the last ~6 months
-function drawSpark(chrono){
-  const el=document.getElementById("hero-spark"); if(!el||chrono.length<10) return;
-  const ma=(arr,w)=>arr.map((_,i)=> i>=w-1 ? arr.slice(i-w+1,i+1).reduce((a,b)=>a+b,0)/w : null);
-  const m50=ma(chrono,50), m200=ma(chrono,200);
-  const s=Math.max(0, chrono.length-130);
-  const px=chrono.slice(s), p50=m50.slice(s), p200=m200.slice(s);
-  const vals=[...px, ...p50.filter(v=>v!=null), ...p200.filter(v=>v!=null)];
-  const lo=Math.min(...vals), hi=Math.max(...vals);
-  const W=760, H=150, pad=8;
-  const X=i=>pad+i*(W-2*pad)/((px.length-1)||1);
-  const Y=v=>H-pad-(v-lo)/((hi-lo)||1)*(H-2*pad);
-  const path=arr=>{ let d="", on=false;
-    arr.forEach((v,i)=>{ if(v==null){on=false;return;} d+=(on?"L":"M")+X(i).toFixed(1)+" "+Y(v).toFixed(1); on=true; });
-    return d; };
-  const area=`${path(px)} L${X(px.length-1).toFixed(1)} ${H} L${X(0).toFixed(1)} ${H} Z`;
-  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%">
-    <defs><linearGradient id="sparkfill" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="var(--accent)" stop-opacity=".22"/>
-      <stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
-    <path d="${area}" fill="url(#sparkfill)"/>
-    <path d="${path(p200)}" fill="none" stroke="var(--muted)" stroke-width="1.2" stroke-dasharray="5 4" opacity=".8"/>
-    <path d="${path(p50)}" fill="none" stroke="var(--info)" stroke-width="1.4"/>
-    <path d="${path(px)}" fill="none" stroke="var(--accent)" stroke-width="2"/>
-    <circle cx="${X(px.length-1)}" cy="${Y(px[px.length-1])}" r="3.4" fill="var(--accent)"/>
-  </svg>`;
-  const cap=document.getElementById("spark-cap"); if(cap) cap.style.display="";
-}
-
-// ── S&P 500 filter (us_stocks.is_sp500, set by us/build_us_universe.py) ──
-async function loadSP500(){
-  const { data } = await sb.from("us_stocks").select("symbol").eq("is_sp500", true).limit(1000);
-  if(data) sp500 = new Set(data.map(r=>r.symbol));
-}
-const spf = data => spOnly ? data.filter(r=>sp500.has(r.symbol)) : data;
-function toggleSP(){
-  spOnly = !spOnly;
-  const b=document.getElementById("sp-toggle");
-  b.textContent = "S&P 500 only: " + (spOnly?"ON":"OFF");
-  b.style.color = spOnly ? "var(--accent)" : "";
-  b.style.borderColor = spOnly ? "var(--accent)" : "";
-  renderBO(applyBO(boData)); renderRV(applyRV(rvData));
-  renderEP(applyEP(epData)); renderVCP(vcpData);
-}
-
-async function loadSectorsMap(){
-  let all=[], page=0;
-  while(true){
-    const { data } = await sb.from("us_stocks").select("symbol,sector").eq("is_active",true)
-      .range(page*1000, page*1000+999);
-    all = all.concat(data||[]);
-    if(!data || data.length<1000) break; page++;
-  }
-  sectorMap = Object.fromEntries(all.map(r=>[r.symbol, r.sector]));
-}
-
-// ── Breadth (table + chart) ──
-async function loadBreadth(){
-  const { data, error } = await sb.from("scanner_us_breadth").select("*")
-    .order("date",{ascending:false}).limit(260);
-  if(error||!data?.length){ document.getElementById("br-count").textContent="no data yet — run the US ingest + scan workflows"; return; }
-  const d0=data[0];
-  setText("kpi-up4", d0.up_4pct, "up"); setText("kpi-dn4", d0.down_4pct, "down");
-  setText("kpi-t2108", d0.pct_above_200dma!=null?fmt(d0.pct_above_200dma,1)+"%":"—",
-    d0.pct_above_200dma>=60?"up":d0.pct_above_200dma<=40?"down":"neu");
-  setText("kpi-spx", fmt(d0.spx_close,0), "neu");
-  document.getElementById("br-count").textContent = data.length + " sessions";
-  document.getElementById("br-body").innerHTML = data.map(r=>`<tr>
-    <td>${r.date}</td><td class="pos">${r.up_4pct}</td><td class="neg">${r.down_4pct}</td>
-    <td>${fmt(r.ratio_5d,2)}</td><td>${fmt(r.ratio_10d,2)}</td>
-    <td>${r.pct_above_200dma!=null?fmt(r.pct_above_200dma,1)+"%":"—"}</td>
-    <td class="neu">${r.universe??"—"}</td><td>${fmt(r.spx_close,0)}</td></tr>`).join("");
-  drawBreadthChart([...data].reverse());
-}
+/* ── breadth ── */
 let bChart=null;
-async function drawBreadthChart(rows){
-  const el=document.getElementById("breadth-chart"); el.innerHTML="";
+async function loadBreadth(){
+  const { data } = await sb.from("scanner_us_breadth").select("*")
+    .order("date",{ascending:false}).limit(140);
+  if(!data?.length){ $id("br-meta").textContent="no data — run the US scan workflow"; bump(); return; }
+  const d0=data[0];
+  $id("t-up4").textContent=d0.up_4pct; $id("t-dn4").textContent=d0.down_4pct;
+  $id("t-r5").textContent=fmt(d0.ratio_5d,2); $id("t-r10").textContent=fmt(d0.ratio_10d,2);
+  $id("t-r5").className="v "+(d0.ratio_5d>=1?"pos":"neg");
+  $id("t-r10").className="v "+(d0.ratio_10d>=1?"pos":"neg");
+  const t=$id("t-t2107"); t.textContent=d0.pct_above_200dma!=null?fmt(d0.pct_above_200dma,1)+"%":"—";
+  t.className="v "+(d0.pct_above_200dma>=60?"pos":d0.pct_above_200dma<=40?"neg":"wrn");
+  $id("t-uni").textContent=d0.universe??"—";
+  $id("br-meta").textContent="last session "+d0.date;
+  $id("ts-meta").textContent=d0.date;
+
+  const rows=[...data].reverse();
+  const el=$id("breadth-chart"); el.innerHTML="";
   if(bChart){ bChart.remove(); bChart=null; }
   const { data: spx } = await sb.from("us_index_ohlcv").select("time,open,high,low,close")
-    .eq("symbol","^GSPC").order("time",{ascending:false}).limit(260);
-  bChart = LightweightCharts.createChart(el, {
-    layout:{ background:{type:"solid", color:"transparent"}, textColor:cssVar("--muted"), fontFamily:"JetBrains Mono" },
-    grid:{ vertLines:{color:"rgba(255,255,255,.05)"}, horzLines:{color:"rgba(255,255,255,.05)"} },
-    width:el.clientWidth, height:el.clientHeight, rightPriceScale:{visible:true}, leftPriceScale:{visible:true} });
+    .eq("symbol","^GSPC").order("time",{ascending:false}).limit(140);
+  bChart = LightweightCharts.createChart(el,{
+    layout:{ background:{type:"solid",color:"transparent"}, textColor:cssVar("--muted"), fontFamily:"JetBrains Mono", fontSize:10 },
+    grid:{ vertLines:{color:"#111a26"}, horzLines:{color:"#111a26"} },
+    width:el.clientWidth, height:el.clientHeight,
+    rightPriceScale:{visible:true,borderColor:"#1a2432"}, leftPriceScale:{visible:true,borderColor:"#1a2432"},
+    timeScale:{borderColor:"#1a2432"}, crosshair:{mode:0} });
   if(spx?.length){
-    const cs=bChart.addCandlestickSeries({ upColor:cssVar("--up"), downColor:cssVar("--down"), borderVisible:false,
-      wickUpColor:cssVar("--up"), wickDownColor:cssVar("--down"), priceScaleId:"right" });
-    cs.setData(spx.reverse().map(b=>({time:b.time.slice(0,10), open:+b.open, high:+b.high, low:+b.low, close:+b.close})));
+    const cs=bChart.addCandlestickSeries({ upColor:cssVar("--up"), downColor:cssVar("--dn"),
+      borderVisible:false, wickUpColor:cssVar("--up"), wickDownColor:cssVar("--dn"), priceScaleId:"right" });
+    cs.setData(spx.reverse().map(b=>({time:b.time.slice(0,10),open:+b.open,high:+b.high,low:+b.low,close:+b.close})));
   }
-  const up=bChart.addHistogramSeries({ color:"rgba(45,216,130,.45)", priceScaleId:"vol" });
-  const dn=bChart.addHistogramSeries({ color:"rgba(255,92,108,.45)", priceScaleId:"vol" });
-  bChart.priceScale("vol").applyOptions({ scaleMargins:{ top:.75, bottom:0 } });
-  up.setData(rows.map(r=>({time:r.date, value:+r.up_4pct})));
-  dn.setData(rows.map(r=>({time:r.date, value:-r.down_4pct})));
-  const t21=bChart.addLineSeries({ color:cssVar("--info"), lineWidth:1.6, priceScaleId:"left",
-    priceLineVisible:false, lastValueVisible:true });
-  t21.setData(rows.filter(r=>r.pct_above_200dma!=null).map(r=>({time:r.date, value:+r.pct_above_200dma})));
+  const up=bChart.addHistogramSeries({ color:"rgba(38,208,124,.5)", priceScaleId:"vol" });
+  const dn=bChart.addHistogramSeries({ color:"rgba(255,77,94,.5)", priceScaleId:"vol" });
+  bChart.priceScale("vol").applyOptions({ scaleMargins:{top:.78,bottom:0} });
+  up.setData(rows.map(r=>({time:r.date,value:+r.up_4pct})));
+  dn.setData(rows.map(r=>({time:r.date,value:-r.down_4pct})));
+  const t21=bChart.addLineSeries({ color:cssVar("--cyan"), lineWidth:1.5, priceScaleId:"left", priceLineVisible:false });
+  t21.setData(rows.filter(r=>r.pct_above_200dma!=null).map(r=>({time:r.date,value:+r.pct_above_200dma})));
   bChart.timeScale().fitContent();
   new ResizeObserver(()=>{ if(bChart) bChart.applyOptions({width:el.clientWidth,height:el.clientHeight}); }).observe(el);
+  bump();
 }
 
-// ── Fresh Breakouts ──
-async function loadBO(){
-  const { data: rd } = await sb.from("scanner_us_breakouts").select("run_date")
+/* ── sectors + themes (scanner_us_groups) ── */
+async function loadGroups(){
+  const { data: rd } = await sb.from("scanner_us_groups").select("run_date")
     .order("run_date",{ascending:false}).limit(1);
   const latest = rd?.[0]?.run_date;
-  if(!latest){ renderBO([]); return; }
-  const { data } = await sb.from("scanner_us_breakouts").select("*").eq("run_date", latest)
-    .order("breakout_type").order("change_pct",{ascending:false}).limit(1000);
-  boData = data||[];
-  setText("kpi-bo", boData.filter(r=>r.breakout_type.includes("HIGH")).length, "up");
-  renderBO(applyBO(boData));
-}
-function applyBO(data){
-  const t=document.getElementById("bo-type").value;
-  return spf(t ? data.filter(r=>r.breakout_type.includes(t)) : data);
-}
-function renderBO(data){
-  if(dtBO){ dtBO.destroy(); dtBO=null; }
-  document.getElementById("bo-count").textContent =
-    data.length ? data.length+" fresh signals · "+(boData[0]?.run_date??"") : "no data yet";
-  document.getElementById("bo-body").innerHTML = data.map(r=>{
-    const hi=r.breakout_type.includes("HIGH");
-    return `<tr><td>${tk(r.symbol)}</td>
-      <td><span class="tag ${hi?'tag-high':'tag-low'}">${r.breakout_type.replace('_',' ')}</span></td>
-      <td>${fmt(r.close,2)}</td>
-      <td class="${r.change_pct>=0?'pos':'neg'}">${fmt(r.change_pct,2)}%</td>
-      <td>${fmtVol(r.volume)}</td><td>${secOf(r.symbol)}</td></tr>`;}).join("");
-  dtBO = $("#tbl-bo").DataTable(dtOpts({ order:[] }));
-}
-function filterBO(){ renderBO(applyBO(boData)); }
-
-// ── RVOL ──
-async function loadRV(){
-  const { data: rd } = await sb.from("scanner_us_rvol").select("run_date")
-    .order("run_date",{ascending:false}).limit(1);
-  const latest = rd?.[0]?.run_date;
-  let data = [];
-  if(latest){
-    const res = await sb.from("scanner_us_rvol").select("*").eq("run_date", latest)
-      .gte("rvol",1.2).order("rvol",{ascending:false}).limit(1000);
-    data = res.data;
+  if(!latest){
+    $id("sec-body").innerHTML = $id("th-body").innerHTML =
+      `<tr><td class="l err" colspan="11">no group data yet — run the US scan workflow (groups)</td></tr>`;
+    bump(); return;
   }
-  rvData = data||[];
-  setText("kpi-rvol", rvData.filter(r=>r.rvol>=1.5 && r.chg_pct).length, "neu");
-  renderRV(applyRV(rvData));
+  const { data } = await sb.from("scanner_us_groups").select("*").eq("run_date", latest).limit(500);
+  const pack = kind => {
+    const m={};
+    (data||[]).filter(r=>r.kind===kind && r.name!=="Miscellaneous").forEach(r=>{
+      const g = m[r.name] = m[r.name] || { name:r.name, etf:r.etf };
+      const p = r.period==="day"?"d":r.period==="week"?"w":"m";
+      g[p]=+r.avg_return; g[p+"e"]=r.etf_return==null?null:+r.etf_return;
+      if(r.period==="day"){ g.up=r.up_count; g.dn=r.down_count; g.n=r.stock_count; g.ldr=r.leaders; }
+    });
+    return Object.values(m);
+  };
+  secRows=pack("sector"); thRows=pack("theme");
+  $id("sec-meta").textContent=$id("th-meta").textContent="scan "+latest;
+  renderGroups("sec"); renderGroups("th");
+  bump();
 }
-function applyRV(data){
-  const d=document.getElementById("rv-dir").value, m=+document.getElementById("rv-min").value;
-  if(d==="up") data=data.filter(r=>(r.chg_pct??0)>0);
-  if(d==="down") data=data.filter(r=>(r.chg_pct??0)<0);
-  return spf(data.filter(r=>r.rvol>=m));
+function renderGroups(t){
+  const rows = (t==="sec"?secRows:thRows).slice();
+  const st = sortState[t];
+  rows.sort((a,b)=> (st.asc?1:-1) * (((a[st.k]??-1e9)) - ((b[st.k]??-1e9))));
+  const body = rows.map(g=>`<tr>
+    <td class="l"><b>${g.name}</b></td>
+    <td>${g.etf?`<span class="etftag tick" data-sym="${g.etf}" data-etf="1">${g.etf}</span>`:"—"}</td>
+    ${heat(g.d,3)}${etfCell(g.de)}
+    ${heat(g.w,6)}${etfCell(g.we)}
+    ${heat(g.m,12)}${etfCell(g.me)}
+    ${t==="th"?`<td class="neu">${g.n??"—"}</td>`:""}
+    <td>${adBar(g.up||0,g.dn||0)}</td>
+    <td class="l ldr">${ldr(g.ldr)}</td></tr>`).join("");
+  $id(t+"-body").innerHTML = body || `<tr><td class="l neu" colspan="11">no rows</td></tr>`;
+  // sort arrows
+  document.querySelectorAll(`th.sortable[data-t="${t}"]`).forEach(th=>{
+    th.innerHTML = th.textContent.replace(" ▾","").replace(" ▴","") +
+      (th.dataset.k===st.k ? `<span class="arr">${st.asc?" ▴":" ▾"}</span>` : "");
+  });
 }
-function renderRV(data){
-  if(dtRV){ dtRV.destroy(); dtRV=null; }
-  const up=data.filter(r=>(r.chg_pct??0)>0).length;
-  document.getElementById("rv-count").textContent =
-    data.length ? `${data.length} movers · ${up} ▲ / ${data.length-up} ▼ · ${rvData[0]?.run_date??""}` : "no data yet";
-  document.getElementById("rv-body").innerHTML = data.map(r=>`<tr>
-    <td>${tk(r.symbol)}</td><td>${fmt(r.close,2)}</td>
-    <td class="${r.chg_pct>=0?'pos':'neg'}"><b>${r.chg_pct>=0?'+':''}${fmt(r.chg_pct,2)}%</b></td>
-    <td style="color:var(--warn)"><b>${fmt(r.rvol,2)}×</b></td>
-    <td>${fmtVol(r.volume)}</td><td>${fmtVol(r.avg_vol_20d)}</td><td>${secOf(r.symbol)}</td></tr>`).join("");
-  dtRV = $("#tbl-rv").DataTable(dtOpts({ order:[] }));
-}
-function filterRV(){ renderRV(applyRV(rvData)); }
 
-// ── EP ──
+/* ── EP ── */
 async function loadEP(){
-  const { data } = await sb.from("scanner_us_ep").select("*").order("rnk",{ascending:true}).limit(1000);
-  epData = data||[];
-  setText("kpi-ep", epData.filter(r=>r.ep_type==="BULLISH").length, "up");
-  renderEP(applyEP(epData));
+  const { data } = await sb.from("scanner_us_ep").select("*").order("rnk").limit(1000);
+  epData=data||[];
+  renderEP(); bump();
 }
-function applyEP(data){
-  const t=document.getElementById("ep-type").value;
-  const e=document.getElementById("ep-earn").value;
-  let out = t ? data.filter(r=>r.ep_type===t) : data;
-  if(e==="1") out = out.filter(r=>r.earnings_date);
-  if(e==="0") out = out.filter(r=>!r.earnings_date);
-  return spf(out);
-}
-function renderEP(data){
-  if(dtEP){ dtEP.destroy(); dtEP=null; }
-  document.getElementById("ep-count").textContent = data.length ? data.length+" pivots · by return rank" : "no data yet";
-  document.getElementById("ep-body").innerHTML = data.map(r=>{
-    const bull=r.ep_type==="BULLISH", ret=r.return_since_pivot;
-    return `<tr><td>${r.rnk??""}</td><td>${tk(r.symbol)}</td>
-      <td><span class="tag ${bull?'tag-high':'tag-low'}">${r.ep_type}</span></td>
-      <td>${r.run_date??""}</td>
-      <td>${r.earnings_date?`<span class="tag tag-high" title="reported ${r.earnings_date}">📅 ${r.earnings_date}</span>`:""}</td>
+function renderEP(){
+  let rows=epData;
+  if(epFilter==="earn") rows=rows.filter(r=>r.earnings_date);
+  if(epFilter==="bull") rows=rows.filter(r=>r.ep_type==="BULLISH");
+  if(epFilter==="bear") rows=rows.filter(r=>r.ep_type==="BEARISH");
+  if(epSort==="ret") rows=[...rows].sort((a,b)=>b.return_since_pivot-a.return_since_pivot);
+  const nEarn = epData.filter(r=>r.earnings_date).length;
+  $id("ep-meta").textContent = `${rows.length}/${epData.length} pivots · ${nEarn} on earnings`;
+  $id("ep-body").innerHTML = rows.map(r=>{
+    const bull=r.ep_type==="BULLISH";
+    return `<tr><td class="neu">${r.rnk??""}</td><td class="l">${tk(r.symbol)}</td>
+      <td class="l nm">${stockMap[r.symbol]?.name??""}</td>
+      <td><span class="badge ${bull?"b-up":"b-dn"}">${bull?"BULL":"BEAR"}</span></td>
+      <td class="neu">${r.run_date??""}</td>
+      <td>${r.earnings_date?`<span class="badge b-cy" title="earnings ${r.earnings_date}">EPS ${String(r.earnings_date).slice(5)}</span>`:""}</td>
+      <td class="${cls(r.gap_pct)}">${sgn(r.gap_pct,1)}</td>
+      <td class="${cls(r.move_pct)}">${sgn(r.move_pct,1)}</td>
+      <td class="wrn">${fmt(r.vol_ratio,1)}×</td>
       <td>${fmt(r.close,2)}</td><td>${fmt(r.last_close,2)}</td>
-      <td class="${ret>=0?'pos':'neg'}"><b>${fmt(ret,2)}%</b></td>
-      <td class="${r.gap_pct>=0?'pos':'neg'}">${fmt(r.gap_pct,2)}%</td>
-      <td class="${r.move_pct>=0?'pos':'neg'}">${fmt(r.move_pct,2)}%</td>
-      <td style="color:var(--warn)">${fmt(r.vol_ratio,1)}×</td></tr>`;}).join("");
-  dtEP = $("#tbl-ep").DataTable(dtOpts({ order:[] }));
+      <td class="heat ${cls(r.return_since_pivot)}"><b>${sgn(r.return_since_pivot,1)}</b></td></tr>`;
+  }).join("") || `<tr><td class="l neu" colspan="12">no pivots match</td></tr>`;
 }
-function filterEP(){ renderEP(applyEP(epData)); }
+$id("ep-chips").addEventListener("click", e=>{
+  const c=e.target.closest(".chip"); if(!c) return;
+  epFilter=c.dataset.f;
+  document.querySelectorAll("#ep-chips .chip").forEach(x=>x.classList.toggle("on",x===c));
+  renderEP();
+});
 
-// ── VCP ──
+/* ── VCP ── */
 async function loadVCP(){
   const { data: rd } = await sb.from("scanner_us_vcp").select("run_date")
     .order("run_date",{ascending:false}).limit(1);
-  const latest = rd?.[0]?.run_date;
-  vcpData=[];
+  const latest=rd?.[0]?.run_date;
+  let data=[];
   if(latest){
-    const res = await sb.from("scanner_us_vcp").select("*").eq("run_date", latest).order("range_15d_pct");
-    vcpData = res.data||[];
+    const res = await sb.from("scanner_us_vcp").select("*").eq("run_date",latest).order("range_15d_pct");
+    data=res.data||[];
   }
-  setText("kpi-vcp", vcpData.length, "neu");
-  renderVCP(vcpData);
-}
-function renderVCP(data){
-  data = spf(data);
-  if(dtVCP){ dtVCP.destroy(); dtVCP=null; }
-  document.getElementById("vcp-count").textContent = data.length ? data.length+" setups" : "no data yet";
-  document.getElementById("vcp-body").innerHTML = data.map(r=>`<tr>
-    <td>${tk(r.symbol)}</td><td>${fmt(r.close,2)}</td>
-    <td class="pos">${fmt(r.return_3m,1)}%</td><td>${fmt(r.high_15d,2)}</td><td>${fmt(r.low_15d,2)}</td>
-    <td style="color:var(--info)">${fmt(r.range_15d_pct,1)}%</td><td>${secOf(r.symbol)}</td></tr>`).join("");
-  dtVCP = $("#tbl-vcp").DataTable(dtOpts({ order:[] }));
-}
-
-// ── Sentiment (AAII — shared table) ──
-async function loadSent(){
-  const { data } = await sb.from("aaii_sentiment").select("*").order("week_ending");
-  if(!data?.length){ document.getElementById("sn-count").textContent="no data yet — run fetch_aaii.py"; return; }
-  const d0=data[data.length-1];
-  const set=(id,v,avg,did)=>{ document.getElementById(id).textContent=fmt(v,1)+"%";
-    document.getElementById(did).textContent = "long-run avg "+avg+"% · "+(v>=avg?"+":"")+fmt(v-avg,1)+" vs avg"; };
-  set("sn-bull", +d0.bullish, 37.5, "sn-bull-d");
-  set("sn-neu",  +d0.neutral, 31.5, "sn-neu-d");
-  set("sn-bear", +d0.bearish, 31.0, "sn-bear-d");
-  const sp=document.getElementById("sn-spread");
-  sp.textContent=(d0.bull_bear_spread>=0?"+":"")+fmt(d0.bull_bear_spread,1);
-  sp.className="v "+(d0.bull_bear_spread>=0?"pos":"neg");
-  document.getElementById("sn-week").textContent="week ending "+d0.week_ending;
-  document.getElementById("sn-count").textContent=data.length+" weeks";
-  // SVG bulls vs bears
-  const el=document.getElementById("sent-chart"), W=el.clientWidth||900, H=260, pad=30;
-  const xs=i=>pad+i*(W-2*pad)/((data.length-1)||1), ys=v=>H-20-(v/60)*(H-40);
-  const line=(key)=>data.map((r,i)=>(i?"L":"M")+xs(i).toFixed(1)+" "+ys(+r[key]).toFixed(1)).join("");
-  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%">
-    <line x1="${pad}" y1="${ys(37.5)}" x2="${W-pad}" y2="${ys(37.5)}" stroke="rgba(45,216,130,.3)" stroke-dasharray="4 4"/>
-    <line x1="${pad}" y1="${ys(31)}" x2="${W-pad}" y2="${ys(31)}" stroke="rgba(255,92,108,.3)" stroke-dasharray="4 4"/>
-    <path d="${line("bullish")}" fill="none" stroke="var(--up)" stroke-width="1.8"/>
-    <path d="${line("bearish")}" fill="none" stroke="var(--down)" stroke-width="1.8"/>
-    <text x="${pad}" y="14" font-size="11" fill="var(--up)">Bulls</text>
-    <text x="${pad+42}" y="14" font-size="11" fill="var(--down)">Bears</text>
-    <text x="${W-pad}" y="${H-4}" font-size="10" fill="var(--faint)" text-anchor="end">${data[0].week_ending} → ${d0.week_ending}</text>
-  </svg>`;
+  $id("vcp-meta").textContent = data.length ? `${data.length} setups · scan ${latest}` : "no setups";
+  $id("vcp-body").innerHTML = data.map(r=>`<tr>
+    <td class="l">${tk(r.symbol)}</td>
+    <td class="l nm">${stockMap[r.symbol]?.name??""}</td>
+    <td class="l sub">${stockMap[r.symbol]?.sector??""}</td>
+    <td>${fmt(r.close,2)}</td>
+    <td class="pos"><b>+${fmt(r.return_3m,1)}</b></td>
+    <td>${fmt(r.high_15d,2)}</td><td>${fmt(r.low_15d,2)}</td>
+    <td class="cyn">${fmt(r.range_15d_pct,1)}%</td>
+    <td class="wrn">${fmt(r.high_15d,2)}</td></tr>`).join("")
+    || `<tr><td class="l neu" colspan="9">no VCP setups in the latest scan</td></tr>`;
+  bump();
 }
 
-// ── Sectors ──
-async function loadSecTab(){
-  const { data: rd } = await sb.from("scanner_us_sectors").select("run_date")
-    .order("run_date",{ascending:false}).limit(1);
-  const latest = rd?.[0]?.run_date;
-  if(!latest){ document.getElementById("sec-count").textContent="no data yet"; sectorData=[]; return; }
-  const { data } = await sb.from("scanner_us_sectors").select("*").eq("run_date", latest);
-  sectorData = data||[];
-  renderSectors();
-}
-function renderSectors(){
-  const p=document.getElementById("sec-period").value;
-  const rows=sectorData.filter(r=>r.period===p).sort((a,b)=>b.avg_return-a.avg_return);
-  document.getElementById("sec-count").textContent = rows.length ? rows.length+" sectors · "+p : "no data yet";
-  document.getElementById("sec-grid").innerHTML = rows.map(r=>{
-    const up=r.avg_return>=0;
-    return `<div class="sector-tile ${up?'up':'down'}">
-      <div class="st-name">${r.sector}</div>
-      <div class="st-ret ${up?'pos':'neg'}">${up?'+':''}${fmt(r.avg_return,2)}%</div>
-      <div class="st-sub"><span class="pos">${r.up_count}↑</span> · <span class="neg">${r.down_count}↓</span> · ${r.stock_count} stocks</div>
-    </div>`;}).join("");
+/* ── earnings ── */
+async function loadEarnings(){
+  const { data } = await sb.from("us_earnings").select("*")
+    .order("report_date",{ascending:false}).limit(600);
+  if(!data?.length){
+    $id("er-today").innerHTML=$id("er-recent").innerHTML=$id("er-next").innerHTML=
+      `<span class="err">no earnings data yet — run the US scan workflow (earnings)</span>`;
+    bump(); return;
+  }
+  const todayET = new Date().toLocaleDateString("en-CA",{timeZone:"America/New_York"});
+  const verd = r=>{
+    const map={BEAT:"b-up",MISS:"b-dn",INLINE:"b-wa",PENDING:"b-nu",REPORTED:"b-nu"};
+    return `<span class="badge ${map[r.verdict]||"b-nu"}">${r.verdict}</span>`;
+  };
+  const row = (r,showDate)=>`<tr>
+    <td class="l">${tk(r.symbol)}</td>
+    <td class="l nm">${stockMap[r.symbol]?.name??""}</td>
+    ${showDate?`<td class="neu">${String(r.report_date).slice(5)}</td>`:""}
+    <td class="sub">${r.report_time==="pre-market"?"AM":r.report_time==="after-hours"?"PM":"—"}</td>
+    <td>${verd(r)}</td>
+    <td class="neu">${r.eps_est!=null?fmt(r.eps_est,2):"—"}</td>
+    <td><b>${r.eps_actual!=null?fmt(r.eps_actual,2):"—"}</b></td>
+    <td class="${cls(r.surprise_pct)}">${r.surprise_pct!=null?sgn(r.surprise_pct,1)+"%":""}</td>
+    <td class="${cls(r.reaction_pct)}">${r.reaction_pct!=null?"<b>"+sgn(r.reaction_pct,1)+"%</b>":""}</td></tr>`;
+  const tbl = (rows,showDate,cols)=> rows.length
+    ? `<table><thead><tr><th class="l">SYM</th><th class="l">NAME</th>${showDate?"<th>DATE</th>":""}
+       <th>T</th><th>CALL</th><th>EST</th><th>ACT</th><th>SURP</th><th>REACT</th></tr></thead>
+       <tbody>${rows.map(r=>row(r,showDate)).join("")}</tbody></table>`
+    : `<span class="neu">none</span>`;
+  const sortCap=(a,b)=>(stockMap[b.symbol]?.market_cap??0)-(stockMap[a.symbol]?.market_cap??0);
+  const today  = data.filter(r=>r.report_date===todayET).sort(sortCap);
+  const recent = data.filter(r=>r.report_date<todayET && r.verdict!=="PENDING").sort((a,b)=>b.report_date.localeCompare(a.report_date)||sortCap(a,b)).slice(0,40);
+  const next   = data.filter(r=>r.report_date>todayET).sort((a,b)=>a.report_date.localeCompare(b.report_date)||sortCap(a,b)).slice(0,40);
+  $id("er-today").innerHTML  = tbl(today,false);
+  $id("er-recent").innerHTML = tbl(recent,true);
+  $id("er-next").innerHTML   = tbl(next,true);
+  const nb=recent.filter(r=>r.verdict==="BEAT").length, nm=recent.filter(r=>r.verdict==="MISS").length;
+  $id("er-meta").textContent = `${today.length} today · recent: ${nb} beat / ${nm} miss`;
+  bump();
 }
 
-// ── Candlestick modal (us_ohlcv) ──
-let chart=null;
-async function openChart(sym){
-  document.getElementById("overlay").classList.add("open");
-  document.getElementById("mb-sym").textContent=sym;
-  document.getElementById("mb-name").textContent="Loading…";
-  const [{ data: meta }, { data: bars }] = await Promise.all([
-    sb.from("us_stocks").select("name, sector").eq("symbol", sym).maybeSingle(),
-    sb.from("us_ohlcv").select("time, open, high, low, close").eq("symbol", sym)
-      .order("time",{ascending:false}).limit(504)
-  ]);
-  document.getElementById("mb-name").textContent =
-    meta ? `${meta.name||""}${meta.sector?" · "+meta.sector:""}` : sym;
-  const el=document.getElementById("chart"); el.innerHTML="";
-  if(chart){ chart.remove(); chart=null; }
-  if(!bars?.length) return;
-  bars.reverse();
-  chart = LightweightCharts.createChart(el, {
-    layout:{ background:{type:"solid", color:"transparent"}, textColor:cssVar("--muted"), fontFamily:"JetBrains Mono" },
-    grid:{ vertLines:{color:"rgba(255,255,255,.05)"}, horzLines:{color:"rgba(255,255,255,.05)"} },
-    width:el.clientWidth, height:el.clientHeight });
-  const cs=chart.addCandlestickSeries({ upColor:cssVar("--up"), downColor:cssVar("--down"),
-    borderVisible:false, wickUpColor:cssVar("--up"), wickDownColor:cssVar("--down") });
-  cs.setData(bars.map(b=>({time:b.time.slice(0,10), open:+b.open, high:+b.high, low:+b.low, close:+b.close})));
-  chart.timeScale().fitContent();
+/* ── news ── */
+async function loadNews(){
+  const { data } = await sb.from("us_news").select("*")
+    .order("published_at",{ascending:false}).limit(120);
+  if(!data?.length){
+    $id("news-body").innerHTML=`<span class="err">no headlines yet — run the US scan workflow (news)</span>`;
+    bump(); return;
+  }
+  const now=Date.now();
+  $id("news-body").innerHTML = data.map(r=>{
+    const ts=r.published_at?new Date(r.published_at):null;
+    const ago = ts ? (now-ts.getTime()<3600e3 ? Math.max(1,Math.round((now-ts.getTime())/60e3))+"m ago"
+      : now-ts.getTime()<86400e3 ? Math.round((now-ts.getTime())/3600e3)+"h ago"
+      : ts.toLocaleDateString("en-US",{month:"short",day:"numeric"})) : "—";
+    const et = ts ? ts.toLocaleString("en-US",{timeZone:"America/New_York",hour:"2-digit",minute:"2-digit",hour12:false}) : "";
+    return `<div class="news-item">
+      <span class="t" title="${et} ET">${ago}</span>
+      <span>${r.symbol?`<span class="badge b-cy tick" data-sym="${r.symbol}">${r.symbol}</span>`:`<span class="badge b-nu">MKT</span>`}</span>
+      <span class="h"><a href="${r.url||"#"}" target="_blank" rel="noopener">${r.headline}</a>
+        <span class="src">— ${r.publisher||""}</span></span></div>`;
+  }).join("");
+  $id("nw-meta").textContent = data.length+" headlines · newest "+
+    (data[0].published_at? new Date(data[0].published_at).toLocaleString("en-US",{timeZone:"America/New_York",month:"short",day:"numeric",hour:"2-digit",minute:"2-digit",hour12:false})+" ET":"");
+  bump();
 }
-function closeChart(){ document.getElementById("overlay").classList.remove("open");
-  if(chart){ chart.remove(); chart=null; } }
-document.addEventListener("click", e=>{
-  const t=e.target.closest(".ticker"); if(t){ openChart(t.dataset.sym); return; }
-  if(e.target.id==="overlay") closeChart();
+
+/* ── chart modal ── */
+let mChart=null;
+async function openChart(sym, isEtf){
+  sym=(sym||"").trim().toUpperCase(); if(!sym) return;
+  $id("m-sym").textContent=sym;
+  $id("m-name").textContent=stockMap[sym]?.name || (isEtf?"ETF":"");
+  $id("m-chg").textContent=""; $id("modal").classList.add("open");
+  const el=$id("mchart"); el.innerHTML="";
+  if(mChart){ mChart.remove(); mChart=null; }
+  const table = (isEtf||sym.startsWith("^")) ? "us_index_ohlcv" : "us_ohlcv";
+  let { data } = await sb.from(table).select("time,open,high,low,close,volume")
+    .eq("symbol",sym).order("time",{ascending:false}).limit(260);
+  if(!data?.length && table==="us_ohlcv"){
+    ({ data } = await sb.from("us_index_ohlcv").select("time,open,high,low,close,volume")
+      .eq("symbol",sym).order("time",{ascending:false}).limit(260));
+  }
+  if(!data?.length){ el.innerHTML=`<div class="err" style="padding:1rem">no price history for ${sym}</div>`; return; }
+  data.reverse();
+  const last=+data[data.length-1].close, prev=data.length>1?+data[data.length-2].close:null;
+  const chg=prev?(last/prev-1)*100:null;
+  $id("m-chg").innerHTML=`<b>${fmt(last,2)}</b> <span class="${cls(chg)}">${sgn(chg,2)}%</span>`;
+  mChart=LightweightCharts.createChart(el,{
+    layout:{ background:{type:"solid",color:"transparent"}, textColor:cssVar("--muted"), fontFamily:"JetBrains Mono", fontSize:10 },
+    grid:{ vertLines:{color:"#111a26"}, horzLines:{color:"#111a26"} },
+    width:el.clientWidth, height:el.clientHeight, timeScale:{borderColor:"#1a2432"},
+    rightPriceScale:{borderColor:"#1a2432"} });
+  const cs=mChart.addCandlestickSeries({ upColor:cssVar("--up"), downColor:cssVar("--dn"),
+    borderVisible:false, wickUpColor:cssVar("--up"), wickDownColor:cssVar("--dn") });
+  cs.setData(data.map(b=>({time:String(b.time).slice(0,10),open:+b.open,high:+b.high,low:+b.low,close:+b.close})));
+  const vol=mChart.addHistogramSeries({ priceScaleId:"vol", color:"rgba(125,144,166,.35)" });
+  mChart.priceScale("vol").applyOptions({ scaleMargins:{top:.82,bottom:0} });
+  vol.setData(data.map(b=>({time:String(b.time).slice(0,10),value:+(b.volume||0),
+    color:+b.close>=+b.open?"rgba(38,208,124,.35)":"rgba(255,77,94,.35)"})));
+  // 50-DMA overlay
+  const closes=data.map(b=>+b.close);
+  const ma50=closes.map((_,i)=> i>=49 ? closes.slice(i-49,i+1).reduce((a,b)=>a+b,0)/50 : null);
+  const l50=mChart.addLineSeries({ color:cssVar("--cyan"), lineWidth:1, priceLineVisible:false, lastValueVisible:false });
+  l50.setData(data.map((b,i)=>({time:String(b.time).slice(0,10),value:ma50[i]})).filter(p=>p.value!=null));
+  mChart.timeScale().fitContent();
+}
+function closeModal(){ $id("modal").classList.remove("open"); if(mChart){ mChart.remove(); mChart=null; } }
+$id("modal").addEventListener("click", e=>{ if(e.target.id==="modal") closeModal(); });
+
+/* ── global interactions ── */
+document.body.addEventListener("click", e=>{
+  const t=e.target.closest(".tick"); if(t){ openChart(t.dataset.sym, !!t.dataset.etf); return; }
+  const th=e.target.closest("th.sortable"); if(th){
+    const tt=th.dataset.t;
+    if(tt==="ep"){ epSort = epSort==="ret" ? null : "ret"; renderEP(); return; }
+    const st=sortState[tt];
+    if(st.k===th.dataset.k) st.asc=!st.asc; else { st.k=th.dataset.k; st.asc=false; }
+    renderGroups(tt);
+  }
 });
-document.addEventListener("keydown", e=>{ if(e.key==="Escape") closeChart(); });
+$id("sym-search").addEventListener("keydown", e=>{
+  if(e.key==="Enter"){ openChart(e.target.value); e.target.value=""; e.target.blur(); }
+});
+document.addEventListener("keydown", e=>{
+  if(e.key==="Escape") closeModal();
+  if(e.target.tagName==="INPUT") return;
+  const map={"1":"s-market","2":"s-sectors","3":"s-themes","4":"s-ep","5":"s-vcp","6":"s-earnings","7":"s-news"};
+  if(map[e.key]) document.getElementById(map[e.key]).scrollIntoView();
+  if(e.key==="/"){ e.preventDefault(); $id("sym-search").focus(); }
+});
+// nav highlight on scroll
+const navLinks=[...document.querySelectorAll(".tb-nav a")];
+document.querySelectorAll(".anchor").forEach(a=>{
+  new IntersectionObserver(es=>{ es.forEach(x=>{ if(x.isIntersecting)
+    navLinks.forEach(n=>n.classList.toggle("act", n.getAttribute("href")==="#"+a.id)); });
+  },{ rootMargin:"-60px 0px -75% 0px" }).observe(a);
+});
 
-// ── scroll-reveal chapters ──
-const io=new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting) e.target.classList.add("vis"); }),
-  { threshold:.06 });
-document.querySelectorAll(".chapter").forEach(el=>io.observe(el));
-
-async function loadAll(){
-  await loadRegime();                      // theme first, charts read its colours
-  await Promise.all([loadSectorsMap(), loadSP500()]);
-  await Promise.all([loadBreadth(), loadBO(), loadRV(), loadEP(), loadVCP(), loadSent(), loadSecTab()]);
-  document.getElementById("last-updated").textContent="updated "+new Date().toLocaleTimeString();
-}
-loadAll();
+/* ── boot ── */
+(async ()=>{
+  await loadStocks();                                  // map first (names in tables)
+  loadTape(); loadBreadth(); loadGroups(); loadEP(); loadVCP(); loadEarnings(); loadNews();
+})();
 </script>
 </body>
 </html>
