@@ -115,18 +115,6 @@ tr.grp td{ background:var(--panel2); color:var(--cyan); font-weight:800; letter-
 .legend{ font-size:.62rem; color:var(--faint); display:flex; gap:1rem; flex-wrap:wrap; padding:.2rem 0 0; }
 .legend i{ font-style:normal; }
 
-/* news */
-.news-item{ display:flex; gap:.7rem; padding:.42rem 0; border-bottom:1px solid #121a26; align-items:baseline; }
-.news-item .t{ color:var(--faint); font-size:.64rem; min-width:88px; }
-.news-item .h{ font-size:.76rem; }
-.news-item .h a{ text-decoration:none; }
-.news-item .h a:hover{ color:var(--cyan); }
-.news-item .src{ color:var(--faint); font-size:.62rem; }
-
-/* earnings columns */
-.earn-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:.8rem; }
-.earn-col h3{ margin:.2rem 0 .4rem; font-size:.64rem; letter-spacing:.16em; color:var(--muted); font-weight:800; }
-
 /* modal */
 #modal{ position:fixed; inset:0; background:rgba(3,6,10,.82); z-index:200; display:none;
   align-items:center; justify-content:center; padding:2rem; }
@@ -157,8 +145,7 @@ tr.grp td{ background:var(--panel2); color:var(--cyan); font-weight:800; letter-
     <a href="#s-themes"><kbd>3</kbd>THEMES</a>
     <a href="#s-ep"><kbd>4</kbd>EPISODIC PIVOTS</a>
     <a href="#s-vcp"><kbd>5</kbd>VCP</a>
-    <a href="#s-earnings"><kbd>6</kbd>EARNINGS</a>
-    <a href="#s-news"><kbd>7</kbd>NEWS</a>
+    <a href="#s-snap"><kbd>6</kbd>SNAPBACK</a>
     <input id="sym-search" placeholder="SYMBOL ⏎ chart" autocomplete="off" spellcheck="false"/>
   </nav>
 </header>
@@ -278,28 +265,32 @@ tr.grp td{ background:var(--panel2); color:var(--cyan); font-weight:800; letter-
     </div>
   </div>
 
-  <!-- ══ 6 · EARNINGS ══ -->
-  <div class="anchor" id="s-earnings"></div>
+  <!-- ══ 6 · SNAPBACK ══ -->
+  <div class="anchor" id="s-snap"></div>
   <div class="panel span12">
-    <div class="ph"><h2>EARNINGS — BEAT / MISS vs ESTIMATES</h2>
-      <span class="meta">top-1000 reporters · NASDAQ consensus</span>
-      <span class="spacer"></span><span class="meta" id="er-meta">…</span></div>
-    <div class="pb">
-      <div class="earn-grid">
-        <div class="earn-col"><h3>◉ TODAY</h3><div id="er-today"><span class="neu">…</span></div></div>
-        <div class="earn-col"><h3>◈ REPORTED — LAST 7 SESSIONS</h3><div id="er-recent"><span class="neu">…</span></div></div>
-        <div class="earn-col"><h3>◇ UPCOMING — NEXT 7 DAYS</h3><div id="er-next"><span class="neu">…</span></div></div>
+    <div class="ph"><h2>SNAPBACK — UNDERCUT &amp; RALLY</h2>
+      <span class="meta">undercut of prior 1M/3M/6M/1Y low → same-day spring bar or D1/D2 reclaim of the broken level</span>
+      <span class="spacer"></span>
+      <div class="chips" id="snap-chips">
+        <span class="chip on" data-g="type" data-f="all">ALL</span>
+        <span class="chip" data-g="type" data-f="SAME_DAY">SAME-DAY</span>
+        <span class="chip" data-g="type" data-f="D1">D1</span>
+        <span class="chip" data-g="type" data-f="D2">D2</span>
+        <span class="chip" data-g="win" data-f="deep">WINDOW ≥3M</span>
+        <span class="chip" data-g="score" data-f="3">SCORE ≥3</span>
+        <span class="chip" data-g="trend" data-f="200">&gt;200-DMA</span>
       </div>
+      <span class="meta" id="snap-meta">…</span></div>
+    <div class="pb" style="max-height:560px; overflow-y:auto;">
+      <table id="tbl-snap">
+        <thead><tr>
+          <th class="l">SYM</th><th class="l">NAME</th><th>WIN</th><th>TYPE</th><th>LOW DATE</th>
+          <th>EXT LOW</th><th>BROKEN LVL</th><th>CLOSE</th><th>OFF LOW%</th><th>CLS POS</th>
+          <th>FLUSH×</th><th>SNAP×</th><th>200D</th><th class="sortable" data-t="snap" data-k="score">SCORE</th>
+        </tr></thead>
+        <tbody id="snap-body"><tr><td class="l neu" colspan="14">loading …</td></tr></tbody>
+      </table>
     </div>
-  </div>
-
-  <!-- ══ 7 · NEWS ══ -->
-  <div class="anchor" id="s-news"></div>
-  <div class="panel span12">
-    <div class="ph"><h2>NEWS WIRE — MOVERS &amp; MARKET</h2>
-      <span class="meta">headlines attached to today's biggest movers + SPY/QQQ</span>
-      <span class="spacer"></span><span class="meta" id="nw-meta">…</span></div>
-    <div class="pb" id="news-body" style="max-height:600px; overflow-y:auto;"><span class="neu">loading …</span></div>
   </div>
 
 </main>
@@ -574,72 +565,69 @@ async function loadVCP(){
   bump();
 }
 
-/* ── earnings ── */
-async function loadEarnings(){
-  const { data } = await sb.from("us_earnings").select("*")
-    .order("report_date",{ascending:false}).limit(600);
-  if(!data?.length){
-    $id("er-today").innerHTML=$id("er-recent").innerHTML=$id("er-next").innerHTML=
-      `<span class="err">no earnings data yet — run the US scan workflow (earnings)</span>`;
-    bump(); return;
+/* ── snapback ── */
+let snapData=[], snapF={type:"all", win:false, score:false, trend:false}, snapSort=null;
+async function loadSnap(){
+  const { data } = await sb.from("scanner_us_snapback").select("*")
+    .order("run_date",{ascending:false}).order("score",{ascending:false}).limit(1200);
+  snapData=data||[];
+  renderSnap(); bump();
+}
+function renderSnap(){
+  if(!snapData.length){
+    $id("snap-body").innerHTML=`<tr><td class="l err" colspan="14">no snapback data yet — run the US scan workflow (snapback)</td></tr>`;
+    $id("snap-meta").textContent=""; return;
   }
-  const todayET = new Date().toLocaleDateString("en-CA",{timeZone:"America/New_York"});
-  const verd = r=>{
-    const map={BEAT:"b-up",MISS:"b-dn",INLINE:"b-wa",PENDING:"b-nu",REPORTED:"b-nu"};
-    return `<span class="badge ${map[r.verdict]||"b-nu"}">${r.verdict}</span>`;
-  };
-  const row = (r,showDate)=>`<tr>
+  let rows=snapData;
+  if(snapF.type!=="all") rows=rows.filter(r=>r.snap_type===snapF.type);
+  if(snapF.win)   rows=rows.filter(r=>r.window_label!=="1M");
+  if(snapF.score) rows=rows.filter(r=>r.score>=3);
+  if(snapF.trend) rows=rows.filter(r=>r.above_200dma);
+  $id("snap-meta").textContent=`${rows.length}/${snapData.length} signals · last ${snapData[0].run_date}`;
+  const wtag={ "1Y":"b-cy","6M":"b-up","3M":"b-wa","1M":"b-nu" };
+  const row=r=>`<tr>
     <td class="l">${tk(r.symbol)}</td>
     <td class="l nm">${stockMap[r.symbol]?.name??""}</td>
-    ${showDate?`<td class="neu">${String(r.report_date).slice(5)}</td>`:""}
-    <td class="sub">${r.report_time==="pre-market"?"AM":r.report_time==="after-hours"?"PM":"—"}</td>
-    <td>${verd(r)}</td>
-    <td class="neu">${r.eps_est!=null?fmt(r.eps_est,2):"—"}</td>
-    <td><b>${r.eps_actual!=null?fmt(r.eps_actual,2):"—"}</b></td>
-    <td class="${cls(r.surprise_pct)}">${r.surprise_pct!=null?sgn(r.surprise_pct,1)+"%":""}</td>
-    <td class="${cls(r.reaction_pct)}">${r.reaction_pct!=null?"<b>"+sgn(r.reaction_pct,1)+"%</b>":""}</td></tr>`;
-  const tbl = (rows,showDate,cols)=> rows.length
-    ? `<table><thead><tr><th class="l">SYM</th><th class="l">NAME</th>${showDate?"<th>DATE</th>":""}
-       <th>T</th><th>CALL</th><th>EST</th><th>ACT</th><th>SURP</th><th>REACT</th></tr></thead>
-       <tbody>${rows.map(r=>row(r,showDate)).join("")}</tbody></table>`
-    : `<span class="neu">none</span>`;
-  const sortCap=(a,b)=>(stockMap[b.symbol]?.market_cap??0)-(stockMap[a.symbol]?.market_cap??0);
-  const today  = data.filter(r=>r.report_date===todayET).sort(sortCap);
-  const recent = data.filter(r=>r.report_date<todayET && r.verdict!=="PENDING").sort((a,b)=>b.report_date.localeCompare(a.report_date)||sortCap(a,b)).slice(0,40);
-  const next   = data.filter(r=>r.report_date>todayET).sort((a,b)=>a.report_date.localeCompare(b.report_date)||sortCap(a,b)).slice(0,40);
-  $id("er-today").innerHTML  = tbl(today,false);
-  $id("er-recent").innerHTML = tbl(recent,true);
-  $id("er-next").innerHTML   = tbl(next,true);
-  const nb=recent.filter(r=>r.verdict==="BEAT").length, nm=recent.filter(r=>r.verdict==="MISS").length;
-  $id("er-meta").textContent = `${today.length} today · recent: ${nb} beat / ${nm} miss`;
-  bump();
-}
-
-/* ── news ── */
-async function loadNews(){
-  const { data } = await sb.from("us_news").select("*")
-    .order("published_at",{ascending:false}).limit(120);
-  if(!data?.length){
-    $id("news-body").innerHTML=`<span class="err">no headlines yet — run the US scan workflow (news)</span>`;
-    bump(); return;
+    <td><span class="badge ${wtag[r.window_label]||"b-nu"}">${r.window_label}</span></td>
+    <td><span class="badge ${r.snap_type==="SAME_DAY"?"b-up":"b-nu"}">${r.snap_type==="SAME_DAY"?"SPRING":r.snap_type}</span></td>
+    <td class="neu">${String(r.low_date).slice(5)}</td>
+    <td>${fmt(r.extreme_low,2)}</td><td class="cyn">${fmt(r.broken_level,2)}</td>
+    <td>${fmt(r.close,2)}</td>
+    <td class="pos">+${fmt(r.pct_off_low,1)}</td>
+    <td class="sub">${r.close_pos_pct!=null?fmt(r.close_pos_pct,0)+"%":"—"}</td>
+    <td class="${r.flush_vol_ratio>=1.5?"wrn":"neu"}">${r.flush_vol_ratio!=null?fmt(r.flush_vol_ratio,1)+"×":"—"}</td>
+    <td class="${r.snap_vol_ratio>=1.5?"wrn":"neu"}">${r.snap_vol_ratio!=null?fmt(r.snap_vol_ratio,1)+"×":"—"}</td>
+    <td>${r.above_200dma==null?"—":r.above_200dma?`<span class="pos">▲</span>`:`<span class="neg">▼</span>`}</td>
+    <td class="heat ${r.score>=4?"pos":r.score>=3?"wrn":"neu"}"><b>${r.score}</b></td></tr>`;
+  if(snapSort==="score"){
+    rows=[...rows].sort((a,b)=>b.score-a.score || String(b.run_date).localeCompare(String(a.run_date)));
+    $id("snap-body").innerHTML=rows.map(row).join("") || `<tr><td class="l neu" colspan="14">no signals match</td></tr>`;
+    return;
   }
-  const now=Date.now();
-  $id("news-body").innerHTML = data.map(r=>{
-    const ts=r.published_at?new Date(r.published_at):null;
-    const ago = ts ? (now-ts.getTime()<3600e3 ? Math.max(1,Math.round((now-ts.getTime())/60e3))+"m ago"
-      : now-ts.getTime()<86400e3 ? Math.round((now-ts.getTime())/3600e3)+"h ago"
-      : ts.toLocaleDateString("en-US",{month:"short",day:"numeric"})) : "—";
-    const et = ts ? ts.toLocaleString("en-US",{timeZone:"America/New_York",hour:"2-digit",minute:"2-digit",hour12:false}) : "";
-    return `<div class="news-item">
-      <span class="t" title="${et} ET">${ago}</span>
-      <span>${r.symbol?`<span class="badge b-cy tick" data-sym="${r.symbol}">${r.symbol}</span>`:`<span class="badge b-nu">MKT</span>`}</span>
-      <span class="h"><a href="${r.url||"#"}" target="_blank" rel="noopener">${r.headline}</a>
-        <span class="src">— ${r.publisher||""}</span></span></div>`;
-  }).join("");
-  $id("nw-meta").textContent = data.length+" headlines · newest "+
-    (data[0].published_at? new Date(data[0].published_at).toLocaleString("en-US",{timeZone:"America/New_York",month:"short",day:"numeric",hour:"2-digit",minute:"2-digit",hour12:false})+" ET":"");
-  bump();
+  rows=[...rows].sort((a,b)=>String(b.run_date).localeCompare(String(a.run_date)) || b.score-a.score);
+  let html="", cur=null;
+  rows.forEach(r=>{
+    if(r.run_date!==cur){
+      cur=r.run_date;
+      const n=rows.filter(x=>x.run_date===cur).length;
+      html+=`<tr class="grp"><td colspan="14">▸ ${cur} · ${n} signal${n>1?"s":""}</td></tr>`;
+    }
+    html+=row(r);
+  });
+  $id("snap-body").innerHTML=html || `<tr><td class="l neu" colspan="14">no signals match</td></tr>`;
 }
+$id("snap-chips").addEventListener("click", e=>{
+  const ch=e.target.closest(".chip"); if(!ch) return;
+  const g=ch.dataset.g;
+  if(g==="type"){
+    snapF.type=ch.dataset.f;
+    document.querySelectorAll('#snap-chips .chip[data-g="type"]').forEach(x=>x.classList.toggle("on",x===ch));
+  } else {
+    const key={win:"win",score:"score",trend:"trend"}[g];
+    snapF[key]=!snapF[key]; ch.classList.toggle("on",snapF[key]);
+  }
+  renderSnap();
+});
 
 /* ── chart modal ── */
 let mChart=null;
@@ -690,6 +678,7 @@ document.body.addEventListener("click", e=>{
   const th=e.target.closest("th.sortable"); if(th){
     const tt=th.dataset.t;
     if(tt==="ep"){ epSort = epSort==="ret" ? null : "ret"; renderEP(); return; }
+    if(tt==="snap"){ snapSort = snapSort==="score" ? null : "score"; renderSnap(); return; }
     const st=sortState[tt];
     if(st.k===th.dataset.k) st.asc=!st.asc; else { st.k=th.dataset.k; st.asc=false; }
     renderGroups(tt);
@@ -701,7 +690,7 @@ $id("sym-search").addEventListener("keydown", e=>{
 document.addEventListener("keydown", e=>{
   if(e.key==="Escape") closeModal();
   if(e.target.tagName==="INPUT") return;
-  const map={"1":"s-market","2":"s-sectors","3":"s-themes","4":"s-ep","5":"s-vcp","6":"s-earnings","7":"s-news"};
+  const map={"1":"s-market","2":"s-sectors","3":"s-themes","4":"s-ep","5":"s-vcp","6":"s-snap"};
   if(map[e.key]) document.getElementById(map[e.key]).scrollIntoView();
   if(e.key==="/"){ e.preventDefault(); $id("sym-search").focus(); }
 });
@@ -716,7 +705,7 @@ document.querySelectorAll(".anchor").forEach(a=>{
 /* ── boot ── */
 (async ()=>{
   await loadStocks();                                  // map first (names in tables)
-  loadTape(); loadBreadth(); loadGroups(); loadEP(); loadVCP(); loadEarnings(); loadNews();
+  loadTape(); loadBreadth(); loadGroups(); loadEP(); loadVCP(); loadSnap();
 })();
 </script>
 </body>

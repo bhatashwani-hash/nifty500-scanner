@@ -13,9 +13,9 @@ Scanners over the us_stocks / us_ohlcv universe (1-yr history):
   vcp        -> scanner_us_vcp        3-month return >= 25% and 15-day range < 15%
   groups     -> scanner_us_groups     sector + granular-theme performance day/week/month,
                                       each with its tracked ETF's return + top-3 leaders
-  earnings   -> us_earnings           earnings calendar (last ~7 sessions + next 7 days),
-                                      beat/miss vs consensus + day reaction
-  news       -> us_news               headlines for today's biggest movers + SPY/QQQ
+  snapback   -> scanner_us_snapback   undercut & rally / spring: undercut of the prior
+                                      1M/3M/6M/1Y low, then a SAME_DAY reversal bar or a
+                                      D1/D2 close back above the broken level; scored 0-5
 
 The universe is the TOP 1000 US stocks by market cap (us_stocks.is_active).
 
@@ -440,189 +440,106 @@ def scan_groups(conn):
     return len(rows)
 
 
-# ── earnings calendar + beat/miss ────────────────────────────────────────────
-def _num(v):
-    """Parse NASDAQ number strings: '$1.98', '(0.26)' = negative, 'N/A' = None."""
-    if v is None or isinstance(v, (int, float)):
-        return None if v is None else float(v)
-    s = str(v).replace("$", "").replace(",", "").strip()
-    if not s or s.upper() in ("N/A", "NA", "--", ""):
-        return None
-    neg = s.startswith("(") and s.endswith(")")
-    s = s.strip("()")
-    try:
-        return -float(s) if neg else float(s)
-    except ValueError:
-        return None
+# ── snapback (undercut & rally / spring) ─────────────────────────────────────
+SNAP_WINDOWS = [("1Y", 252), ("6M", 126), ("3M", 63), ("1M", 21)]  # deepest first
+SNAP_HISTORY = 60       # trailing sessions re-scanned each run (rolling history)
+SNAP_CLOSEPOS = 0.65    # SAME_DAY: close in the top 35% of the day's range
 
 
-def scan_earnings(conn):
-    """Earnings for the top-1000 universe: last ~7 sessions (with beat/miss
-    verdicts from the NASDAQ earnings-surprise endpoint + day reaction) and
-    the next 7 calendar days (PENDING)."""
-    import requests
+def scan_snapback(conn):
+    """Capitulation snapback: day D undercuts the lowest low of the prior N
+    sessions (deepest of 1M/3M/6M/1Y wins), then either closes that same day
+    in the top 35% of its range (SAME_DAY spring bar) or closes back above
+    the broken level within 1-2 sessions (D1/D2 reclaim). Score 0-5: window
+    >=3M, SAME_DAY bar, flush volume >=1.5x, snap volume >=1.5x, >200-DMA.
+    The trailing SNAP_HISTORY sessions are fully refreshed every run so the
+    table keeps a rolling signal history."""
+    df = _load(conn, "close, high, low, volume")
+    c, h, l, v = _pivot(df, "close"), _pivot(df, "high"), _pivot(df, "low"), _pivot(df, "volume")
+    if len(c) < 25:
+        return 0
+    av20 = v.shift(1).rolling(20, min_periods=10).mean()
+    ma200 = c.rolling(200, min_periods=200).mean()
+    pm = {lab: l.shift(1).rolling(n, min_periods=n).min() for lab, n in SNAP_WINDOWS}
 
-    uni = set(pd.read_sql("SELECT symbol FROM us_stocks WHERE is_active", conn)["symbol"])
-    c = _pivot(_load(conn), "close")
-    today = pd.Timestamp.today().normalize()
+    fcache = {}
 
-    days = [d for d in pd.date_range(today - pd.Timedelta(days=10), today + pd.Timedelta(days=7))
-            if d.weekday() < 5]
-    recs = {}
-    for day in days:
-        try:
-            r = requests.get(_CAL_URL, params={"date": day.date().isoformat()},
-                             headers=_CAL_HEADERS, timeout=30)
-            r.raise_for_status()
-            rows = (r.json().get("data") or {}).get("rows") or []
-        except Exception as exc:
-            log.warning("earnings calendar %s failed: %s", day.date(), exc)
-            time.sleep(1)
-            continue
-        for x in rows:
-            sym = (x.get("symbol") or "").strip()
-            if sym not in uni:
+    def flushes(q):
+        """Symbols whose bar q undercut a prior N-day low -> {sym: (label, broken_level)};
+        the deepest broken window wins."""
+        if q in fcache:
+            return fcache[q]
+        out, lq = {}, l.iloc[q]
+        for lab, _ in SNAP_WINDOWS:
+            lvl = pm[lab].iloc[q]
+            hit = (lq < lvl) & lvl.notna() & lq.notna()
+            for s in l.columns[hit.values]:
+                out.setdefault(s, (lab, float(lvl[s])))
+        fcache[q] = out
+        return out
+
+    def mk(p, q, s, lab, broken, typ):
+        d, dq = c.index[p], c.index[q]
+        cl, xl = float(c.at[d, s]), float(l.at[dq, s])
+        hi, lo = h.at[d, s], l.at[d, s]
+        cp = (cl - float(lo)) / (float(hi) - float(lo)) \
+            if pd.notna(hi) and pd.notna(lo) and float(hi) > float(lo) else None
+        fv, fa = v.at[dq, s], av20.at[dq, s]
+        sv, sa = v.at[d, s], av20.at[d, s]
+        fr = round(float(fv) / float(fa), 2) if pd.notna(fv) and pd.notna(fa) and fa > 0 else None
+        sr = round(float(sv) / float(sa), 2) if pd.notna(sv) and pd.notna(sa) and sa > 0 else None
+        m2 = ma200.at[d, s]
+        ab = bool(cl >= float(m2)) if pd.notna(m2) else None
+        score = int(sum([lab in ("3M", "6M", "1Y"), typ == "SAME_DAY",
+                         (fr or 0) >= 1.5, (sr or 0) >= 1.5, bool(ab)]))
+        return (d.date(), s, lab, typ, dq.date(), round(xl, 2), round(broken, 2),
+                round(cl, 2), round((cl / xl - 1) * 100, 2),
+                None if cp is None else round(cp * 100, 1), fr, sr, ab, score)
+
+    start = max(len(c) - SNAP_HISTORY, 3)
+    rows = {}
+    for p in range(start, len(c)):
+        d, dt = c.index[p], c.index[p].date()
+        # SAME_DAY: undercut + close in the top of the range
+        for s, (lab, broken) in flushes(p).items():
+            hi, lo, cl = h.at[d, s], l.at[d, s], c.at[d, s]
+            if any(pd.isna(x) for x in (hi, lo, cl)) or float(hi) <= float(lo):
                 continue
-            t = (x.get("time") or "").replace("time-", "")
-            recs[(day.date(), sym)] = {
-                "time": t if t in ("pre-market", "after-hours") else "unknown",
-                "est": _num(x.get("epsForecast")),
-            }
-        time.sleep(0.15)
-    log.info("earnings: %d universe reports in window", len(recs))
+            if (float(cl) - float(lo)) / (float(hi) - float(lo)) >= SNAP_CLOSEPOS:
+                rows[(dt, s)] = mk(p, p, s, lab, broken, "SAME_DAY")
+        # D1/D2: first close back above the level broken 1-2 sessions ago
+        for back, typ in ((1, "D1"), (2, "D2")):
+            q = p - back
+            if q < 0:
+                continue
+            for s, (lab, broken) in flushes(q).items():
+                if (dt, s) in rows:
+                    continue
+                cl = c.at[d, s]
+                if pd.isna(cl) or float(cl) <= broken:
+                    continue
+                interim = [c.at[c.index[q + k], s] for k in range(back)]
+                if any(pd.notna(x) and float(x) > broken for x in interim):
+                    continue                     # already reclaimed earlier
+                rows[(dt, s)] = mk(p, q, s, lab, broken, typ)
 
-    # actuals for reporters whose date has passed
-    past = sorted({s for (d, s) in recs if d <= today.date()})
-    actuals = {}
-    for sym in past:
-        try:
-            r = requests.get(f"https://api.nasdaq.com/api/company/{sym}/earnings-surprise",
-                             headers=_CAL_HEADERS, timeout=30)
-            rows = (((r.json().get("data") or {}).get("earningsSurpriseTable") or {})
-                    .get("rows") or [])
-        except Exception as exc:
-            log.warning("earnings surprise %s failed: %s", sym, exc)
-            rows = []
-        for x in rows:
-            dt = pd.to_datetime(x.get("dateReported"), errors="coerce")
-            if pd.notna(dt):
-                actuals[(sym, dt.date())] = (_num(x.get("eps")),
-                                             _num(x.get("consensusForecast")),
-                                             _num(x.get("percentageSurprise")))
-        time.sleep(0.2)
-
-    def reaction(sym, day, when):
-        """Close-over-close move on the session the report hits."""
-        if sym not in c.columns:
-            return None
-        s = c[sym].dropna()
-        pos = s.index.searchsorted(pd.Timestamp(day), side="left" if when != "after-hours" else "right")
-        if pos >= len(s) or pos < 1:
-            return None
-        if s.index[pos].date() > today.date():
-            return None
-        return round(float(s.iloc[pos] / s.iloc[pos - 1] - 1) * 100, 2)
-
-    out = []
-    for (day, sym), rec in recs.items():
-        eps_a = eps_e = spct = None
-        # surprise rows are keyed by their own dateReported; match within 4 days
-        for (s2, d2), (a, e, p) in actuals.items():
-            if s2 == sym and abs((d2 - day).days) <= 4:
-                eps_a, eps_e, spct = a, (e if e is not None else rec["est"]), p
-                break
-        if eps_e is None:
-            eps_e = rec["est"]
-        if day > today.date() or (eps_a is None and day == today.date()):
-            verdict = "PENDING"
-        elif eps_a is None:
-            verdict = "PENDING"
-        elif eps_e is None:
-            verdict = "REPORTED"
-        elif eps_a > eps_e:
-            verdict = "BEAT"
-        elif eps_a < eps_e:
-            verdict = "MISS"
-        else:
-            verdict = "INLINE"
-        out.append((day, sym, rec["time"], eps_e, eps_a, spct, verdict,
-                    reaction(sym, day, rec["time"]) if day <= today.date() else None))
-
+    out = list(rows.values())
     with conn.cursor() as cur:
-        cur.execute("DELETE FROM us_earnings WHERE report_date >= %s", (days[0].date(),))
-        cur.execute("DELETE FROM us_earnings WHERE report_date < %s",
-                    ((today - pd.Timedelta(days=30)).date(),))
+        cur.execute("DELETE FROM scanner_us_snapback WHERE run_date >= %s",
+                    (c.index[start].date(),))
         if out:
             psycopg2.extras.execute_values(cur, """
-                INSERT INTO us_earnings (report_date, symbol, report_time, eps_est, eps_actual,
-                  surprise_pct, verdict, reaction_pct)
-                VALUES %s
-                ON CONFLICT (report_date, symbol) DO UPDATE SET
-                  report_time=EXCLUDED.report_time, eps_est=EXCLUDED.eps_est,
-                  eps_actual=EXCLUDED.eps_actual, surprise_pct=EXCLUDED.surprise_pct,
-                  verdict=EXCLUDED.verdict, reaction_pct=EXCLUDED.reaction_pct,
-                  updated_at=now()""", out, page_size=500)
+                INSERT INTO scanner_us_snapback (run_date, symbol, window_label, snap_type,
+                  low_date, extreme_low, broken_level, close, pct_off_low, close_pos_pct,
+                  flush_vol_ratio, snap_vol_ratio, above_200dma, score)
+                VALUES %s ON CONFLICT DO NOTHING""", out, page_size=500)
     conn.commit()
     return len(out)
 
 
-# ── breaking news (top movers + market) ──────────────────────────────────────
-def scan_news(conn):
-    """Yahoo headlines for today's biggest movers (from scanner_us_rvol) plus
-    market-level news via SPY/QQQ. Deduped on Yahoo's article id, pruned to 7d."""
-    import yfinance as yf
-
-    movers = pd.read_sql("""
-        SELECT r.symbol FROM scanner_us_rvol r
-        WHERE r.run_date = (SELECT max(run_date) FROM scanner_us_rvol)
-          AND (abs(r.chg_pct) >= 3 OR r.rvol >= 2)
-        ORDER BY abs(r.chg_pct) DESC LIMIT 25""", conn)["symbol"].tolist()
-    syms = [("SPY", None), ("QQQ", None)] + [(s, s) for s in movers]
-
-    items = {}
-    for ysym, tag in syms:
-        try:
-            news = yf.Ticker(ysym.replace(".", "-")).news or []
-        except Exception as exc:
-            log.warning("news %s failed: %s", ysym, exc)
-            news = []
-        for it in news[:8]:
-            content = it.get("content") or it
-            nid = str(it.get("id") or it.get("uuid") or
-                      (content.get("canonicalUrl") or {}).get("url") or "")
-            title = (content.get("title") or "").strip()
-            if not nid or not title:
-                continue
-            ts = content.get("pubDate") or content.get("providerPublishTime")
-            ts = (pd.to_datetime(ts, unit="s", utc=True) if isinstance(ts, (int, float))
-                  else pd.to_datetime(ts, utc=True, errors="coerce"))
-            row = (nid, tag, title[:300],
-                   (content.get("provider") or {}).get("displayName") or content.get("publisher"),
-                   (content.get("canonicalUrl") or {}).get("url") or content.get("link"),
-                   None if pd.isna(ts) else ts.to_pydatetime())
-            # prefer the stock-tagged copy of a story over the market-level one
-            if nid not in items or (tag and not items[nid][1]):
-                items[nid] = row
-        time.sleep(0.4)
-
-    with conn.cursor() as cur:
-        if items:
-            psycopg2.extras.execute_values(cur, """
-                INSERT INTO us_news (id, symbol, headline, publisher, url, published_at)
-                VALUES %s
-                ON CONFLICT (id) DO UPDATE SET
-                  symbol=COALESCE(us_news.symbol, EXCLUDED.symbol),
-                  headline=EXCLUDED.headline, fetched_at=now()""",
-                list(items.values()), page_size=200)
-        cur.execute("DELETE FROM us_news WHERE COALESCE(published_at, fetched_at) < now() - interval '7 days'")
-    conn.commit()
-    return len(items)
-
-
 SCANNERS = [("breadth", scan_breadth), ("breakouts", scan_breakouts),
             ("rvol", scan_rvol), ("ep", scan_ep), ("vcp", scan_vcp),
-            ("groups", scan_groups), ("earnings", scan_earnings),
-            ("news", scan_news)]
+            ("groups", scan_groups), ("snapback", scan_snapback)]
 
 
 def main():
