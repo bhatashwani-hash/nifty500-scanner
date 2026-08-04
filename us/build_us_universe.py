@@ -1,17 +1,20 @@
 """
-build_us_universe.py  —  Build the US scanner universe (Wilshire-style coverage).
+build_us_universe.py  —  Build the US scanner universe (top-1000 by market cap).
 
 Downloads the full NASDAQ screener list (NASDAQ + NYSE + AMEX, ~6,000 names),
-filters to investable stocks, and upserts into `us_stocks`:
+filters to investable stocks, keeps the TOP N BY MARKET CAP (default 1000),
+and upserts into `us_stocks`:
 
-    price >= $3,  market cap >= $150M,  common stock symbols only
+    price >= $3,  common stock symbols only
     (drops units/warrants/preferreds: symbols containing '^' or '/')
 
-Symbols missing from the latest list are marked is_active = false.
+Every screened symbol gets `cap_rank` (1 = largest); only the top N are
+is_active = true. Symbols missing from the latest list go is_active = false.
+Also registers the tracked indices + sector/theme ETFs in `us_indices`.
 Run once to seed, then occasionally (e.g. monthly) to refresh membership.
 
     python us/build_us_universe.py
-    python us/build_us_universe.py --min-cap 300e6 --min-price 5
+    python us/build_us_universe.py --top 1500 --min-price 5
 """
 
 import argparse
@@ -60,9 +63,50 @@ def parse_cap(v):
         return 0.0
 
 
+ETFS = [
+    # 11 GICS sector SPDRs
+    ("XLK", "Technology Select SPDR", "Sector ETF"),
+    ("XLF", "Financial Select SPDR", "Sector ETF"),
+    ("XLV", "Health Care Select SPDR", "Sector ETF"),
+    ("XLE", "Energy Select SPDR", "Sector ETF"),
+    ("XLY", "Consumer Discretionary SPDR", "Sector ETF"),
+    ("XLP", "Consumer Staples SPDR", "Sector ETF"),
+    ("XLI", "Industrial Select SPDR", "Sector ETF"),
+    ("XLB", "Materials Select SPDR", "Sector ETF"),
+    ("XLRE", "Real Estate Select SPDR", "Sector ETF"),
+    ("XLU", "Utilities Select SPDR", "Sector ETF"),
+    ("XLC", "Communication Services SPDR", "Sector ETF"),
+    # granular theme ETFs (must stay in sync with THEMES in scan_us_all.py)
+    ("SMH", "VanEck Semiconductor", "Theme ETF"),
+    ("IGV", "iShares Expanded Tech-Software", "Theme ETF"),
+    ("KBE", "SPDR S&P Bank", "Theme ETF"),
+    ("KRE", "SPDR S&P Regional Banking", "Theme ETF"),
+    ("IAI", "iShares US Broker-Dealers", "Theme ETF"),
+    ("IAK", "iShares US Insurance", "Theme ETF"),
+    ("IPAY", "Amplify Digital Payments", "Theme ETF"),
+    ("XBI", "SPDR S&P Biotech", "Theme ETF"),
+    ("XPH", "SPDR S&P Pharmaceuticals", "Theme ETF"),
+    ("IHI", "iShares US Medical Devices", "Theme ETF"),
+    ("IHF", "iShares US Healthcare Providers", "Theme ETF"),
+    ("XOP", "SPDR S&P Oil & Gas E&P", "Theme ETF"),
+    ("OIH", "VanEck Oil Services", "Theme ETF"),
+    ("AMLP", "Alerian MLP", "Theme ETF"),
+    ("ITA", "iShares US Aerospace & Defense", "Theme ETF"),
+    ("XHB", "SPDR S&P Homebuilders", "Theme ETF"),
+    ("XRT", "SPDR S&P Retail", "Theme ETF"),
+    ("CARZ", "First Trust S-Network Future Vehicles", "Theme ETF"),
+    ("IYT", "iShares US Transportation", "Theme ETF"),
+    ("GDX", "VanEck Gold Miners", "Theme ETF"),
+    ("SLX", "VanEck Steel", "Theme ETF"),
+    ("PEJ", "Invesco Leisure & Entertainment", "Theme ETF"),
+    ("PAVE", "Global X US Infrastructure", "Theme ETF"),
+    ("PBJ", "Invesco Food & Beverage", "Theme ETF"),
+]
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--min-cap", type=float, default=150e6)
+    ap.add_argument("--top", type=int, default=1000, help="keep top N by market cap")
     ap.add_argument("--min-price", type=float, default=3.0)
     args = ap.parse_args()
 
@@ -79,25 +123,29 @@ def main():
             continue
         price = parse_cap(x.get("lastsale"))
         cap = parse_cap(x.get("marketCap"))
-        if price < args.min_price or cap < args.min_cap:
+        if price < args.min_price or cap <= 0:
             continue
         keep.append((sym, (x.get("name") or "")[:120],
                      x.get("sector") or None, x.get("industry") or None, cap))
-    print(f"  {len(keep)} pass filters (price>=${args.min_price}, cap>=${args.min_cap:,.0f})")
+    keep.sort(key=lambda t: t[4], reverse=True)
+    print(f"  {len(keep)} pass filters (price>=${args.min_price}); "
+          f"keeping top {args.top} by market cap")
 
     conn = psycopg2.connect(os.environ["DATABASE_URL"])
     try:
         with conn.cursor() as cur:
             execute_values(cur, """
-                INSERT INTO us_stocks (symbol, name, sector, industry, market_cap, is_active)
+                INSERT INTO us_stocks (symbol, name, sector, industry, market_cap, cap_rank, is_active)
                 VALUES %s
                 ON CONFLICT (symbol) DO UPDATE SET
                   name=EXCLUDED.name, sector=EXCLUDED.sector, industry=EXCLUDED.industry,
-                  market_cap=EXCLUDED.market_cap, is_active=true
-            """, [(s, n, sec, ind, cap, True) for s, n, sec, ind, cap in keep],
+                  market_cap=EXCLUDED.market_cap, cap_rank=EXCLUDED.cap_rank,
+                  is_active=EXCLUDED.is_active
+            """, [(s, n, sec, ind, cap, i + 1, i < args.top)
+                  for i, (s, n, sec, ind, cap) in enumerate(keep)],
                 page_size=500)
-            cur.execute("UPDATE us_stocks SET is_active=false WHERE symbol <> ALL(%s)",
-                        ([s for s, *_ in keep],))
+            cur.execute("UPDATE us_stocks SET is_active=false, cap_rank=NULL "
+                        "WHERE symbol <> ALL(%s)", ([s for s, *_ in keep],))
             # refresh S&P 500 membership (dot/dash ticker styles both matched)
             sp500 = fetch_sp500_symbols()
             if sp500:
@@ -111,15 +159,16 @@ def main():
                         OR upper(replace(symbol,'.','-')) = ANY(%s)
                 """, (sp_list, sp_list, sp_list))
                 print(f"  flagged is_sp500 for S&P 500 members ({len(sp_list)} in list)")
-            # tracked indices
+            # tracked indices + sector/theme ETFs
             execute_values(cur, """
                 INSERT INTO us_indices (symbol, name, category) VALUES %s
-                ON CONFLICT (symbol) DO NOTHING
+                ON CONFLICT (symbol) DO UPDATE SET name=EXCLUDED.name, category=EXCLUDED.category
             """, [("^GSPC", "S&P 500", "Benchmark"), ("^NDX", "NASDAQ 100", "Benchmark"),
                   ("^DJI", "Dow Jones", "Benchmark"), ("^RUT", "Russell 2000", "Benchmark"),
-                  ("^VIX", "VIX", "Volatility")])
+                  ("^VIX", "VIX", "Volatility")] + ETFS)
         conn.commit()
-        print(f"Upserted {len(keep)} into us_stocks (+5 indices)")
+        print(f"Upserted {len(keep)} into us_stocks "
+              f"(top {args.top} active, +{5 + len(ETFS)} indices/ETFs)")
     finally:
         conn.close()
 

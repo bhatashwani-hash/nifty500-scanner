@@ -1,4 +1,4 @@
-name: US Daily Scan — breadth, breakouts, rvol, ep, vcp, sectors
+name: US Daily Scan — breadth, breakouts, rvol, ep, vcp, groups, earnings, news
 
 # 23:00 UTC — ~1.5h after the US ingest finishes.
 on:

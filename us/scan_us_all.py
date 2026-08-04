@@ -11,11 +11,17 @@ Scanners over the us_stocks / us_ohlcv universe (1-yr history):
                                       6-month leaderboard ranked by return since pivot;
                                       pivots on an earnings release get earnings_date set
   vcp        -> scanner_us_vcp        3-month return >= 25% and 15-day range < 15%
-  sectors    -> scanner_us_sectors    sector performance day/week/month (us_stocks.sector)
+  groups     -> scanner_us_groups     sector + granular-theme performance day/week/month,
+                                      each with its tracked ETF's return + top-3 leaders
+  earnings   -> us_earnings           earnings calendar (last ~7 sessions + next 7 days),
+                                      beat/miss vs consensus + day reaction
+  news       -> us_news               headlines for today's biggest movers + SPY/QQQ
+
+The universe is the TOP 1000 US stocks by market cap (us_stocks.is_active).
 
 Usage:
     python us/scan_us_all.py
-    python us/scan_us_all.py --skip breadth,sectors
+    python us/scan_us_all.py --skip breadth,groups
 """
 
 import argparse
@@ -298,37 +304,325 @@ def scan_vcp(conn):
     return len(rows)
 
 
-# ── sectors ──────────────────────────────────────────────────────────────────
-def scan_sectors(conn):
+# ── sectors + granular themes ────────────────────────────────────────────────
+SECTOR_ETFS = {
+    "Technology": "XLK", "Finance": "XLF", "Health Care": "XLV", "Energy": "XLE",
+    "Consumer Discretionary": "XLY", "Consumer Staples": "XLP", "Industrials": "XLI",
+    "Basic Materials": "XLB", "Real Estate": "XLRE", "Utilities": "XLU",
+    "Telecommunications": "XLC",
+}
+
+# (theme, etf, NASDAQ industry tags — matched after strip())
+THEMES = [
+    ("Semiconductors", "SMH", ["Semiconductors"]),
+    ("Software & Cloud", "IGV", [
+        "Computer Software: Prepackaged Software",
+        "Computer Software: Programming Data Processing", "EDP Services",
+        "Retail: Computer Software & Peripheral Equipment"]),
+    ("Hardware & Networking", "XLK", [
+        "Computer Manufacturing", "Computer peripheral equipment", "Electronic Components",
+        "Computer Communications Equipment",
+        "Radio And Television Broadcasting And Communications Equipment"]),
+    ("Banks", "KBE", ["Major Banks"]),
+    ("Regional Banks", "KRE", ["Commercial Banks", "Savings Institutions"]),
+    ("Capital Markets", "IAI", [
+        "Investment Bankers/Brokers/Service", "Investment Managers",
+        "Finance/Investors Services", "Diversified Financial Services"]),
+    ("Insurance", "IAK", [
+        "Property-Casualty Insurers", "Life Insurance", "Specialty Insurers",
+        "Accident &Health Insurance"]),
+    ("Payments & Fin Services", "IPAY", ["Business Services", "Finance: Consumer Services"]),
+    ("Biotech", "XBI", [
+        "Biotechnology: Biological Products (No Diagnostic Substances)",
+        "Biotechnology: Commercial Physical & Biological Resarch",
+        "Biotechnology: In Vitro & In Vivo Diagnostic Substances"]),
+    ("Pharma", "XPH", [
+        "Biotechnology: Pharmaceutical Preparations", "Other Pharmaceuticals",
+        "Medicinal Chemicals and Botanical Products"]),
+    ("Medical Devices", "IHI", [
+        "Medical/Dental Instruments", "Medical Specialities", "Medical Electronics",
+        "Ophthalmic Goods", "Biotechnology: Electromedical & Electrotherapeutic Apparatus",
+        "Biotechnology: Laboratory Analytical Instruments", "Precision Instruments"]),
+    ("Healthcare Services", "IHF", [
+        "Hospital/Nursing Management", "Medical/Nursing Services",
+        "Misc Health and Biotechnology Services"]),
+    ("Oil & Gas", "XOP", ["Oil & Gas Production", "Integrated oil Companies", "Coal Mining"]),
+    ("Oil Services", "OIH", ["Oilfield Services/Equipment", "Oil and Gas Field Machinery"]),
+    ("Midstream & Gas", "AMLP", ["Oil/Gas Transmission", "Natural Gas Distribution"]),
+    ("Aerospace & Defense", "ITA", [
+        "Aerospace", "Military/Government/Technical", "Ordnance And Accessories"]),
+    ("Homebuilders & Building", "XHB", [
+        "Homebuilding", "Building Products", "Building Materials", "RETAIL: Building Materials"]),
+    ("Retail", "XRT", [
+        "Department/Specialty Retail Stores", "Clothing/Shoe/Accessory Stores",
+        "Other Specialty Stores", "Catalog/Specialty Distribution",
+        "Consumer Electronics/Video Chains", "Auto & Home Supply Stores",
+        "Retail-Auto Dealers and Gas Stations", "Food Chains",
+        "Retail-Drug Stores and Proprietary Stores", "Home Furnishings"]),
+    ("Autos & EV", "CARZ", [
+        "Auto Manufacturing", "Motor Vehicles", "Auto Parts:O.E.M.", "Automotive Aftermarket"]),
+    ("Transports & Logistics", "IYT", [
+        "Railroads", "Trucking Freight/Courier Services", "Air Freight/Delivery Services",
+        "Marine Transportation", "Transportation Services", "Integrated Freight & Logistics"]),
+    ("Gold & Miners", "GDX", ["Precious Metals", "Metal Mining", "Other Metals and Minerals"]),
+    ("Steel & Mining", "SLX", [
+        "Steel/Iron Ore", "Aluminum", "Mining & Quarrying of Nonmetallic Minerals (No Fuels)"]),
+    ("Chemicals", "XLB", [
+        "Major Chemicals", "Specialty Chemicals", "Agricultural Chemicals", "Paints/Coatings"]),
+    ("Travel & Leisure", "PEJ", [
+        "Restaurants", "Hotels/Resorts", "Services-Misc. Amusement & Recreation",
+        "Recreational Games/Products/Toys"]),
+    ("Media & Telecom", "XLC", [
+        "Broadcasting", "Cable & Other Pay Television Services", "Newspapers/Magazines",
+        "Publishing", "Advertising", "Telecommunications Equipment"]),
+    ("Industrial Machinery", "XLI", [
+        "Industrial Machinery/Components", "Metal Fabrications", "Fluid Controls",
+        "Construction/Ag Equipment/Trucks", "Electrical Products", "Industrial Specialties"]),
+    ("Infrastructure & E&C", "PAVE", [
+        "Engineering & Construction", "Water Sewer Pipeline Comm & Power Line Construction",
+        "Pollution Control Equipment", "Environmental Services"]),
+    ("Power Generation", "XLU", ["Power Generation", "Electric Utilities: Central"]),
+    ("Food & Household", "PBJ", [
+        "Beverages (Production/Distribution)", "Packaged Foods", "Meat/Poultry/Fish",
+        "Specialty Foods", "Farming/Seeds/Milling", "Food Distributors",
+        "Package Goods/Cosmetics"]),
+]
+
+
+def scan_groups(conn):
     df = _load(conn)
     c = _pivot(df, "close")
     if len(c) < 23:
         return 0
     run_date = c.index[-1].date()
-    sec = pd.read_sql("SELECT symbol, sector FROM us_stocks WHERE is_active AND sector IS NOT NULL",
-                      conn).set_index("symbol")["sector"]
+    meta = pd.read_sql(
+        "SELECT symbol, sector, trim(industry) AS industry FROM us_stocks WHERE is_active",
+        conn).set_index("symbol")
+    ec = pd.read_sql(
+        "SELECT symbol, time::date AS date, close FROM us_index_ohlcv "
+        "WHERE left(symbol, 1) <> '^' ORDER BY date",
+        conn, parse_dates=["date"]).pivot(index="date", columns="symbol", values="close").sort_index()
+
+    def etf_ret(sym, k):
+        if not sym or sym not in ec.columns:
+            return None
+        s = ec[sym].dropna()
+        return round(float(s.iloc[-1] / s.iloc[-1 - k] - 1) * 100, 2) if len(s) > k else None
+
+    ind2theme = {i: name for name, _, inds in THEMES for i in inds}
+    theme_etf = {name: etf for name, etf, _ in THEMES}
+
     rows = []
     for period, k in (("day", 1), ("week", 5), ("month", 21)):
         if len(c) <= k:
             continue
         ret = (c.iloc[-1] / c.iloc[-1 - k] - 1) * 100
-        g = pd.DataFrame({"ret": ret, "sector": sec}).dropna()
-        for sname, grp in g.groupby("sector"):
-            rows.append((run_date, period, sname, round(float(grp["ret"].mean()), 2),
-                         int((grp["ret"] > 0).sum()), int((grp["ret"] < 0).sum()), len(grp)))
+        g = pd.DataFrame({"ret": ret}).join(meta).dropna(subset=["ret"])
+        g["theme"] = g["industry"].map(ind2theme)
+        for kind, col, etf_of in (("sector", "sector", SECTOR_ETFS.get),
+                                  ("theme", "theme", theme_etf.get)):
+            for gname, grp in g.dropna(subset=[col]).groupby(col):
+                lead = grp["ret"].sort_values(ascending=False).head(3)
+                rows.append((run_date, period, kind, gname, etf_of(gname),
+                             etf_ret(etf_of(gname), k),
+                             round(float(grp["ret"].mean()), 2),
+                             int((grp["ret"] > 0).sum()), int((grp["ret"] < 0).sum()),
+                             len(grp),
+                             ", ".join(f"{s} {v:+.1f}" for s, v in lead.items())))
     with conn.cursor() as cur:
-        cur.execute("DELETE FROM scanner_us_sectors WHERE run_date=%s", (run_date,))
+        cur.execute("DELETE FROM scanner_us_groups WHERE run_date=%s", (run_date,))
         if rows:
             psycopg2.extras.execute_values(cur, """
-                INSERT INTO scanner_us_sectors (run_date, period, sector, avg_return, up_count, down_count, stock_count)
+                INSERT INTO scanner_us_groups (run_date, period, kind, name, etf, etf_return,
+                  avg_return, up_count, down_count, stock_count, leaders)
                 VALUES %s ON CONFLICT DO NOTHING""", rows, page_size=500)
     conn.commit()
     return len(rows)
 
 
+# ── earnings calendar + beat/miss ────────────────────────────────────────────
+def _num(v):
+    """Parse NASDAQ number strings: '$1.98', '(0.26)' = negative, 'N/A' = None."""
+    if v is None or isinstance(v, (int, float)):
+        return None if v is None else float(v)
+    s = str(v).replace("$", "").replace(",", "").strip()
+    if not s or s.upper() in ("N/A", "NA", "--", ""):
+        return None
+    neg = s.startswith("(") and s.endswith(")")
+    s = s.strip("()")
+    try:
+        return -float(s) if neg else float(s)
+    except ValueError:
+        return None
+
+
+def scan_earnings(conn):
+    """Earnings for the top-1000 universe: last ~7 sessions (with beat/miss
+    verdicts from the NASDAQ earnings-surprise endpoint + day reaction) and
+    the next 7 calendar days (PENDING)."""
+    import requests
+
+    uni = set(pd.read_sql("SELECT symbol FROM us_stocks WHERE is_active", conn)["symbol"])
+    c = _pivot(_load(conn), "close")
+    today = pd.Timestamp.today().normalize()
+
+    days = [d for d in pd.date_range(today - pd.Timedelta(days=10), today + pd.Timedelta(days=7))
+            if d.weekday() < 5]
+    recs = {}
+    for day in days:
+        try:
+            r = requests.get(_CAL_URL, params={"date": day.date().isoformat()},
+                             headers=_CAL_HEADERS, timeout=30)
+            r.raise_for_status()
+            rows = (r.json().get("data") or {}).get("rows") or []
+        except Exception as exc:
+            log.warning("earnings calendar %s failed: %s", day.date(), exc)
+            time.sleep(1)
+            continue
+        for x in rows:
+            sym = (x.get("symbol") or "").strip()
+            if sym not in uni:
+                continue
+            t = (x.get("time") or "").replace("time-", "")
+            recs[(day.date(), sym)] = {
+                "time": t if t in ("pre-market", "after-hours") else "unknown",
+                "est": _num(x.get("epsForecast")),
+            }
+        time.sleep(0.15)
+    log.info("earnings: %d universe reports in window", len(recs))
+
+    # actuals for reporters whose date has passed
+    past = sorted({s for (d, s) in recs if d <= today.date()})
+    actuals = {}
+    for sym in past:
+        try:
+            r = requests.get(f"https://api.nasdaq.com/api/company/{sym}/earnings-surprise",
+                             headers=_CAL_HEADERS, timeout=30)
+            rows = (((r.json().get("data") or {}).get("earningsSurpriseTable") or {})
+                    .get("rows") or [])
+        except Exception as exc:
+            log.warning("earnings surprise %s failed: %s", sym, exc)
+            rows = []
+        for x in rows:
+            dt = pd.to_datetime(x.get("dateReported"), errors="coerce")
+            if pd.notna(dt):
+                actuals[(sym, dt.date())] = (_num(x.get("eps")),
+                                             _num(x.get("consensusForecast")),
+                                             _num(x.get("percentageSurprise")))
+        time.sleep(0.2)
+
+    def reaction(sym, day, when):
+        """Close-over-close move on the session the report hits."""
+        if sym not in c.columns:
+            return None
+        s = c[sym].dropna()
+        pos = s.index.searchsorted(pd.Timestamp(day), side="left" if when != "after-hours" else "right")
+        if pos >= len(s) or pos < 1:
+            return None
+        if s.index[pos].date() > today.date():
+            return None
+        return round(float(s.iloc[pos] / s.iloc[pos - 1] - 1) * 100, 2)
+
+    out = []
+    for (day, sym), rec in recs.items():
+        eps_a = eps_e = spct = None
+        # surprise rows are keyed by their own dateReported; match within 4 days
+        for (s2, d2), (a, e, p) in actuals.items():
+            if s2 == sym and abs((d2 - day).days) <= 4:
+                eps_a, eps_e, spct = a, (e if e is not None else rec["est"]), p
+                break
+        if eps_e is None:
+            eps_e = rec["est"]
+        if day > today.date() or (eps_a is None and day == today.date()):
+            verdict = "PENDING"
+        elif eps_a is None:
+            verdict = "PENDING"
+        elif eps_e is None:
+            verdict = "REPORTED"
+        elif eps_a > eps_e:
+            verdict = "BEAT"
+        elif eps_a < eps_e:
+            verdict = "MISS"
+        else:
+            verdict = "INLINE"
+        out.append((day, sym, rec["time"], eps_e, eps_a, spct, verdict,
+                    reaction(sym, day, rec["time"]) if day <= today.date() else None))
+
+    with conn.cursor() as cur:
+        cur.execute("DELETE FROM us_earnings WHERE report_date >= %s", (days[0].date(),))
+        cur.execute("DELETE FROM us_earnings WHERE report_date < %s",
+                    ((today - pd.Timedelta(days=30)).date(),))
+        if out:
+            psycopg2.extras.execute_values(cur, """
+                INSERT INTO us_earnings (report_date, symbol, report_time, eps_est, eps_actual,
+                  surprise_pct, verdict, reaction_pct)
+                VALUES %s
+                ON CONFLICT (report_date, symbol) DO UPDATE SET
+                  report_time=EXCLUDED.report_time, eps_est=EXCLUDED.eps_est,
+                  eps_actual=EXCLUDED.eps_actual, surprise_pct=EXCLUDED.surprise_pct,
+                  verdict=EXCLUDED.verdict, reaction_pct=EXCLUDED.reaction_pct,
+                  updated_at=now()""", out, page_size=500)
+    conn.commit()
+    return len(out)
+
+
+# ── breaking news (top movers + market) ──────────────────────────────────────
+def scan_news(conn):
+    """Yahoo headlines for today's biggest movers (from scanner_us_rvol) plus
+    market-level news via SPY/QQQ. Deduped on Yahoo's article id, pruned to 7d."""
+    import yfinance as yf
+
+    movers = pd.read_sql("""
+        SELECT r.symbol FROM scanner_us_rvol r
+        WHERE r.run_date = (SELECT max(run_date) FROM scanner_us_rvol)
+          AND (abs(r.chg_pct) >= 3 OR r.rvol >= 2)
+        ORDER BY abs(r.chg_pct) DESC LIMIT 25""", conn)["symbol"].tolist()
+    syms = [("SPY", None), ("QQQ", None)] + [(s, s) for s in movers]
+
+    items = {}
+    for ysym, tag in syms:
+        try:
+            news = yf.Ticker(ysym.replace(".", "-")).news or []
+        except Exception as exc:
+            log.warning("news %s failed: %s", ysym, exc)
+            news = []
+        for it in news[:8]:
+            content = it.get("content") or it
+            nid = str(it.get("id") or it.get("uuid") or
+                      (content.get("canonicalUrl") or {}).get("url") or "")
+            title = (content.get("title") or "").strip()
+            if not nid or not title:
+                continue
+            ts = content.get("pubDate") or content.get("providerPublishTime")
+            ts = (pd.to_datetime(ts, unit="s", utc=True) if isinstance(ts, (int, float))
+                  else pd.to_datetime(ts, utc=True, errors="coerce"))
+            row = (nid, tag, title[:300],
+                   (content.get("provider") or {}).get("displayName") or content.get("publisher"),
+                   (content.get("canonicalUrl") or {}).get("url") or content.get("link"),
+                   None if pd.isna(ts) else ts.to_pydatetime())
+            # prefer the stock-tagged copy of a story over the market-level one
+            if nid not in items or (tag and not items[nid][1]):
+                items[nid] = row
+        time.sleep(0.4)
+
+    with conn.cursor() as cur:
+        if items:
+            psycopg2.extras.execute_values(cur, """
+                INSERT INTO us_news (id, symbol, headline, publisher, url, published_at)
+                VALUES %s
+                ON CONFLICT (id) DO UPDATE SET
+                  symbol=COALESCE(us_news.symbol, EXCLUDED.symbol),
+                  headline=EXCLUDED.headline, fetched_at=now()""",
+                list(items.values()), page_size=200)
+        cur.execute("DELETE FROM us_news WHERE COALESCE(published_at, fetched_at) < now() - interval '7 days'")
+    conn.commit()
+    return len(items)
+
+
 SCANNERS = [("breadth", scan_breadth), ("breakouts", scan_breakouts),
             ("rvol", scan_rvol), ("ep", scan_ep), ("vcp", scan_vcp),
-            ("sectors", scan_sectors)]
+            ("groups", scan_groups), ("earnings", scan_earnings),
+            ("news", scan_news)]
 
 
 def main():
