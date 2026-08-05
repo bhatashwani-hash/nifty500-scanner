@@ -284,7 +284,7 @@ tr.grp td{ background:var(--panel2); color:var(--cyan); font-weight:800; letter-
     <div class="pb" style="max-height:560px; overflow-y:auto;">
       <table id="tbl-snap">
         <thead><tr>
-          <th class="l">SYM</th><th class="l">NAME</th><th>WIN</th><th>TYPE</th><th>LOW DATE</th>
+          <th class="l">SYM</th><th class="l">NAME</th><th>WIN</th><th>TYPE</th><th>SNAP DATE</th>
           <th>EXT LOW</th><th>BROKEN LVL</th><th>CLOSE</th><th>OFF LOW%</th><th>CLS POS</th>
           <th>FLUSH×</th><th>SNAP×</th><th>200D</th><th class="sortable" data-t="snap" data-k="score">SCORE</th>
         </tr></thead>
@@ -590,7 +590,7 @@ function renderSnap(){
     <td class="l nm">${stockMap[r.symbol]?.name??""}</td>
     <td><span class="badge ${wtag[r.window_label]||"b-nu"}">${r.window_label}</span></td>
     <td><span class="badge ${r.snap_type==="SAME_DAY"?"b-up":"b-nu"}">${r.snap_type==="SAME_DAY"?"SPRING":r.snap_type}</span></td>
-    <td class="neu">${String(r.low_date).slice(5)}</td>
+    <td class="neu">${String(r.run_date).slice(5)}</td>
     <td>${fmt(r.extreme_low,2)}</td><td class="cyn">${fmt(r.broken_level,2)}</td>
     <td>${fmt(r.close,2)}</td>
     <td class="pos">+${fmt(r.pct_off_low,1)}</td>
@@ -604,13 +604,14 @@ function renderSnap(){
     $id("snap-body").innerHTML=rows.map(row).join("") || `<tr><td class="l neu" colspan="14">no signals match</td></tr>`;
     return;
   }
-  rows=[...rows].sort((a,b)=>String(b.run_date).localeCompare(String(a.run_date)) || b.score-a.score);
+  // grouped by the flush LOW DATE, most recent lows first (score-desc inside)
+  rows=[...rows].sort((a,b)=>String(b.low_date).localeCompare(String(a.low_date)) || b.score-a.score);
   let html="", cur=null;
   rows.forEach(r=>{
-    if(r.run_date!==cur){
-      cur=r.run_date;
-      const n=rows.filter(x=>x.run_date===cur).length;
-      html+=`<tr class="grp"><td colspan="14">▸ ${cur} · ${n} signal${n>1?"s":""}</td></tr>`;
+    if(r.low_date!==cur){
+      cur=r.low_date;
+      const n=rows.filter(x=>x.low_date===cur).length;
+      html+=`<tr class="grp"><td colspan="14">▸ LOW ${cur} · ${n} signal${n>1?"s":""}</td></tr>`;
     }
     html+=row(r);
   });
