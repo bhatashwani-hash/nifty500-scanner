@@ -7,7 +7,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
 
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
 <link href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" rel="stylesheet"/>
@@ -247,7 +247,7 @@
     margin-left:auto; white-space:nowrap; }
   .fs-avg.up{ color:var(--up); background:var(--upbg); } .fs-avg.down{ color:var(--down); background:var(--downbg); }
   .fs-cnt{ font-size:.62rem; color:var(--faint); font-family:var(--mono); min-width:1.4rem; text-align:right; }
-  .fno-chips{ display:flex; flex-direction:column; padding:.35rem .35rem .45rem; max-height:340px; overflow-y:auto; }
+  .fno-chips{ display:flex; flex-direction:column; padding:.35rem .35rem .45rem; }
   .fno-chips::-webkit-scrollbar{ width:6px; } .fno-chips::-webkit-scrollbar-thumb{ background:var(--border2); border-radius:5px; }
   .fno-chip{ display:flex; justify-content:space-between; align-items:center; gap:.5rem; padding:.4rem .55rem;
     border-radius:9px; cursor:pointer; transition:background .14s, transform .14s; }
@@ -318,6 +318,96 @@
   .tk.up::after{ background:var(--up); } .tk.down::after{ background:var(--down); }
   .tk.flash{ animation:tflash .7s ease; }
   @keyframes tflash{ 0%{ background:rgba(10,169,130,.14); } 100%{ background:var(--surface); } }
+  /* sector-grouped view of the live tick board (reuses the F&O sector card styles) */
+  #tk-sec{ column-width:236px; column-gap:.9rem; column-fill:balance; }
+  .fno-chip.flash{ animation:tflash .7s ease; }
+  /* ── ⚡ Ticks tab active: edge-to-edge page, soft platform-gray canvas ── */
+  body.ticks-full{ background:#f5f6f8; }
+  body.ticks-full .topbar{ display:none; }
+  body.ticks-full .wrap{ max-width:none; padding:0; }
+  body.ticks-full .tabbar{ border-radius:0; margin:0; padding:.45rem 1.2rem;
+    background:#fff; border:none; border-bottom:1px solid #e8eaef; }
+  body.ticks-full #tab-ticks{ border-radius:0; margin-top:0; min-height:calc(100vh - 110px);
+    padding:.9rem 1.4vw 1.6rem; box-shadow:none; }
+  /* ── ⚡ Ticks tab: professional financial-platform theme ── */
+  #tab-ticks{ background:transparent; padding:1rem 1.3rem 1.5rem; }
+  #tab-ticks .strip-label{ font-family:'Inter'; font-size:.95rem; font-weight:800; letter-spacing:-.2px;
+    color:#0f172a; text-transform:none; }
+  #tab-ticks .live-tag{ font-family:var(--mono); font-size:.78rem; color:#475569;
+    background:#fff; border:1px solid #e8eaef; border-radius:999px; padding:.26rem .75rem;
+    box-shadow:0 1px 2px rgba(16,24,40,.05); display:inline-flex; align-items:center; gap:.45rem; }
+  /* index strip — refined stat cards */
+  #tab-ticks .live-idx{ padding:0 0 .9rem; gap:.55rem; }
+  #tab-ticks .live-idx .lc{ background:#fff; border:1px solid #e8eaef; min-width:130px; flex:1 1 0;
+    border-radius:12px; padding:.55rem .75rem;
+    box-shadow:0 1px 2px rgba(16,24,40,.04), 0 6px 16px rgba(16,24,40,.05); }
+  #tab-ticks .live-idx .lc .n{ font-family:'Inter'; font-size:.6rem; font-weight:700;
+    letter-spacing:.9px; color:#8a94a6; }
+  #tab-ticks .live-idx .lc .v{ font-size:1.28rem; font-weight:700; color:#0f172a; letter-spacing:-.3px; }
+  #tab-ticks .live-idx .lc .c{ font-size:.82rem; font-weight:700; }
+  #tab-ticks .live-idx .lc.heat-hi .n, #tab-ticks .live-idx .lc.heat-hi .v,
+  #tab-ticks .live-idx .lc.heat-hi .c{ color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.25); }
+  /* masonry columns */
+  #tab-ticks #tk-sec{ display:flex; gap:.85rem; align-items:flex-start; }
+  #tab-ticks #tk-sec .tk-col{ flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:.85rem; }
+  #tab-ticks #tk-sec .tk-col .fno-sector{ margin:0; }
+  /* sector cards — elevated white panels; headers stay PINNED while the page scrolls */
+  #tab-ticks .fno-sector{ background:#fff; border:1px solid #e8eaef; border-radius:14px; overflow:visible;
+    box-shadow:0 1px 2px rgba(16,24,40,.04), 0 10px 28px rgba(16,24,40,.05); }
+  #tab-ticks .fno-sector-head{ position:sticky; top:0; z-index:3; border-radius:14px 14px 0 0;
+    backdrop-filter:blur(10px); border-bottom:1px solid #eef0f4;
+    padding:.6rem .8rem .55rem .95rem; gap:.5rem; }
+  #tab-ticks .fno-sector.up .fno-sector-head{
+    background:linear-gradient(180deg, rgba(22,163,74,.09), rgba(255,255,255,.96) 75%); }
+  #tab-ticks .fno-sector.down .fno-sector-head{
+    background:linear-gradient(180deg, rgba(220,38,38,.09), rgba(255,255,255,.96) 75%); }
+  #tab-ticks .fs-name{ font-family:'Inter'; font-weight:800; font-size:.84rem; letter-spacing:-.1px;
+    color:#0f172a; text-transform:none;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+  #tab-ticks .fs-avg{ font-size:.8rem; padding:.16rem .5rem; }
+  #tab-ticks .fs-cnt{ font-size:.68rem; color:#8a94a6; }
+  /* stock rows — ~50% larger data */
+  #tab-ticks .fno-chips{ padding:.3rem .35rem .4rem; }
+  #tab-ticks .fno-chip{ padding:.32rem .6rem; border-radius:9px; margin:.07rem 0; gap:.45rem; }
+  #tab-ticks .fc-sym{ font-size:1rem; font-weight:650; letter-spacing:.1px; }
+  #tab-ticks .fc-px{ font-size:.84rem; }
+  #tab-ticks .fc-ret{ font-size:1rem; min-width:4.4rem; font-weight:700; }
+  #tab-ticks .hit-pill{ font-size:.62rem; padding:.08rem .34rem; }
+  #tab-ticks .fno-chip.heat-hi .fc-sym, #tab-ticks .fno-chip.heat-hi .fc-px,
+  #tab-ticks .fno-chip.heat-hi .fc-ret{ color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.25); }
+  #tab-ticks .fno-chip.flash{ animation:nxflash .7s ease; }
+  @keyframes nxflash{ 0%{ filter:brightness(1.3); } 100%{ filter:brightness(1); } }
+  #tab-ticks .fno-chip.hl-vol{ box-shadow:inset 0 0 0 1.5px rgba(217,119,6,.6); }
+  #tab-ticks .fno-chip.hl-spike{ box-shadow:inset 0 0 0 1.5px rgba(124,92,252,.65); }
+  /* tick-board highlights: unusual volume + ≥1% tick-to-tick jumps */
+  .fno-chip .fc-tags{ flex-basis:100%; display:flex; flex-wrap:wrap; gap:.22rem; padding:.1rem 0 .02rem; }
+  .fno-chip .fc-tags:empty{ display:none; }
+  .hit-pill.tag-vol{ background:rgba(255,166,0,.18); color:#b97800; }
+  .hit-pill.tag-spk-up{ background:var(--upbg); color:var(--up); }
+  .hit-pill.tag-spk-dn{ background:var(--downbg); color:var(--down); }
+  .fno-chip.hl-vol{ background:rgba(255,166,0,.08); }
+  .fno-chip.hl-spike{ box-shadow:inset 0 0 0 1.5px rgba(150,90,255,.5); border-radius:9px; }
+  /* full-page live mode: hide index strip + KPI blocks, use the whole viewport width */
+  body.live-full #dash-top{ display:none; }
+  body.live-full .wrap{ max-width:none; padding-top:.8rem; }
+  /* F&O Sectors live board: JS masonry columns spanning the whole page */
+  body.live-full #fno-sectors{ display:flex; gap:.9rem; align-items:flex-start; column-width:auto; }
+  body.live-full #fno-sectors .tk-col{ flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:.9rem; }
+  body.live-full #fno-sectors .tk-col .fno-sector{ margin:0; }
+  /* Sector Trend tab: large 2-min candle charts (~3x3 of the old tile size each) */
+  #ls-idx,#ls-secs{ display:grid; grid-template-columns:repeat(auto-fill,minmax(470px,1fr)); gap:.8rem; }
+  #ls-idx{ margin-bottom:1rem; }
+  .ls-card{ background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    padding:.7rem .85rem .55rem; box-shadow:0 3px 14px rgba(18,38,63,.06); }
+  .ls-head{ display:flex; align-items:center; justify-content:space-between; gap:.5rem; margin-bottom:.25rem; }
+  .ls-name{ font-weight:700; font-size:.85rem; color:var(--text); line-height:1.15;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ls-head .fs-avg{ font-size:.75rem; padding:.16rem .46rem; flex:0 0 auto; }
+  .ls-ltp{ font-family:var(--mono); font-size:.72rem; color:var(--muted); margin:0 0 .1rem; }
+  .ls-svg{ width:100%; height:170px; display:block; }
+  .ls-zero{ stroke:var(--border2); stroke-dasharray:3 3; stroke-width:1; }
+  .ls-sec-label{ font-size:.6rem; font-weight:700; letter-spacing:.8px; text-transform:uppercase;
+    color:var(--faint); margin:.15rem 0 .3rem; }
 
   .chart-overlay{ position:fixed; inset:0; z-index:1000; display:none; align-items:center; justify-content:center;
     background:rgba(18,38,63,.32); backdrop-filter:blur(6px); padding:1.2rem; }
@@ -354,6 +444,8 @@
   #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
   ::-webkit-scrollbar{ width:10px; height:10px; } ::-webkit-scrollbar-track{ background:transparent; }
   ::-webkit-scrollbar-thumb{ background:var(--border2); border-radius:6px; }
+  tr.snap-grp td{ background:var(--chip, rgba(90,169,255,.08)); color:var(--info, #5aa9ff);
+    font-weight:700; font-size:.72rem; letter-spacing:.06em; padding:.4rem .6rem; }
 </style>
 </head>
 <body>
@@ -370,6 +462,7 @@
 </div>
 
 <div class="wrap">
+  <div id="dash-top">
   <div class="strip-label">Index Performance · click for chart</div>
   <div class="index-strip" id="index-strip"></div>
 
@@ -391,6 +484,7 @@
     <div class="kpi"><div class="kpi-label">Universe</div><div class="kpi-val neu" id="kpi-univ">—</div></div>
     <div class="kpi k-up"><div class="kpi-label">Fresh Breakouts</div><div class="kpi-val up" id="kpi-bo">—</div></div>
     <div class="kpi k-down"><div class="kpi-label">Fresh Breakdowns</div><div class="kpi-val down" id="kpi-bd">—</div></div>
+    <div class="kpi k-up"><div class="kpi-label">Snapbacks</div><div class="kpi-val up" id="kpi-snap">—</div></div>
     <div class="kpi k-info"><div class="kpi-label">RVOL Movers</div><div class="kpi-val neu" id="kpi-rvol">—</div></div>
     <div class="kpi k-up"><div class="kpi-label">Bullish EPs · 6M</div><div class="kpi-val up" id="kpi-bep">—</div></div>
     <div class="kpi k-info"><div class="kpi-label">VCP Setups</div><div class="kpi-val neu" id="kpi-vcp">—</div></div>
@@ -398,10 +492,12 @@
     <div class="kpi k-up"><div class="kpi-label">Manas Ready</div><div class="kpi-val up" id="kpi-manas">—</div></div>
     <div class="kpi k-up"><div class="kpi-label">10% Move Ready</div><div class="kpi-val up" id="kpi-move">—</div></div>
   </div>
+  </div><!-- /#dash-top -->
 
   <ul class="nav tabbar" id="mainTabs" role="tablist">
-    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-breadth" id="breadth-tab">📊 Breadth</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-breadth" id="breadth-tab">📊 Breadth</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-breakouts">🚀 Fresh Breakouts</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-snapback">🪝 Snapback</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-rvol">📶 RVOL Daily</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-ep">⚡ Episodic Pivot</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-vcp">🎯 VCP</a></li>
@@ -411,13 +507,14 @@
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-sentiment">🐂 Sentiment</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-sectors">🌐 Sectors</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-hourly">⏱ Hourly F&O</a></li>
-    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-fno">⭐ F&O Sectors</a></li>
+    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-fno">⭐ F&O Sectors</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-livesec">📈 Sector Trend</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-ticks">⚡ Ticks</a></li>
   </ul>
 
   <div class="tab-content">
 
-    <div class="tab-pane fade show active" id="tab-breadth">
+    <div class="tab-pane fade" id="tab-breadth">
       <div class="panel mb-3">
         <div class="panel-head"><h2>NIFTY 50 vs Breadth</h2>
           <span class="count" id="bc-legend">
@@ -464,6 +561,37 @@
         <div class="p-1"><table id="tbl-breakouts" class="table mb-0" style="width:100%">
           <thead><tr><th>Symbol</th><th>Type</th><th>Close</th><th>Chg %</th><th>Volume</th><th>F&O</th></tr></thead>
           <tbody id="bo-body"></tbody></table></div>
+      </div>
+    </div>
+
+    <div class="tab-pane fade" id="tab-snapback">
+      <div class="manas-legend">
+        <strong>Snapback</strong> — F&amp;O stocks that undercut a fresh <em>1M / 3M / 6M / 1Y low</em>
+        within the last 5 sessions and snapped back: either a <em>same-day</em> reversal bar
+        (close in the top 35% of the range) or a close back <em>above the broken low level</em>
+        within 1–2 days. Score: +1 window ≥ 3M · +1 same-day bar · +1 flush volume ≥ 1.5× ·
+        +1 snap volume ≥ 1.5×.
+      </div>
+      <div class="d-flex gap-2 mb-3 flex-wrap">
+        <select id="sn-win-filter" class="control" onchange="filterSnapback()">
+          <option value="">All Windows</option><option value="1Y">1Y</option>
+          <option value="6M">6M</option><option value="3M">3M</option><option value="1M">1M</option>
+        </select>
+        <select id="sn-type-filter" class="control" onchange="filterSnapback()">
+          <option value="">All Types</option><option value="SAME_DAY">Same-day reversal</option>
+          <option value="D1">Next-day reclaim</option><option value="D2">2-day reclaim</option>
+        </select>
+        <select id="sn-score-filter" class="control" onchange="filterSnapback()">
+          <option value="">Any Score</option><option value="2">Score ≥ 2</option>
+          <option value="3">Score ≥ 3</option><option value="4">Score 4</option>
+        </select>
+      </div>
+      <div class="panel"><div class="panel-head"><h2>Undercut &amp; Rally — F&amp;O (last 5 sessions)</h2><span class="count" id="sn-count"></span>
+        <button class="control copy-btn" onclick="copyTableSymbols('tbl-snapback')" title="Copy filtered symbols as NSE:SYMBOL — paste into a TradingView watchlist">⧉ Copy</button></div>
+        <div class="p-1"><table id="tbl-snapback" class="table mb-0" style="width:100%">
+          <thead><tr><th>Symbol</th><th>Window</th><th>Snap Date</th><th>Low</th><th>Broken Lvl</th>
+            <th>Snap</th><th>Snap Close</th><th>Last</th><th>% off Low</th><th>Flush Vol×</th><th>Snap Vol×</th><th>Score</th></tr></thead>
+          <tbody id="sn-body"></tbody></table></div>
       </div>
     </div>
 
@@ -718,10 +846,11 @@
     </div>
 
     <!-- F&O SECTORS TAB -->
-    <div class="tab-pane fade" id="tab-fno">
+    <div class="tab-pane fade show active" id="tab-fno">
       <div class="d-flex gap-2 mb-3 align-items-center flex-wrap">
         <div class="seg" id="fno-period">
-          <button class="active" data-p="ret_day" onclick="setFnoPeriod('ret_day')">Day</button>
+          <button class="active" data-p="live" onclick="setFnoPeriod('live')">⚡ Live</button>
+          <button data-p="ret_day" onclick="setFnoPeriod('ret_day')">Day</button>
           <button data-p="ret_week" onclick="setFnoPeriod('ret_week')">Week</button>
           <button data-p="ret_month" onclick="setFnoPeriod('ret_month')">Month</button>
         </div>
@@ -732,6 +861,17 @@
     </div>
 
     <!-- ZERODHA LIVE TICKS TAB -->
+    <div class="tab-pane fade" id="tab-livesec">
+      <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+        <span class="strip-label" style="margin:0">Sector Trend · intraday movement</span>
+        <span class="live-tag" id="ls-tag"></span>
+      </div>
+      <div class="ls-sec-label">Sector Indices</div>
+      <div id="ls-idx"></div>
+      <div class="ls-sec-label">F&amp;O Sector Averages</div>
+      <div id="ls-secs"></div>
+    </div>
+
     <div class="tab-pane fade" id="tab-ticks">
       <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
         <span class="strip-label" style="margin:0">Zerodha Live Ticks</span>
@@ -743,7 +883,7 @@
         <button class="control copy-btn" onclick="copyTickSymbols()" title="Copy live-tick symbols as NSE:SYMBOL — paste into a TradingView watchlist">⧉ Copy</button>
       </div>
       <div class="live-idx" id="tk-idx"></div>
-      <div class="tk-grid" id="tk-grid"></div>
+      <div id="tk-sec"></div>
     </div>
   </div>
 </div>
@@ -819,13 +959,17 @@ async function loadAll(){
   const btn = document.getElementById("refresh-btn"); btn.classList.add("spin");
   toast("Refreshing…");
   await loadFNO();   // hourly + F&O filters need the F&O symbol list first
-  await Promise.all([loadIndices(), loadBreadth(), loadBreakouts(), loadRVOL(), loadHourly(), loadEP(), loadVCP(), loadVCPPro(), loadManas(), loadMove(), loadSentiment(), loadSectors(), loadFNOSectors()]);
+  await Promise.all([loadIndices(), loadBreadth(), loadBreakouts(), loadSnapback(), loadRVOL(), loadHourly(), loadEP(), loadVCP(), loadVCPPro(), loadManas(), loadMove(), loadSentiment(), loadSectors(), loadFNOSectors()]);
   if(hourlyTimer) clearInterval(hourlyTimer);
   hourlyTimer = setInterval(loadHourly, 300000);   // refresh hourly feed every 5 min
-  if(fnoStocks.length) renderFNOSectors();   // re-render with scan-hit badges once every scanner has loaded
+  if(fnoStocks.length){
+    document.getElementById("fno-sectors").dataset.built="";   // force full rebuild so scan-hit badges land
+    renderFNOSectors();
+  }
   document.getElementById("last-updated").textContent = "Updated " + new Date().toLocaleTimeString("en-IN");
   btn.classList.remove("spin"); toast("Data refreshed ✓");
   startTicks();
+  startSectorTrend();
 }
 
 async function loadFNO(){
@@ -884,7 +1028,7 @@ function copyTableSymbols(tableId){
 }
 function copyFnoSymbols(){ copySymbolList(fnoStocks.map(s=>s.symbol)); }
 function copyTickSymbols(){
-  copySymbolList([...document.querySelectorAll("#tk-grid .tk")].map(el=>el.dataset.sym));
+  copySymbolList([...document.querySelectorAll("#tk-sec .fno-chip")].map(el=>el.dataset.sym));
 }
 
 function fmt(v,d=2){ if(v==null||isNaN(v)) return "—";
@@ -1025,6 +1169,56 @@ function filterBreakouts(){
   if(t) d=d.filter(r=>r.breakout_type.includes(t));
   if(f==="fno") d=d.filter(r=>fnoSymbols.has(r.symbol));
   renderBreakouts(d);
+}
+
+// ── Snapback: undercut & rally (F&O, last 5 sessions) ──
+let snapData = [], dtSnap = null;
+async function loadSnapback(){
+  const { data, error } = await sb.from("scanner_snapback").select("*")
+    .order("low_date",{ascending:false}).order("score",{ascending:false});
+  if(error||!data) return;
+  snapData = data;
+  setText("kpi-snap", data.length, "up");
+  renderSnapback(data);
+}
+function renderSnapback(data){
+  if(dtSnap){ dtSnap.destroy(); dtSnap=null; }   // plain table now — grouped by low date
+  document.getElementById("sn-count").textContent =
+    data.length + " snapbacks · grouped by flush low date, newest first";
+  // group by the flush LOW date, most recent lows first (score-desc inside)
+  const rows=[...data].sort((a,b)=> String(b.low_date).localeCompare(String(a.low_date)) || b.score-a.score);
+  let html="", cur=null;
+  rows.forEach(r=>{
+    if(r.low_date!==cur){
+      cur=r.low_date;
+      const n=rows.filter(x=>x.low_date===cur).length;
+      html+=`<tr class="snap-grp"><td colspan="12">▸ LOW ${fmtScanDate(cur)} · ${n} signal${n>1?"s":""}</td></tr>`;
+    }
+    const sd = r.snap_type==="SAME_DAY";
+    html+=`<tr><td>${tk(r.symbol)}</td>
+      <td><span class="tag ${["6M","1Y"].includes(r.low_window)?'tag-low':''}">${r.low_window} LOW</span></td>
+      <td>${fmtScanDate(r.snap_date ?? r.run_date)}</td>
+      <td>${fmt(r.extreme_low,2)}</td>
+      <td>${fmt(r.broken_level,2)}</td>
+      <td><span class="tag ${sd?'tag-high':''}">${sd?'SAME DAY':r.snap_type}</span></td>
+      <td>${fmt(r.snap_close,2)}</td>
+      <td>${fmt(r.last_close,2)}</td>
+      <td class="${r.pct_off_low>=0?'pos':'neg'}">${fmt(r.pct_off_low,1)}%</td>
+      <td>${r.flush_vol_ratio==null?'—':fmt(r.flush_vol_ratio,1)+'×'}</td>
+      <td>${r.snap_vol_ratio==null?'—':fmt(r.snap_vol_ratio,1)+'×'}</td>
+      <td><b>${r.score}</b>/4</td></tr>`;
+  });
+  document.getElementById("sn-body").innerHTML = html;
+}
+function filterSnapback(){
+  const w=document.getElementById("sn-win-filter").value,
+        t=document.getElementById("sn-type-filter").value,
+        s=document.getElementById("sn-score-filter").value;
+  let d=snapData;
+  if(w) d=d.filter(r=>r.low_window===w);
+  if(t) d=d.filter(r=>r.snap_type===t);
+  if(s) d=d.filter(r=>r.score>=+s);
+  renderSnapback(d);
 }
 
 let epData = [];
@@ -1400,7 +1594,7 @@ function setSectorPeriod(p){ sectorPeriod=p;
   loadSectors(); }
 
 // ── F&O Sectors tab: F&O stocks grouped by sector, toggle day/week/month ──
-let fnoStocks=[], fnoPeriod="ret_day";
+let fnoStocks=[], fnoPeriod="live";
 function fmtScanDate(d){ if(!d) return ""; const dt=new Date(d);
   return isNaN(dt) ? "" : dt.toLocaleDateString("en-IN",{day:"numeric",month:"short"}); }
 // Map symbol -> scan hits across all the other scanners (built from the globals
@@ -1420,6 +1614,8 @@ function buildScanHits(){
       r.status==="FIRED" ? (r.signal_date||r.setup_date) : r.setup_date, "VCP Pro: "+r.status); });
   manasData.forEach(r=>{ if(!r.setup_ready) return;
     add(r.symbol, "MNS", "h-acc", r.run_date, "Manas setup-ready · score "+r.setup_score+"/5"); });
+  snapData.forEach(r=>add(r.symbol, "SNP", "h-up", r.snap_date,
+    "Snapback: "+r.low_window+" low, "+(r.snap_type==="SAME_DAY"?"same-day reversal":r.snap_type+" reclaim")+" · score "+r.score+"/4"));
   rvolData.forEach(r=>{ if((r.rvol??0) < 1.5 || !r.chg_pct) return;
     const up = r.chg_pct > 0;
     add(r.symbol, up?"RV▲":"RV▼", up?"h-up":"h-dn", r.run_date,
@@ -1433,24 +1629,44 @@ async function loadFNOSectors(){
   fnoStocks = data || [];
   renderFNOSectors();
 }
-function renderFNOSectors(){
+function fnoGroupSecs(gv){
   const bySec={};
-  const gv=s=>s[fnoPeriod];
-  const scanHits = buildScanHits();
   fnoStocks.forEach(s=>{ (bySec[s.sector] ||= []).push(s); });
-  const secs = Object.entries(bySec).map(([sec,arr])=>{
+  return Object.entries(bySec).map(([sec,arr])=>{
     const vals=arr.map(gv).filter(v=>v!=null);
     const avg = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
     return { sec, arr, avg };
   }).sort((a,b)=>b.avg-a.avg);
+}
+function fnoCountLine(secsLen, gv, live){
   const adv=fnoStocks.filter(s=>(gv(s)??0)>0).length, dec=fnoStocks.filter(s=>(gv(s)??0)<0).length;
+  const liveTag = !live ? "" :
+    (fnoLiveAge==null  ? ` · <span class="neg">⚠ no ticks — run <b>python ingestion/kite_ticks.py</b></span>`
+   : fnoLiveAge>60     ? ` · <span class="neg">⚠ stale ${fnoLiveAge}s — streamer stopped?</span>`
+                       : ` · <span class="pos">● LIVE · tick ${fnoLiveAge}s ago</span>`);
   document.getElementById("fno-count").innerHTML =
-    `${fnoStocks.length} F&O · ${secs.length} sectors · <span class="pos">${adv} ▲</span> &nbsp;<span class="neg">${dec} ▼</span>`;
-  document.getElementById("fno-sectors").innerHTML = secs.map(({sec,arr,avg},i)=>{
+    `${fnoStocks.length} F&O · ${secsLen} sectors · <span class="pos">${adv} ▲</span> &nbsp;<span class="neg">${dec} ▼</span>` + liveTag;
+}
+function renderFNOSectors(){
+  const live = fnoPeriod==='live';
+  // in Live mode the return comes from the real-time `ticks` table, else from the EOD RPC
+  const gv = live
+    ? (s=>{ const t=liveTicks[s.symbol]; return (t && t.chg!=null) ? Number(t.chg) : null; })
+    : (s=>s[fnoPeriod]);
+  const wrap=document.getElementById("fno-sectors");
+  // live polls patch numbers in place — the cards are only (re)built on mode/universe/width change
+  const wantCols = wrap.clientWidth>0 ? Math.max(2, Math.min(12, Math.round(wrap.clientWidth/300))) : null;
+  if(live && wrap.dataset.built==='live' && wrap.querySelectorAll('.fno-chip').length===fnoStocks.length
+     && (wantCols===null || wrap.querySelectorAll(':scope > .tk-col').length===wantCols))
+    return patchFNOSectorsLive(wrap, gv);
+  const scanHits = buildScanHits();
+  const secs = fnoGroupSecs(gv);
+  fnoCountLine(secs.length, gv, live);
+  const cardsHtml = secs.map(({sec,arr,avg},i)=>{
     const aup = avg>=0;
     const stocks=[...arr].sort((a,b)=>(gv(b)??-1e9)-(gv(a)??-1e9));
     const chips=stocks.map(s=>{ const v=gv(s), up=(v??0)>=0;
-      const px = s.last_close;
+      const px = live ? ((liveTicks[s.symbol]||{}).ltp ?? s.last_close) : s.last_close;
       const hs = scanHits[s.symbol] || [];
       const hitHtml = hs.length ? `<span class="fno-hits">${hs.map(h=>
         `<span class="hit-pill ${h.cls}" title="${h.title}">${h.lbl}${h.date?' '+h.date:''}</span>`).join("")}</span>` : "";
@@ -1458,46 +1674,305 @@ function renderFNOSectors(){
         <span class="fc-sym">${s.symbol}</span>
         <span class="fc-px">${px==null?'':fmt(px,1)}</span>
         <span class="fc-ret ${up?'up':'down'}">${v==null?'—':(up?'+':'')+fmt(v,2)+'%'}</span>${hitHtml}</div>`;}).join("");
-    return `<div class="fno-sector ${aup?'up':'down'}" style="animation-delay:${Math.min(i*28,420)}ms">
+    return `<div class="fno-sector ${aup?'up':'down'}" data-sec="${sec}" style="animation-delay:${Math.min(i*28,420)}ms">
       <div class="fno-sector-head">
         <span class="fs-name">${sec}</span>
         <span class="fs-avg ${aup?'up':'down'}">${aup?'+':''}${fmt(avg,2)}%</span>
         <span class="fs-cnt">${arr.length}</span>
       </div>
       <div class="fno-chips">${chips}</div></div>`;
-  }).join("");
+  });
+  if(live){
+    // masonry columns (measured heights) so the live board spans the full page width
+    distributeMasonry(wrap, cardsHtml, wantCols || 4);
+  }else wrap.innerHTML=cardsHtml.join("");
+  wrap.dataset.built = live ? 'live' : 'eod';
+  if(live) fnoStocks.forEach(s=>{ const t=liveTicks[s.symbol]; if(t&&t.ltp!=null) fnoPrev[s.symbol]=t.ltp; });
+}
+// in-place live update: only price/% text changes (with a flash), nodes are reordered, never rebuilt
+function patchFNOSectorsLive(wrap, gv){
+  const secs = fnoGroupSecs(gv);
+  fnoCountLine(secs.length, gv, true);
+  const cards={}; wrap.querySelectorAll('.fno-sector').forEach(c=>{ cards[c.dataset.sec]=c; });
+  secs.forEach(({sec,arr,avg})=>{
+    const card=cards[sec]; if(!card) return;
+    const aup=avg>=0;
+    card.classList.toggle('up',aup); card.classList.toggle('down',!aup);
+    const avgEl=card.querySelector('.fs-avg');
+    avgEl.textContent=(aup?'+':'')+fmt(avg,2)+'%';
+    avgEl.classList.toggle('up',aup); avgEl.classList.toggle('down',!aup);
+    const box=card.querySelector('.fno-chips');
+    const chips={}; box.querySelectorAll('.fno-chip').forEach(ch=>{ chips[ch.dataset.sym]=ch; });
+    [...arr].sort((a,b)=>(gv(b)??-1e9)-(gv(a)??-1e9)).forEach(s=>{
+      const ch=chips[s.symbol]; if(!ch) return;
+      const t=liveTicks[s.symbol]||{}, v=gv(s), up=(v??0)>=0;
+      const px = t.ltp ?? s.last_close;
+      ch.querySelector('.fc-px').textContent = px==null?'':fmt(px,1);
+      const ret=ch.querySelector('.fc-ret');
+      ret.textContent = v==null?'—':(up?'+':'')+fmt(v,2)+'%';
+      ret.classList.toggle('up',up); ret.classList.toggle('down',!up);
+      if(t.ltp!=null && fnoPrev[s.symbol]!=null && fnoPrev[s.symbol]!==t.ltp){
+        ch.classList.remove('flash'); void ch.offsetWidth; ch.classList.add('flash'); }
+      if(t.ltp!=null) fnoPrev[s.symbol]=t.ltp;
+      box.appendChild(ch);
+    });
+  });
+}
+// ── F&O Sectors: live mode (reads the real-time `ticks` table, no popups) ──
+let liveTicks={}, fnoLiveTimer=null, fnoLiveAge=null, fnoPrev={};
+async function loadFnoLiveTicks(){
+  const { data, error } = await sb.from("ticks").select("symbol,is_index,ltp,chg_pct,updated_at");
+  if(error || !data){ fnoLiveAge=null; renderFNOSectors(); return; }
+  liveTicks={}; let newest=0;
+  data.forEach(r=>{
+    if(!r.is_index) liveTicks[r.symbol]={ ltp:r.ltp, chg:r.chg_pct };
+    const t=new Date(r.updated_at).getTime(); if(t>newest) newest=t;
+  });
+  fnoLiveAge = data.length ? Math.round((Date.now()-newest)/1000) : null;
+  renderFNOSectors();
 }
 function setFnoPeriod(p){ fnoPeriod=p;
   document.querySelectorAll("#fno-period button").forEach(b=>b.classList.toggle("active",b.dataset.p===p));
-  renderFNOSectors(); }
+  if(fnoLiveTimer){ clearInterval(fnoLiveTimer); fnoLiveTimer=null; }
+  if(p==='live'){ loadFnoLiveTicks(); fnoLiveTimer=setInterval(loadFnoLiveTicks, 3000); }
+  else renderFNOSectors();
+  updateLiveFull(); }
+// full-page live mode: no index strip / KPI blocks while a live board is on screen
+function updateLiveFull(){
+  const fnoLive = document.getElementById("tab-fno").classList.contains("active") && fnoPeriod==='live';
+  const ticksTab = document.getElementById("tab-ticks").classList.contains("active");
+  const trendTab = document.getElementById("tab-livesec").classList.contains("active");
+  document.body.classList.toggle("live-full", fnoLive || ticksTab || trendTab);
+  document.body.classList.toggle("ticks-full", ticksTab);   // edge-to-edge dark terminal
+}
 
 // ── Zerodha live ticks tab (polls the ticks table) ──
 const LIVE_IDX_ORDER=["^NSEI","^NSEBANK","NIFTY_FIN_SERVICE.NS","^CNXIT","^CNXAUTO","^CNXPHARMA","^CNXMETAL","^CNXFMCG","^CNXREALTY","^CNXENERGY"];
 const IDX_NAMES={"^NSEI":"NIFTY 50","^NSEBANK":"BANK","NIFTY_FIN_SERVICE.NS":"FINNIFTY","^CNXIT":"IT","^CNXAUTO":"AUTO","^CNXPHARMA":"PHARMA","^CNXFMCG":"FMCG","^CNXMETAL":"METAL","^CNXENERGY":"ENERGY","^CNXREALTY":"REALTY","^CNXPSUBANK":"PSU BANK","^CRSLDX":"NIFTY 500","^NSMIDCP":"NEXT 50"};
-let ticksTimer=null, tkSort="chg", tkPrev={};
+let ticksTimer=null, tkSort="chg", tkPrev={}, tkAvgVol=null, tkSpikes={};
+// build masonry columns from card HTML: render once, measure real heights, deal shortest-column-first
+function distributeMasonry(wrap, cardsArr, ncol){
+  // measure at the FINAL column width — cards wrap differently when narrow
+  wrap.innerHTML=`<div class="tk-col" style="flex:0 0 ${(100/ncol).toFixed(2)}%">${cardsArr.join("")}</div>`;
+  const nodes=[...wrap.querySelectorAll('.fno-sector')];
+  const hs=nodes.map(n=>n.offsetHeight);
+  const cols=Array.from({length:ncol},()=>({h:0,nodes:[]}));
+  nodes.forEach((n,i)=>{
+    let k=0; for(let j=1;j<ncol;j++) if(cols[j].h<cols[k].h) k=j;
+    cols[k].nodes.push(n); cols[k].h += hs[i]+9;
+  });
+  wrap.innerHTML=cols.map(()=>'<div class="tk-col"></div>').join("");
+  const colEls=wrap.querySelectorAll(':scope > .tk-col');
+  cols.forEach((c,i)=>c.nodes.forEach(n=>colEls[i].appendChild(n)));
+}
+// 20d average volume per symbol (latest scanner_rvol run) — for live unusual-volume detection
+async function loadAvgVol(){
+  const { data:d1 } = await sb.from("scanner_rvol").select("run_date").order("run_date",{ascending:false}).limit(1);
+  if(!d1||!d1.length){ tkAvgVol={}; return; }
+  const { data } = await sb.from("scanner_rvol").select("symbol,avg_vol_20d").eq("run_date", d1[0].run_date);
+  tkAvgVol={}; (data||[]).forEach(r=>{ if(r.avg_vol_20d>0) tkAvgVol[r.symbol]=+r.avg_vol_20d; });
+}
 async function loadTicks(){
-  const { data, error } = await sb.from("ticks").select("symbol,is_index,ltp,chg_pct,updated_at").order("symbol");
+  const { data, error } = await sb.from("ticks").select("symbol,is_index,ltp,chg_pct,vol,updated_at").order("symbol");
   const tag=document.getElementById("tk-tag");
   if(error||!data||!data.length){
     tag.textContent="ticker not running — start ingestion/kite_ticks.py during market hours";
-    document.getElementById("tk-grid").innerHTML=""; document.getElementById("tk-idx").innerHTML=""; return;
+    document.getElementById("tk-idx").innerHTML="";
+    document.getElementById("tk-sec").innerHTML=""; return;
   }
+  // heat grading: tile color deepens with the size of the move (±cap% = full saturation)
+  const heat=(v,cap=3)=>{ if(v==null) return "";
+    const a=.08+.72*Math.min(Math.abs(v)/cap,1);
+    return v>=0?`rgba(16,150,72,${a.toFixed(2)})`:`rgba(222,52,64,${a.toFixed(2)})`; };
+  const heatHi=(v,th=1.2)=>v!=null&&Math.abs(v)>=th;
   const idx=data.filter(r=>r.is_index), st=data.filter(r=>!r.is_index);
   const pidx=LIVE_IDX_ORDER.map(s=>idx.find(x=>x.symbol===s)).filter(Boolean)
     .concat(idx.filter(x=>LIVE_IDX_ORDER.indexOf(x.symbol)<0));
-  document.getElementById("tk-idx").innerHTML=pidx.map(r=>{const up=(r.chg_pct||0)>=0;
-    return `<div class="lc"><div class="n">${IDX_NAMES[r.symbol]||r.symbol}</div><div class="v">${fmt(r.ltp,2)}</div><div class="c ${up?'pos':'neg'}">${r.chg_pct==null?'—':(up?'+':'')+fmt(r.chg_pct,2)+'%'}</div></div>`;}).join("");
+  const idxWrap=document.getElementById("tk-idx");
+  const idxMap={}; idxWrap.querySelectorAll('.lc').forEach(el=>{ idxMap[el.dataset.sym]=el; });
+  if(Object.keys(idxMap).length!==pidx.length || !pidx.every(r=>idxMap[r.symbol])){
+    idxWrap.innerHTML=pidx.map(r=>{const up=(r.chg_pct||0)>=0;
+      return `<div class="lc${heatHi(r.chg_pct,.8)?' heat-hi':''}" data-sym="${r.symbol}" style="background:${heat(r.chg_pct,1.5)}"><div class="n">${IDX_NAMES[r.symbol]||r.symbol}</div><div class="v">${fmt(r.ltp,2)}</div><div class="c ${up?'pos':'neg'}">${r.chg_pct==null?'—':(up?'+':'')+fmt(r.chg_pct,2)+'%'}</div></div>`;}).join("");
+  }else pidx.forEach(r=>{
+    const el=idxMap[r.symbol], up=(r.chg_pct||0)>=0;
+    el.style.background=heat(r.chg_pct,1.5);
+    el.classList.toggle('heat-hi',heatHi(r.chg_pct,.8));
+    el.querySelector('.v').textContent=fmt(r.ltp,2);
+    const c=el.querySelector('.c');
+    c.textContent=r.chg_pct==null?'—':(up?'+':'')+fmt(r.chg_pct,2)+'%';
+    c.classList.toggle('pos',up); c.classList.toggle('neg',!up);
+  });
   const rows=st.slice();
   if(tkSort==='chg') rows.sort((a,b)=>(b.chg_pct??-1e9)-(a.chg_pct??-1e9)); else rows.sort((a,b)=>a.symbol<b.symbol?-1:1);
-  document.getElementById("tk-grid").innerHTML=rows.map(r=>{const up=(r.chg_pct||0)>=0;
-    const fl=(tkPrev[r.symbol]!=null&&tkPrev[r.symbol]!==r.ltp)?' flash':'';
-    return `<div class="tk ${up?'up':'down'}${fl}" data-sym="${r.symbol}"><div class="ts">${r.symbol}</div><div class="tl">${fmt(r.ltp,2)}</div><div class="tc ${up?'pos':'neg'}">${r.chg_pct==null?'—':(up?'+':'')+fmt(r.chg_pct,2)+'%'}</div></div>`;}).join("");
+  const secWrap=document.getElementById("tk-sec");
+  const flash=(el,sym,ltp)=>{ if(tkPrev[sym]!=null&&tkPrev[sym]!==ltp){
+    el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); } };
+  // highlights: unusual live volume (time-adjusted RVOL ≥ 2) + ≥1% jump between consecutive polls
+  const dnow=new Date(), nowMs=Date.now();
+  const s0=Date.UTC(dnow.getUTCFullYear(),dnow.getUTCMonth(),dnow.getUTCDate(),3,45),
+        s1=Date.UTC(dnow.getUTCFullYear(),dnow.getUTCMonth(),dnow.getUTCDate(),10,0);
+  const frac=Math.min(1, Math.max(.05,(nowMs-s0)/(s1-s0)));
+  const deco=r=>{
+    const prev=tkPrev[r.symbol];
+    if(prev!=null && r.ltp!=null && prev>0){
+      const j=(r.ltp-prev)/prev*100;
+      if(Math.abs(j)>=1) tkSpikes[r.symbol]={ pct:j, until:nowMs+180000 };   // hold 3 min
+    }
+    if(tkSpikes[r.symbol] && tkSpikes[r.symbol].until<nowMs) delete tkSpikes[r.symbol];
+    const avg=tkAvgVol && tkAvgVol[r.symbol];
+    const rv=(avg && r.vol) ? r.vol/(avg*frac) : null;
+    const tags=[];
+    if(rv!=null && rv>=2) tags.push(`<span class="hit-pill tag-vol" title="Unusual volume: ${rv.toFixed(1)}× the time-adjusted 20-day average">VOL ${rv.toFixed(1)}×</span>`);
+    const sp=tkSpikes[r.symbol];
+    if(sp) tags.push(`<span class="hit-pill ${sp.pct>=0?'tag-spk-up':'tag-spk-dn'}" title="Jumped ${sp.pct.toFixed(2)}% between two ticks">${sp.pct>=0?'▲':'▼'} ${Math.abs(sp.pct).toFixed(1)}% TICK</span>`);
+    return { tags:tags.join(""), hlVol:rv!=null&&rv>=2, hlSpike:!!sp };
+  };
+  {
+    // sector map from the F&O RPC list loaded at boot (fallback: "Other")
+    const secMap={}; fnoStocks.forEach(s=>{ secMap[s.symbol]=s.sector||"Other"; });
+    const bySec={};
+    rows.forEach(r=>{ (bySec[secMap[r.symbol]||"Other"] ||= []).push(r); });
+    const secs=Object.entries(bySec).map(([sec,arr])=>{
+      const vals=arr.map(r=>r.chg_pct).filter(v=>v!=null);
+      return { sec, arr, avg: vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0 };
+    }).sort((a,b)=>b.avg-a.avg);
+    // patch in place when the same symbols are already on screen; rebuild on membership change
+    // or when the visible width disagrees with the built column count (tab was hidden at build time)
+    const chipMap={}; secWrap.querySelectorAll('.fno-chip').forEach(ch=>{ chipMap[ch.dataset.sym]=ch; });
+    const desired = secWrap.clientWidth>0 ? Math.max(2, Math.min(12, Math.round(secWrap.clientWidth/300))) : null;
+    const curCols = secWrap.querySelectorAll(':scope > .tk-col').length;
+    const same = Object.keys(chipMap).length===rows.length && rows.every(r=>chipMap[r.symbol])
+              && (desired===null || curCols===desired);
+    if(!same){
+      // masonry: one card per sector (headers are sticky, so tall cards stay navigable),
+      // measured heights, dealt shortest-column-first
+      const ncol = desired || 4, CHUNK = Infinity;
+      const cardsArr=[];
+      secs.forEach(({sec,arr,avg})=>{
+        const aup=avg>=0, nup=arr.filter(r=>(r.chg_pct||0)>0).length, ndn=arr.filter(r=>(r.chg_pct||0)<0).length;
+        for(let o=0;o<arr.length;o+=CHUNK){
+          const part=arr.slice(o,o+CHUNK);
+          const label = arr.length>CHUNK ? `${sec} · ${Math.floor(o/CHUNK)+1}` : sec;
+          const chips=part.map(r=>{ const cu=(r.chg_pct||0)>=0, d=deco(r);
+            return `<div class="fno-chip${d.hlVol?' hl-vol':''}${d.hlSpike?' hl-spike':''}${heatHi(r.chg_pct)?' heat-hi':''}" data-sym="${r.symbol}" style="background:${heat(r.chg_pct)}"><span class="fc-sym">${r.symbol}</span><span class="fc-px">${fmt(r.ltp,2)}</span><span class="fc-ret ${cu?'up':'down'}">${r.chg_pct==null?'—':(cu?'+':'')+fmt(r.chg_pct,2)+'%'}</span><span class="fc-tags">${d.tags}</span></div>`;}).join("");
+          cardsArr.push(`<div class="fno-sector ${aup?'up':'down'}" data-sec="${sec}">
+            <div class="fno-sector-head"><span class="fs-name">${label}</span>
+              <span class="fs-avg ${aup?'up':'down'}">${aup?'+':''}${fmt(avg,2)}%</span>
+              <span class="fs-cnt">${nup}▲ ${ndn}▼</span></div>
+            <div class="fno-chips">${chips}</div></div>`);
+        }
+      });
+      distributeMasonry(secWrap, cardsArr, ncol);
+    }else{
+      // in-place update; a sector may span several split cards — chips stay in their own card
+      const rowsBySym={}; rows.forEach(r=>{ rowsBySym[r.symbol]=r; });
+      const secAgg={};
+      secs.forEach(({sec,arr,avg})=>{ secAgg[sec]={ avg,
+        nup:arr.filter(r=>(r.chg_pct||0)>0).length, ndn:arr.filter(r=>(r.chg_pct||0)<0).length }; });
+      secWrap.querySelectorAll('.fno-sector').forEach(card=>{
+        const agg=secAgg[card.dataset.sec]; if(!agg) return;
+        const aup=agg.avg>=0;
+        card.classList.toggle('up',aup); card.classList.toggle('down',!aup);
+        const avgEl=card.querySelector('.fs-avg');
+        avgEl.textContent=(aup?'+':'')+fmt(agg.avg,2)+'%';
+        avgEl.classList.toggle('up',aup); avgEl.classList.toggle('down',!aup);
+        card.querySelector('.fs-cnt').textContent=`${agg.nup}▲ ${agg.ndn}▼`;
+        const box=card.querySelector('.fno-chips');
+        const items=[...box.querySelectorAll('.fno-chip')].map(ch=>({ch, r:rowsBySym[ch.dataset.sym]})).filter(x=>x.r);
+        items.forEach(({ch,r})=>{
+          const cu=(r.chg_pct||0)>=0, d=deco(r);
+          ch.style.background=heat(r.chg_pct);
+          ch.classList.toggle('heat-hi',heatHi(r.chg_pct));
+          ch.querySelector('.fc-px').textContent=fmt(r.ltp,2);
+          const ret=ch.querySelector('.fc-ret');
+          ret.textContent=r.chg_pct==null?'—':(cu?'+':'')+fmt(r.chg_pct,2)+'%';
+          ret.classList.toggle('up',cu); ret.classList.toggle('down',!cu);
+          ch.classList.toggle('hl-vol',d.hlVol); ch.classList.toggle('hl-spike',d.hlSpike);
+          const tg=ch.querySelector('.fc-tags'); if(tg && tg.innerHTML!==d.tags) tg.innerHTML=d.tags;
+          flash(ch,r.symbol,r.ltp);
+        });
+        if(tkSort==='chg') items.sort((a,b)=>(b.r.chg_pct??-1e9)-(a.r.chg_pct??-1e9));
+        else items.sort((a,b)=>a.r.symbol<b.r.symbol?-1:1);
+        items.forEach(({ch})=>box.appendChild(ch));
+      });
+    }
+  }
   st.forEach(r=>tkPrev[r.symbol]=r.ltp);
   let t=data[0].updated_at; data.forEach(r=>{ if(r.updated_at>t) t=r.updated_at; });
   tag.innerHTML=`<span class="live-dot"></span>LIVE · ${st.length} F&O · ${new Date(t).toLocaleTimeString("en-IN",{hour:'2-digit',minute:'2-digit',second:'2-digit'})}`;
 }
-function startTicks(){ loadTicks(); if(ticksTimer) clearInterval(ticksTimer); ticksTimer=setInterval(loadTicks, 3000); }
+function startTicks(){ if(!tkAvgVol) loadAvgVol(); loadTicks(); if(ticksTimer) clearInterval(ticksTimer); ticksTimer=setInterval(loadTicks, 3000);
+  if(!window._liveResize){ window._liveResize=true; let _rt;
+    addEventListener('resize',()=>{ clearTimeout(_rt); _rt=setTimeout(()=>{
+      const s=document.getElementById('tk-sec'); if(s) s.innerHTML='';        // force masonry re-layout
+      const f=document.getElementById('fno-sectors'); if(f) f.dataset.built='';
+      loadTicks(); if(fnoPeriod==='live') renderFNOSectors();
+    },250); }); } }
 function setTkSort(s){ tkSort=s; document.querySelectorAll("#tk-sort button").forEach(b=>b.classList.toggle("active",b.dataset.s===s)); loadTicks(); }
+
+// ── Sector Trend tab: intraday 1-min sector movement (sector_history table) ──
+let lsTimer=null;
+async function loadSectorTrend(){
+  const day=new Date();
+  // NSE session in UTC: 9:15–15:30 IST = 03:45–10:00 UTC — fixed x-axis so all graphs align
+  const t0=Date.UTC(day.getUTCFullYear(),day.getUTCMonth(),day.getUTCDate(),3,45);
+  const t1=Date.UTC(day.getUTCFullYear(),day.getUTCMonth(),day.getUTCDate(),10,0);
+  const { data, error } = await sb.from("sector_history")
+    .select("name,is_index,ts,chg_pct,ltp").gte("ts", new Date(t0).toISOString()).order("ts");
+  const wrap=document.getElementById("ls-secs"), idxWrap=document.getElementById("ls-idx"),
+        tag=document.getElementById("ls-tag");
+  if(error||!data||!data.length){
+    tag.textContent="collecting intraday history — graphs appear a minute or two after the streamer starts";
+    wrap.innerHTML=""; idxWrap.innerHTML=""; return;
+  }
+  const series={};
+  data.forEach(r=>{ (series[r.name] ||= { is_index:r.is_index, pts:[] })
+    .pts.push([new Date(r.ts).getTime(), r.chg_pct==null?null:+r.chg_pct, r.ltp==null?null:+r.ltp]); });
+  const entries=Object.entries(series).map(([name,s])=>{
+    const pts=s.pts.filter(p=>p[1]!=null);
+    return { name, is_index:s.is_index, pts,
+      last: pts.length?pts[pts.length-1][1]:null, ltp: pts.length?pts[pts.length-1][2]:null };
+  }).filter(e=>e.pts.length);
+  // one shared y-scale so sector graphs are visually comparable
+  const maxAbs=Math.max(.4, ...entries.flatMap(e=>e.pts.map(p=>Math.abs(p[1]))));
+  // roll the 1-min rows into 2-min OHLC candles of the chg% series
+  const BUCKET=120000;
+  const toCandles=pts=>{ const m=new Map();
+    pts.forEach(p=>{ const b=Math.floor(p[0]/BUCKET)*BUCKET, v=p[1];
+      const c=m.get(b);
+      if(!c) m.set(b,{o:v,h:v,l:v,c:v,t:b});
+      else { if(v>c.h)c.h=v; if(v<c.l)c.l=v; c.c=v; } });
+    return [...m.values()].sort((a,b)=>a.t-b.t); };
+  const svg=e=>{
+    const cds=toCandles(e.pts);
+    const n=Math.max(cds.length, 24);   // reserve width early in the day so candles grow rightward
+    const w=300/n, bw=Math.max(w*.62, 1.2);
+    const y=v=>40-(v/maxAbs)*34;
+    const bars=cds.map((c,i)=>{
+      const x=i*w+w/2, up=c.c>=c.o, col=up?"var(--up)":"var(--down)";
+      const top=y(Math.max(c.o,c.c)), bot=y(Math.min(c.o,c.c));
+      return `<line x1="${x.toFixed(1)}" y1="${y(c.h).toFixed(1)}" x2="${x.toFixed(1)}" y2="${y(c.l).toFixed(1)}" stroke="${col}" stroke-width="1" vector-effect="non-scaling-stroke"/>`+
+        `<rect x="${(x-bw/2).toFixed(1)}" y="${top.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(bot-top,.8).toFixed(1)}" fill="${col}"/>`;
+    }).join("");
+    return `<svg class="ls-svg" viewBox="0 0 300 80" preserveAspectRatio="none">
+      <line x1="0" y1="40" x2="300" y2="40" class="ls-zero"/>${bars}</svg>`;
+  };
+  const card=e=>{
+    const up=(e.last??0)>=0;
+    return `<div class="ls-card">
+      <div class="ls-head"><span class="ls-name">${e.is_index?(IDX_NAMES[e.name]||e.name):e.name}</span>
+        <span class="fs-avg ${up?'up':'down'}">${up?'+':''}${fmt(e.last,2)}%</span></div>
+      ${e.is_index&&e.ltp!=null?`<div class="ls-ltp">${fmt(e.ltp,2)}</div>`:''}
+      ${svg(e)}</div>`;
+  };
+  const secs=entries.filter(e=>!e.is_index).sort((a,b)=>(b.last??-1e9)-(a.last??-1e9));
+  const idx=entries.filter(e=>e.is_index).sort((a,b)=>(b.last??-1e9)-(a.last??-1e9));
+  wrap.innerHTML=secs.map(card).join("");
+  idxWrap.innerHTML=idx.map(card).join("");
+  const lastTs=Math.max(...entries.map(e=>e.pts[e.pts.length-1][0]));
+  tag.innerHTML=`<span class="live-dot"></span>${secs.length} sectors · ${idx.length} indices · 2-min candles · updated ${new Date(lastTs).toLocaleTimeString("en-IN",{hour:'2-digit',minute:'2-digit'})}`;
+}
+function startSectorTrend(){ loadSectorTrend(); if(lsTimer) clearInterval(lsTimer); lsTimer=setInterval(loadSectorTrend, 60000); }
 
 let chart, candleSeries, volSeries, ma50Series, ma200Series, allCandles=[], allVols=[], roCm;
 function sma(arr, n){ const out=[]; let sum=0;
@@ -1634,7 +2109,10 @@ let toastT;
 function toast(msg){ const el=document.getElementById("toast"); el.textContent=msg; el.classList.add("show");
   clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove("show"), 2200); }
 
+document.querySelectorAll('#mainTabs a[data-bs-toggle="tab"]').forEach(a=>
+  a.addEventListener('shown.bs.tab', updateLiveFull));
 loadAll();
+setFnoPeriod('live');   // default view: F&O Sectors in live-tick mode (3s poll)
 </script>
 </body>
 </html>
