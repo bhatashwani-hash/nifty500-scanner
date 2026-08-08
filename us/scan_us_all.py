@@ -7,8 +7,9 @@ Scanners over the us_stocks / us_ohlcv universe (1-yr history):
   breakouts  -> scanner_us_breakouts  FRESH new 3M/6M/1Y closing highs/lows (first day only,
                                       longest window wins; 1Y activates as history accrues)
   rvol       -> scanner_us_rvol       day change + volume vs 20d avg (all stocks)
-  ep         -> scanner_us_ep         Episodic Pivots (gap>=1%, move>=7%, vol>=3x 50d),
-                                      6-month leaderboard ranked by return since pivot;
+  ep         -> scanner_us_ep         Episodic Pivots (gap>=1%, move>=7%, vol>=3x 50d;
+                                      or mega-cap variant move>=12% on vol>=2x),
+                                      3-month leaderboard ranked by return since pivot;
                                       pivots on an earnings release get earnings_date set
   vcp        -> scanner_us_vcp        3-month return >= 25% and 15-day range < 15%
   groups     -> scanner_us_groups     sector + granular-theme performance day/week/month,
@@ -158,7 +159,7 @@ def scan_rvol(conn):
     return len(rows)
 
 
-# ── episodic pivots (6-month leaderboard) ────────────────────────────────────
+# ── episodic pivots (3-month leaderboard) ────────────────────────────────────
 _CAL_URL = "https://api.nasdaq.com/api/calendar/earnings"
 _CAL_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -227,10 +228,15 @@ def scan_ep(conn):
     gap, move = o / prev - 1, c / prev - 1
     vavg = v.rolling(50, min_periods=20).mean().shift(1)
     vr = v / vavg
+    # standard EP: gap >=1%, move >=7%, vol >=3x 50d
     bull = (gap >= 0.01) & (move >= 0.07) & (vr >= 3.0)
     bear = (gap <= -0.01) & (move <= -0.07) & (vr >= 3.0)
+    # mega-cap EP: huge-volume multiples don't happen on the biggest names —
+    # accept a >=12% move on >=2x volume (catches AMZN/MSFT-style earnings pops)
+    bull |= (gap >= 0.01) & (move >= 0.12) & (vr >= 2.0)
+    bear |= (gap <= -0.01) & (move <= -0.12) & (vr >= 2.0)
     last_d = c.index[-1]
-    cutoff = last_d - pd.DateOffset(months=6)
+    cutoff = last_d - pd.DateOffset(months=3)
     lc = c.iloc[-1]
     recs = []
     for mask, typ in ((bull, "BULLISH"), (bear, "BEARISH")):
