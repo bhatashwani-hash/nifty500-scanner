@@ -235,6 +235,7 @@ tr.grp td{ background:var(--panel2); color:var(--cyan); font-weight:800; letter-
         <span class="chip" data-f="bull">BULLISH</span>
         <span class="chip" data-f="bear">BEARISH</span>
       </div>
+      <span class="chip" onclick="copyTickers('ep-body',this)" title="Copy the filtered symbols, comma-separated — paste into a TradingView watchlist">⧉ TV LIST</span>
       <span class="meta" id="ep-meta">…</span></div>
     <div class="pb" style="max-height:560px; overflow-y:auto;">
       <table id="tbl-ep">
@@ -253,7 +254,9 @@ tr.grp td{ background:var(--panel2); color:var(--cyan); font-weight:800; letter-
   <div class="panel span12">
     <div class="ph"><h2>VCP — VOLATILITY CONTRACTION</h2>
       <span class="meta">3M return ≥25% · 15-day range &lt;15% · tightest first</span>
-      <span class="spacer"></span><span class="meta" id="vcp-meta">…</span></div>
+      <span class="spacer"></span>
+      <span class="chip" onclick="copyTickers('vcp-body',this)" title="Copy the symbols, comma-separated — paste into a TradingView watchlist">⧉ TV LIST</span>
+      <span class="meta" id="vcp-meta">…</span></div>
     <div class="pb" style="max-height:520px; overflow-y:auto;">
       <table id="tbl-vcp">
         <thead><tr>
@@ -280,6 +283,7 @@ tr.grp td{ background:var(--panel2); color:var(--cyan); font-weight:800; letter-
         <span class="chip" data-g="score" data-f="3">SCORE ≥3</span>
         <span class="chip" data-g="trend" data-f="200">&gt;200-DMA</span>
       </div>
+      <span class="chip" onclick="copyTickers('snap-body',this)" title="Copy the filtered symbols, comma-separated — paste into a TradingView watchlist">⧉ TV LIST</span>
       <span class="meta" id="snap-meta">…</span></div>
     <div class="pb" style="max-height:560px; overflow-y:auto;">
       <table id="tbl-snap">
@@ -672,6 +676,23 @@ async function openChart(sym, isEtf){
 }
 function closeModal(){ $id("modal").classList.remove("open"); if(mChart){ mChart.remove(); mChart=null; } }
 $id("modal").addEventListener("click", e=>{ if(e.target.id==="modal") closeModal(); });
+
+/* ── copy tickers to TradingView ── */
+async function copyTickers(bodyId, btn){
+  const syms=[...new Set([...document.querySelectorAll(`#${bodyId} .tick[data-sym]`)]
+    .map(t=>t.dataset.sym))];
+  if(!syms.length) return;
+  const text=syms.join(",");
+  try{ await navigator.clipboard.writeText(text); }
+  catch(_){
+    const ta=document.createElement("textarea");
+    ta.value=text; document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); ta.remove();
+  }
+  const old=btn.textContent;
+  btn.textContent=`✓ ${syms.length} COPIED`; btn.classList.add("on");
+  setTimeout(()=>{ btn.textContent=old; btn.classList.remove("on"); }, 1600);
+}
 
 /* ── global interactions ── */
 document.body.addEventListener("click", e=>{
