@@ -51,6 +51,7 @@ def main():
     from scan_rvol        import run as run_rvol
     from scan_screens     import run as run_screens
     from scan_sectors     import run as run_sectors
+    from scan_snapback    import run as run_snapback
     from scan_vcp         import run as run_vcp
     from scan_vcp_pro     import run as run_vcp_pro
 
@@ -62,6 +63,7 @@ def main():
         ("manas",     run_manas),
         ("move",      run_move_alerts), # 10%+ move alerts (calibrated ignition)
         ("rvol",      run_rvol),        # daily RVOL movers (all stocks)
+        ("snapback",  run_snapback),    # undercut & rally snapbacks (F&O, last 5 days)
         ("screens",   run_screens),     # JFS multi-screen scanner (10 screens)
         ("sectors",   run_sectors),
         ("breadth",   None),   # handled separately below via compute_breadth/write_breadth

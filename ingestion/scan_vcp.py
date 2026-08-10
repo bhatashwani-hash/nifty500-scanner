@@ -97,10 +97,10 @@ def run(conn, run_date: date | None = None):
             rows.append((
                 run_date, sym,
                 round(float(c), 2),
-                round(ret_3m * 100, 2),
+                round(float(ret_3m) * 100, 2),   # explicit float(): numpy 2.x scalars break psycopg2
                 round(float(h15), 2),
                 round(float(l15), 2),
-                round(r15 * 100, 2),
+                round(float(r15) * 100, 2),
             ))
 
     if rows:
