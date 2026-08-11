@@ -79,9 +79,12 @@ def run(conn, run_date: date | None = None):
         return 0
     run_date = run_date or lows.index[-1].date()
 
-    avg20 = vols.shift(1).rolling(20).mean()
+    # gap-tolerant windows: a single missing bar (NaN in the pivot) must not
+    # blank the whole rolling min/mean for a month — require ~90% coverage
+    avg20 = vols.shift(1).rolling(20, min_periods=10).mean()
     # prior N-session min low, per window (value at row t = min of lows t-N..t-1)
-    prior_min = {label: lows.shift(1).rolling(N).min() for label, N in WINDOWS}
+    prior_min = {label: lows.shift(1).rolling(N, min_periods=max(5, int(N * 0.9))).min()
+                 for label, N in WINDOWS}
 
     rows, first_pos = [], max(22, n - LOOKBACK_DAYS)
     for sym in lows.columns:
