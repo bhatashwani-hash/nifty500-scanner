@@ -465,8 +465,10 @@ def scan_snapback(conn):
     if len(c) < 25:
         return 0
     av20 = v.shift(1).rolling(20, min_periods=10).mean()
-    ma200 = c.rolling(200, min_periods=200).mean()
-    pm = {lab: l.shift(1).rolling(n, min_periods=n).min() for lab, n in SNAP_WINDOWS}
+    ma200 = c.rolling(200, min_periods=180).mean()
+    # gap-tolerant prior-low windows: one missing bar must not NaN-out a month
+    pm = {lab: l.shift(1).rolling(n, min_periods=max(5, int(n * 0.9))).min()
+          for lab, n in SNAP_WINDOWS}
 
     fcache = {}
 
