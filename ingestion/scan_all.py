@@ -53,6 +53,7 @@ def main():
     from scan_sectors     import run as run_sectors
     from scan_snapback    import run as run_snapback
     from scan_vcp         import run as run_vcp
+    from scan_vcp_bear    import run as run_vcp_bear
     from scan_vcp_pro     import run as run_vcp_pro
 
     scanners = [
@@ -64,6 +65,7 @@ def main():
         ("move",      run_move_alerts), # 10%+ move alerts (calibrated ignition)
         ("rvol",      run_rvol),        # daily RVOL movers (all stocks)
         ("snapback",  run_snapback),    # undercut & rally snapbacks (F&O, last 5 days)
+        ("vcp_bear",  run_vcp_bear),    # inverse VCP short setups (fall + contraction + falling 20DMA)
         ("screens",   run_screens),     # JFS multi-screen scanner (10 screens)
         ("sectors",   run_sectors),
         ("breadth",   None),   # handled separately below via compute_breadth/write_breadth
