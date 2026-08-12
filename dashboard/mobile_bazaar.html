@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#fafbfe">
+<title>Market Manthan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#fafbfe; --card:#ffffff; --soft:#f2f3fa; --line:#e9e9f4;
+    --text:#181530; --muted:#6c6a85; --faint:#a3a1bd;
+    --ind:#6366f1; --pink:#ec4899; --up:#10b981; --dn:#f43f5e;
+    --upbg:#e7f8f1; --dnbg:#fdecf0;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ background:var(--bg); }
+  body{ color:var(--text); font-family:'Inter',system-ui,sans-serif; font-size:14px;
+    padding-bottom:calc(86px + env(safe-area-inset-bottom));
+    background:
+      radial-gradient(640px 340px at 95% -6%, rgba(99,102,241,.08), transparent 60%),
+      radial-gradient(560px 340px at -8% 24%, rgba(236,72,153,.06), transparent 55%),
+      var(--bg); }
+
+  header{ position:sticky; top:0; z-index:40;
+    background:rgba(250,251,254,.85); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+    border-bottom:1px solid var(--line);
+    padding:calc(.8rem + env(safe-area-inset-top)) 1.05rem .6rem; }
+  .hrow{ display:flex; align-items:center; gap:.65rem; }
+  .logo{ width:34px; height:34px; border-radius:11px; display:grid; place-items:center;
+    background:linear-gradient(135deg,var(--ind),var(--pink)); color:#fff;
+    font-weight:800; font-size:15px; letter-spacing:-.5px;
+    box-shadow:0 6px 16px rgba(99,102,241,.35); }
+  h1{ font-size:1.08rem; font-weight:800; letter-spacing:-.4px; }
+  .tagline{ font-size:.66rem; color:var(--faint); margin-top:.05rem; }
+  .reload{ margin-left:auto; width:36px; height:36px; border-radius:12px; cursor:pointer;
+    background:var(--card); border:1px solid var(--line); color:var(--ind); font-size:15px;
+    box-shadow:0 2px 6px rgba(24,21,48,.05); transition:transform .15s; }
+  .reload:active{ transform:rotate(90deg); }
+  .stat{ margin-top:.4rem; font-family:var(--mono); font-size:.63rem; color:var(--muted); }
+  .stat .ok{ color:var(--up); }
+
+  main{ padding:.85rem .85rem 1rem; }
+  .pane{ display:none; } .pane.on{ display:block; animation:pop .22s cubic-bezier(.2,.8,.3,1); }
+  @keyframes pop{ from{ opacity:0; transform:translateY(8px);} to{ opacity:1; transform:none;} }
+
+  /* ── Nifty mood ── */
+  .mood{ border-radius:20px; padding:.95rem 1.05rem .85rem; margin-bottom:.95rem;
+    border:1px solid var(--line); background:var(--card);
+    box-shadow:0 8px 28px rgba(24,21,48,.07); position:relative; overflow:hidden; }
+  .mood::before{ content:""; position:absolute; inset:0 0 auto 0; height:4px; }
+  .mood.tezi::before{ background:linear-gradient(90deg,var(--up),#5eead4); }
+  .mood.mandi::before{ background:linear-gradient(90deg,var(--dn),#fb7185); }
+  .mood.savdhaan::before{ background:linear-gradient(90deg,#f59e0b,#fbbf24); }
+  .mood-top{ display:flex; align-items:baseline; gap:.7rem; }
+  .mood-idx{ font-size:.72rem; font-weight:800; letter-spacing:1.2px; text-transform:uppercase; }
+  .mood.tezi .mood-idx{ color:var(--up); }
+  .mood.mandi .mood-idx{ color:var(--dn); }
+  .mood.savdhaan .mood-idx{ color:#d97706; }
+  .mood-px{ margin-left:auto; text-align:right; flex:0 0 auto; display:flex; align-items:baseline; gap:.55rem; }
+  .mood-px .v{ font-family:var(--mono); font-size:1.65rem; font-weight:700; letter-spacing:-.8px; }
+  .mood-px .c{ font-family:var(--mono); font-size:.82rem; font-weight:700; }
+  .gita{ margin-top:.75rem; padding-top:.7rem; border-top:1px dashed var(--line); }
+  .gita .art{ border-radius:13px; overflow:hidden; margin-bottom:.6rem; line-height:0; }
+  .gita .art svg{ width:100%; height:auto; display:block; }
+  .gita .sa{ font-size:1rem; font-weight:800; line-height:1.5; letter-spacing:-.2px; }
+  .mood.tezi .gita .sa{ color:#0b7a58; }
+  .mood.mandi .gita .sa{ color:#c22843; }
+  .mood.savdhaan .gita .sa{ color:#b45309; }
+  .gita .en{ font-size:.7rem; color:var(--muted); margin-top:.35rem; line-height:1.45; font-style:italic; }
+  .gita .ref{ font-family:var(--mono); font-size:.6rem; color:var(--faint); margin-top:.3rem; }
+  .mas{ display:flex; flex-wrap:wrap; gap:.32rem; margin-top:.7rem; }
+  .ma{ font-family:var(--mono); font-size:.63rem; font-weight:700; padding:.2rem .52rem;
+    border-radius:8px; }
+  .ma.a{ color:var(--up); background:var(--upbg); }
+  .ma.b{ color:var(--dn); background:var(--dnbg); }
+
+  /* ── sector heatmap 4×4 ── */
+  .sec-head{ display:flex; align-items:center; gap:.5rem; margin:.15rem .1rem .6rem; }
+  .sec-title{ font-weight:800; font-size:.98rem; letter-spacing:-.3px; }
+  .seg{ margin-left:auto; display:flex; background:var(--soft); border:1px solid var(--line);
+    border-radius:11px; padding:.16rem; }
+  .seg button{ border:none; background:none; color:var(--muted); font-family:'Inter';
+    font-weight:700; font-size:.7rem; padding:.32rem .72rem; border-radius:8px; cursor:pointer;
+    transition:all .15s; }
+  .seg button.on{ color:#fff; background:linear-gradient(135deg,var(--ind),var(--pink));
+    box-shadow:0 3px 10px rgba(99,102,241,.35); }
+  .heat{ display:grid; grid-template-columns:repeat(4,1fr); gap:.45rem; }
+  .tile{ border-radius:14px; aspect-ratio:1/.92; padding:.5rem .45rem .45rem;
+    display:flex; flex-direction:column; justify-content:space-between;
+    border:1px solid rgba(24,21,48,.05); cursor:default;
+    animation:tin .3s cubic-bezier(.2,.8,.3,1) both; }
+  @keyframes tin{ from{ opacity:0; transform:scale(.92);} to{ opacity:1; transform:none;} }
+  .tile .tn{ font-size:.62rem; font-weight:700; letter-spacing:-.1px; line-height:1.15; }
+  .tile .tv{ font-family:var(--mono); font-weight:700; font-size:.86rem; letter-spacing:-.3px; }
+  .tile .tc{ font-family:var(--mono); font-size:.56rem; opacity:.75; }
+  .heat-note{ text-align:center; color:var(--faint); font-size:.62rem; margin-top:.55rem; }
+
+  /* ── ranked idea cards ── */
+  .runline{ display:flex; align-items:center; gap:.4rem; color:var(--muted);
+    font-size:.72rem; font-weight:700; padding:.1rem .2rem .6rem; flex-wrap:wrap; }
+  .runline .pill{ font-family:var(--mono); font-size:.65rem; font-weight:700; color:var(--ind);
+    background:rgba(99,102,241,.08); border:1px solid rgba(99,102,241,.2);
+    border-radius:999px; padding:.16rem .6rem; }
+  .row{ background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:.68rem .85rem .58rem; margin-bottom:.5rem; cursor:pointer;
+    box-shadow:0 3px 12px rgba(24,21,48,.06); transition:transform .12s, box-shadow .12s; }
+  .row:active{ transform:scale(.98); box-shadow:0 1px 4px rgba(24,21,48,.08); }
+  .r1{ display:flex; align-items:center; gap:.5rem; }
+  .rank{ font-family:var(--mono); font-weight:800; font-size:.78rem; min-width:2.3em; color:var(--faint); }
+  .rank.top{ color:#c08a00; }
+  .sym{ font-weight:800; font-size:1rem; letter-spacing:-.2px; flex:1;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .josh{ font-family:var(--mono); font-weight:800; font-size:.88rem; padding:.16rem .55rem; border-radius:10px; }
+  .josh.up{ color:var(--up); background:var(--upbg); }
+  .josh.dn{ color:var(--dn); background:var(--dnbg); }
+  .r2{ font-family:var(--mono); font-size:.67rem; color:var(--muted); margin-top:.34rem; line-height:1.6; }
+  .r2 b{ color:var(--text); font-weight:600; }
+  .r2 .pos{ color:var(--up); } .r2 .neg{ color:var(--dn); }
+  .empty{ color:var(--faint); text-align:center; padding:3.5rem 1rem; font-size:.8rem; }
+  .disclaimer{ text-align:center; color:var(--faint); font-size:.61rem; padding:.8rem 1.2rem 0; line-height:1.5; }
+
+  nav{ position:fixed; left:.85rem; right:.85rem; bottom:calc(.85rem + env(safe-area-inset-bottom));
+    z-index:40; display:flex; gap:.28rem; padding:.34rem;
+    background:rgba(255,255,255,.9); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
+    border:1px solid var(--line); border-radius:19px; box-shadow:0 12px 34px rgba(24,21,48,.14); }
+  nav button{ flex:1; background:none; border:none; border-radius:14px; cursor:pointer;
+    color:var(--muted); font-family:'Inter'; font-size:.78rem; font-weight:700; padding:.66rem 0;
+    line-height:1.3; transition:all .18s; }
+  nav button small{ display:block; font-size:.55rem; font-weight:600; color:var(--faint); }
+  nav button.on{ color:#fff; box-shadow:0 6px 16px rgba(24,21,48,.2); }
+  nav button.on small{ color:rgba(255,255,255,.75); }
+  nav button[data-p="home"].on{ background:linear-gradient(135deg,var(--ind),var(--pink)); }
+  nav button[data-p="tezi"].on{ background:linear-gradient(135deg,#0ea371,#34d399); }
+  nav button[data-p="mandi"].on{ background:linear-gradient(135deg,var(--dn),#fb7185); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hrow">
+    <div class="logo">म</div>
+    <div>
+      <h1>Market Manthan</h1>
+      <div class="tagline">bazaar ka roz ka nichod</div>
+    </div>
+    <button class="reload" onclick="boot()" title="refresh">↻</button>
+  </div>
+  <div class="stat" id="stat">manthan shuru… 🌊</div>
+</header>
+
+<main>
+  <!-- ── Home: Nifty mood + sector heatmap ── -->
+  <div class="pane on" id="p-home">
+    <div id="mood"></div>
+    <div class="sec-head">
+      <span class="sec-title">Sector Heatmap</span>
+      <div class="seg" id="per-seg">
+        <button class="on" data-per="day" onclick="setPer('day')">1D</button>
+        <button data-per="week" onclick="setPer('week')">1W</button>
+        <button data-per="month" onclick="setPer('month')">1M</button>
+      </div>
+    </div>
+    <div id="l-sec" class="empty">Loading…</div>
+  </div>
+
+  <!-- ── Tezi: recent triggers ── -->
+  <div class="pane" id="p-tezi">
+    <div class="runline">🐂 Tezi Toppers — last 10 din ke triggers <span class="pill" id="tezi-date">📅 —</span></div>
+    <div id="l-tezi" class="empty">Loading…</div>
+    <div class="disclaimer">top-500 market cap · naya trigger sabse upar · return = trigger ke baad ka move 🙏</div>
+  </div>
+
+  <!-- ── Mandi: ranked short ideas ── -->
+  <div class="pane" id="p-mandi">
+    <div class="runline">🐻 Mandi Masters — ranked short ideas <span class="pill" id="mandi-date">📅 —</span></div>
+    <div id="l-mandi" class="empty">Loading…</div>
+    <div class="disclaimer">💣 fresh breakdown · 🩸 badi girawat on volume → tight contraction → falling 20DMA ko touch · top-500 market cap — shorting risky hai boss 🙏</div>
+  </div>
+</main>
+
+<nav>
+  <button class="on" data-p="home" onclick="show('home')">Manthan<small>mood &amp; sectors</small></button>
+  <button data-p="tezi" onclick="show('tezi')">🐂 Tezi<small>fresh triggers</small></button>
+  <button data-p="mandi" onclick="show('mandi')">🐻 Mandi<small>short ranks</small></button>
+</nav>
+
+<script>
+const SB_URL = "https://lgsgcccasccxfofxsbge.supabase.co";
+const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxnc2djY2Nhc2NjeGZvZnhzYmdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5NTI5MjMsImV4cCI6MjA5NzUyODkyM30.mUk6etxWdkxttwoHnG9-F2axvj680XXOKWmjaSRYuTA";
+const sb = supabase.createClient(SB_URL, SB_KEY);
+
+const fmt=(v,d=2)=>v==null?"—":Number(v).toLocaleString("en-IN",{minimumFractionDigits:d,maximumFractionDigits:d});
+const sgn=(v,d=1)=>v==null?"—":(v>=0?"+":"")+fmt(v,d)+"%";
+const cls=v=>(v??0)>=0?"pos":"neg";
+const dt=s=>{ if(!s) return "—"; const d=new Date(s);
+  return isNaN(d)?"—":d.toLocaleDateString("en-IN",{day:"numeric",month:"short"}); };
+
+function show(p){
+  document.querySelectorAll(".pane").forEach(e=>e.classList.toggle("on", e.id==="p-"+p));
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on", b.dataset.p===p));
+}
+document.addEventListener("click", e=>{
+  const r=e.target.closest(".row");
+  if(r&&r.dataset.sym) window.open("https://www.tradingview.com/chart/?symbol=NSE%3A"+encodeURIComponent(r.dataset.sym),"_blank");
+});
+
+let uni=null, secData=null, per="day";
+async function loadUni(){
+  const { data } = await sb.from("stocks").select("symbol,market_cap").eq("is_active",true)
+    .not("market_cap","is",null).order("market_cap",{ascending:false}).limit(500);
+  uni=new Set((data||[]).map(r=>r.symbol));
+}
+async function latestDate(table){
+  const { data } = await sb.from(table).select("run_date").order("run_date",{ascending:false}).limit(1);
+  return data?.[0]?.run_date;
+}
+
+/* ── Nifty Ka Mood ── */
+async function loadMood(){
+  const { data } = await sb.from("index_ohlcv").select("time,close")
+    .eq("symbol","^NSEI").order("time",{ascending:false}).limit(220);
+  const el=document.getElementById("mood");
+  if(!data||data.length<100){ el.innerHTML=""; return; }
+  const closes=data.map(r=>+r.close).reverse();
+  const last=closes[closes.length-1], prev=closes[closes.length-2];
+  const chg=(last/prev-1)*100;
+  const sma=n=>closes.slice(-n).reduce((a,b)=>a+b,0)/n;
+  const mas={10:sma(10),20:sma(20),50:sma(50),100:sma(100),200:closes.length>=200?sma(200):null};
+  const above=n=>mas[n]!=null&&last>mas[n];
+  const klass = (above(10)&&above(20)) ? "tezi" : (!above(100)) ? "mandi" : "savdhaan";
+  el.className="mood "+klass;
+  el.innerHTML=`
+    <div class="mood-top">
+      <span class="mood-idx">Nifty 50</span>
+      <div class="mood-px"><span class="v">${fmt(last,0)}</span><span class="c ${cls(chg)}">${sgn(chg,2)}</span></div>
+    </div>
+    <div class="mas">${[10,20,50,100,200].filter(n=>mas[n]!=null).map(n=>
+      `<span class="ma ${above(n)?'a':'b'}">${above(n)?'▲':'▼'} ${n}D</span>`).join("")}</div>`;
+}
+
+/* ── Sector heatmap: 4×4 matrix of the 16 biggest sectors ── */
+const SHORT={
+  "Automobile and Auto Components":"Auto","Information Technology":"IT",
+  "Fast Moving Consumer Goods":"FMCG","Financial Services":"Fin Services",
+  "Metals & Mining":"Metals","Consumer Services":"Consumer Svc",
+  "Consumer Durables":"Durables","Oil Gas & Consumable Fuels":"Oil & Gas",
+  "Telecommunication":"Telecom","Healthcare":"Healthcare","Capital Goods":"Cap Goods",
+  "Construction":"Constructn","Construction Materials":"Cement","Power":"Power",
+  "Realty":"Realty","Chemicals":"Chemicals","Textiles":"Textiles","Services":"Services",
+  "Media Entertainment & Publication":"Media","Diversified":"Diversified",
+  "Forest Materials":"Forest Mat"};
+async function loadSectors(){
+  const d0=await latestDate("scanner_sectors");
+  const { data } = await sb.from("scanner_sectors").select("*").eq("run_date",d0);
+  secData=data||[]; renderSectors();
+}
+function setPer(p){ per=p;
+  document.querySelectorAll("#per-seg button").forEach(b=>b.classList.toggle("on",b.dataset.per===p));
+  renderSectors(); }
+function renderSectors(){
+  const el=document.getElementById("l-sec");
+  const rows=(secData||[]).filter(r=>r.period===per && r.sector && !/^unknown$/i.test(r.sector));
+  if(!rows.length){ el.innerHTML='<div class="empty">No data</div>'; return; }
+  // 16 biggest sectors by stock count → stable 4×4 matrix, sorted by return
+  const top16=[...rows].sort((a,b)=>b.stock_count-a.stock_count).slice(0,16)
+    .sort((a,b)=>(+b.avg_return)-(+a.avg_return));
+  const maxAbs=Math.max(.6,...top16.map(r=>Math.abs(+r.avg_return)));
+  el.classList.remove("empty");
+  el.innerHTML=`<div class="heat">`+top16.map((r,i)=>{
+    const v=+r.avg_return, a=Math.min(Math.abs(v)/maxAbs,1);
+    const bg=v>=0?`rgba(16,185,129,${(.14+.8*a).toFixed(2)})`:`rgba(244,63,94,${(.14+.8*a).toFixed(2)})`;
+    const white=a>=.5;
+    const fg=white?"#fff":"var(--text)", fg2=white?"rgba(255,255,255,.85)":"var(--muted)";
+    return `<div class="tile" style="background:${bg};animation-delay:${i*22}ms">
+      <div class="tn" style="color:${fg}">${SHORT[r.sector]||r.sector.split(" ")[0]}</div>
+      <div>
+        <div class="tv" style="color:${fg}">${sgn(v)}</div>
+        <div class="tc" style="color:${fg2}">${r.up_count}▲ ${r.down_count}▼</div>
+      </div>
+    </div>`;}).join("")+`</div>
+    <div class="heat-note">16 sabse bade sectors · ${per==="day"?"aaj ka din":per==="week"?"is hafte":"is mahine"} · ${dt((secData[0]||{}).run_date)}</div>`;
+}
+
+/* ── Tezi: triggers from the last 10 trading days, newest first ── */
+async function loadTezi(){
+  const since=new Date(Date.now()-16*864e5).toISOString().slice(0,10);
+  const { data:vcp } = await sb.from("scanner_vcp").select("*")
+    .gte("run_date",since).order("run_date",{ascending:true});
+  const el=document.getElementById("l-tezi");
+  const rows=(vcp||[]).filter(r=>uni.has(r.symbol));
+  if(!rows.length){ el.innerHTML='<div class="empty">Pichle 10 din mein koi trigger nahi 🤷</div>'; return 0; }
+  const first={};
+  rows.forEach(r=>{ if(!first[r.symbol]) first[r.symbol]=r; });
+  const trig=Object.values(first);
+  const dates=[...new Set(rows.map(r=>r.run_date))].sort();
+  document.getElementById("tezi-date").textContent=`📅 ${dt(dates[0])} – ${dt(dates[dates.length-1])}`;
+  const { data:px } = await sb.from("ohlcv").select("symbol,time,close")
+    .in("symbol",trig.map(r=>r.symbol)).gte("time",since).order("time",{ascending:true});
+  const lastPx={}; (px||[]).forEach(p=>{ lastPx[p.symbol]=+p.close; });
+  const list=trig.map(r=>{
+    const now=lastPx[r.symbol];
+    const ret=now?((now/+r.close-1)*100):null;
+    const days=Math.round((Date.now()-new Date(r.run_date).getTime())/864e5);
+    return { sym:r.symbol, ret, now, days, r };
+  }).sort((a,b)=> a.r.run_date!==b.r.run_date
+      ? (a.r.run_date<b.r.run_date?1:-1)
+      : (b.ret??-1e9)-(a.ret??-1e9));
+  el.classList.remove("empty");
+  el.innerHTML=list.map((e,i)=>{
+    const medal=i===0?"🏆":i===1?"🥈":i===2?"🥉":"#"+(i+1);
+    return `<div class="row" data-sym="${e.sym}">
+      <div class="r1">
+        <span class="rank ${i<3?'top':''}">${medal}</span>
+        <span class="sym">${e.sym}</span>
+        <span class="josh ${(e.ret??0)>=0?'up':'dn'}">${sgn(e.ret)}</span>
+      </div>
+      <div class="r2">📅 trigger <b>${dt(e.r.run_date)}</b> (${e.days}d) @${fmt(e.r.close,1)} → ab <b>${fmt(e.now,1)}</b></div>
+    </div>`;}).join("");
+  return list.length;
+}
+
+/* ── Mandi: fresh breakdowns + bear EPs, ranked ── */
+function mergeIdeas(cands){
+  const by={};
+  cands.forEach(c=>{
+    const e=(by[c.sym] ||= { sym:c.sym, score:0, details:[] , n:0});
+    e.score=Math.max(e.score,c.score); e.n++; e.details.push(c.detail);
+  });
+  const list=Object.values(by);
+  list.forEach(e=>{ e.score=Math.min(99,Math.round(e.score+8*(e.n-1))); });
+  list.sort((a,b)=>b.score-a.score);
+  return list;
+}
+async function loadMandi(){
+  const d0=await latestDate("scanner_breakouts");
+  document.getElementById("mandi-date").textContent="📅 "+dt(d0);
+  const [bd, bv] = await Promise.all([
+    sb.from("scanner_breakouts").select("*").eq("run_date",d0).like("breakout_type","%LOW"),
+    sb.from("scanner_vcp_bear").select("*"),
+  ]);
+  const winScore={ "2Y":85, "1Y":75, "6M":65 };
+  const cands=[];
+  (bd.data||[]).filter(r=>uni.has(r.symbol)).forEach(r=>{
+    const win=r.breakout_type.split("_")[0];
+    cands.push({ sym:r.symbol, score:(winScore[win]||60)+Math.min(Math.abs(+r.change_pct||0),10),
+      detail:`💣 Fresh <b>${win} low</b> ${dt(r.run_date)} · <span class="${cls(r.change_pct)}">${sgn(r.change_pct)}</span> us din`});
+  });
+  // inverse VCP: big high-volume fall → tight contraction → riding the falling 20 DMA
+  (bv.data||[]).filter(r=>uni.has(r.symbol)).forEach(r=>cands.push({
+    sym:r.symbol,
+    score:50+Math.min(Math.abs(+r.fall_3m_pct),60)/3+Math.max(0,15-+r.range_15d_pct)*1.5+(r.touching?8:0),
+    detail:`🩸 <span class="neg">${sgn(r.fall_3m_pct,0)}</span> 3M girawat (vol <b>${fmt(r.fall_volx,1)}×</b>) · `+
+      `15d sirf <b>${fmt(r.range_15d_pct,1)}%</b> tight · 20DMA ↓ @${fmt(r.sma20,1)}${r.touching?' · <b>chhoo raha hai</b>':''}`}));
+  const list=mergeIdeas(cands).slice(0,40);
+  const el=document.getElementById("l-mandi");
+  if(!list.length){ el.innerHTML='<div class="empty">Aaj koi short idea nahi 🤷</div>'; return 0; }
+  el.classList.remove("empty");
+  el.innerHTML=list.map((e,i)=>{
+    const medal=i===0?"🏆":i===1?"🥈":i===2?"🥉":"#"+(i+1);
+    return `<div class="row" data-sym="${e.sym}">
+      <div class="r1">
+        <span class="rank ${i<3?'top':''}">${medal}</span>
+        <span class="sym">${e.sym}</span>
+        <span class="josh dn">${e.score}</span>
+      </div>
+      <div class="r2">${e.details.join("<br>")}</div>
+    </div>`;}).join("");
+  return list.length;
+}
+
+async function boot(){
+  const stat=document.getElementById("stat");
+  stat.innerHTML="manthan chal raha hai… 🌊";
+  try{
+    if(!uni) await loadUni();
+    const [,,t,m]=await Promise.all([loadMood(),loadSectors(),loadTezi(),loadMandi()]);
+    stat.innerHTML=`<span class="ok">●</span> taaza manthan · Tezi ${t} · Mandi ${m} · `+
+      new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"});
+  }catch(e){
+    stat.innerHTML=`⚠ manthan ruk gaya — ${String(e).slice(0,60)}`;
+  }
+}
+boot();
+</script>
+</body>
+</html>

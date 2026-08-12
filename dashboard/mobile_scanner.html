@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0d14">
+<title>NSE Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#0a0d14; --card:#111624; --card2:#161d2f; --line:#1e2637;
+    --text:#e8ecf5; --muted:#8b94a7; --faint:#5a6478;
+    --up:#16c784; --dn:#ea3943; --amber:#f5a623; --cyan:#4aa8ff; --violet:#8b7cf6;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ background:var(--bg); }
+  body{ color:var(--text); font-family:'Inter',system-ui,sans-serif; font-size:14px;
+    padding-bottom:calc(76px + env(safe-area-inset-bottom));
+    background:
+      radial-gradient(900px 420px at 85% -10%, rgba(74,168,255,.07), transparent 60%),
+      radial-gradient(700px 380px at 0% 108%, rgba(139,124,246,.07), transparent 55%),
+      var(--bg); }
+
+  header{ position:sticky; top:0; z-index:40;
+    background:rgba(10,13,20,.82); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--line);
+    padding:calc(.75rem + env(safe-area-inset-top)) 1rem .65rem; }
+  .hrow{ display:flex; align-items:center; gap:.6rem; }
+  .logo{ width:30px; height:30px; border-radius:9px; display:grid; place-items:center;
+    background:linear-gradient(135deg,#16c784,#4aa8ff); font-size:15px;
+    box-shadow:0 0 18px rgba(22,199,132,.35); }
+  h1{ font-size:1.05rem; font-weight:800; letter-spacing:-.3px; }
+  h1 small{ font-weight:600; color:var(--muted); font-size:.72rem; margin-left:.3rem; }
+  .reload{ margin-left:auto; width:34px; height:34px; border-radius:10px; cursor:pointer;
+    background:var(--card); border:1px solid var(--line); color:var(--muted); font-size:15px; }
+  .reload:active{ color:var(--text); border-color:var(--cyan); }
+  .stat{ margin-top:.45rem; font-family:var(--mono); font-size:.68rem; color:var(--muted);
+    display:flex; align-items:center; gap:.45rem; flex-wrap:wrap; }
+  .dot{ width:7px; height:7px; border-radius:50%; background:var(--up);
+    box-shadow:0 0 8px rgba(22,199,132,.7); animation:pulse 1.8s infinite; }
+  .dot.err{ background:var(--dn); box-shadow:0 0 8px rgba(234,57,67,.7); animation:none; }
+  @keyframes pulse{ 0%,100%{ opacity:1 } 50%{ opacity:.4 } }
+
+  main{ padding:.75rem .8rem 1rem; }
+  .pane{ display:none; } .pane.on{ display:block; animation:fadein .18s ease; }
+  @keyframes fadein{ from{ opacity:0; transform:translateY(4px);} to{ opacity:1; transform:none;} }
+  .legend{ color:var(--faint); font-size:.68rem; line-height:1.5; padding:.1rem .2rem .65rem; }
+  .legend b{ color:var(--muted); font-weight:600; }
+
+  .row{ background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:.7rem .85rem .6rem; margin-bottom:.55rem; cursor:pointer;
+    box-shadow:0 2px 10px rgba(0,0,0,.25); transition:transform .1s; }
+  .row:active{ transform:scale(.985); background:var(--card2); }
+  .r1{ display:flex; align-items:center; gap:.5rem; }
+  .rk{ font-family:var(--mono); color:var(--faint); font-size:.7rem; min-width:1.9em; }
+  .sym{ font-weight:800; font-size:1rem; letter-spacing:-.2px; flex:1;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .big{ font-family:var(--mono); font-weight:700; font-size:.98rem; }
+  .pos{ color:var(--up); } .neg{ color:var(--dn); }
+  .amb{ color:var(--amber); } .cyn{ color:var(--cyan); }
+  .r2{ display:flex; flex-wrap:wrap; gap:.3rem .8rem; margin-top:.45rem;
+    font-family:var(--mono); font-size:.72rem; color:var(--muted); }
+  .r2 b{ color:var(--text); font-weight:600; }
+  .kv{ white-space:nowrap; }
+  .kv .k{ color:var(--faint); font-size:.62rem; margin-right:.2rem; text-transform:uppercase; letter-spacing:.5px; }
+  .tag{ font-size:.62rem; font-weight:700; letter-spacing:.4px; padding:.14rem .48rem;
+    border-radius:999px; background:var(--card2); color:var(--muted); border:1px solid var(--line); white-space:nowrap; }
+  .tag.up{ background:rgba(22,199,132,.12); color:var(--up); border-color:rgba(22,199,132,.3); }
+  .tag.dn{ background:rgba(234,57,67,.12); color:var(--dn); border-color:rgba(234,57,67,.3); }
+  .tag.hot{ background:rgba(245,166,35,.12); color:var(--amber); border-color:rgba(245,166,35,.3); }
+  .tag.vio{ background:rgba(139,124,246,.12); color:var(--violet); border-color:rgba(139,124,246,.3); }
+  .stars{ font-size:.72rem; color:var(--amber); letter-spacing:1px; }
+  .empty{ color:var(--faint); text-align:center; padding:3.5rem 1rem; font-size:.8rem; }
+
+  nav{ position:fixed; left:.8rem; right:.8rem; bottom:calc(.8rem + env(safe-area-inset-bottom));
+    z-index:40; display:flex; gap:.25rem; padding:.3rem;
+    background:rgba(17,22,36,.92); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+    border:1px solid var(--line); border-radius:16px; box-shadow:0 12px 34px rgba(0,0,0,.5); }
+  nav button{ flex:1; background:none; border:none; border-radius:11px; cursor:pointer;
+    color:var(--muted); font-family:'Inter'; font-size:.78rem; font-weight:700;
+    letter-spacing:.2px; padding:.7rem 0; }
+  nav button.on{ color:#04130d; background:linear-gradient(135deg,#16c784,#0ea5e9);
+    box-shadow:0 4px 14px rgba(22,199,132,.35); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hrow">
+    <div class="logo">📡</div>
+    <h1>Scanner<small>NSE F&amp;O</small></h1>
+    <button class="reload" onclick="boot()" title="refresh">↻</button>
+  </div>
+  <div class="stat" id="stat"><span class="dot"></span>connecting…</div>
+</header>
+
+<main>
+  <div class="pane on" id="p-ep">
+    <div class="legend"><b>Episodic Pivot</b> · F&amp;O only · 6-month leaderboard ranked by return since the pivot day · tap a card for its chart</div>
+    <div id="l-ep" class="empty">Loading…</div>
+  </div>
+  <div class="pane" id="p-vcp">
+    <div class="legend"><b>VCP</b> · F&amp;O only · 3-month return ≥ 25% with a 15-day range under 15% — tightest coils first · tap for chart</div>
+    <div id="l-vcp" class="empty">Loading…</div>
+  </div>
+  <div class="pane" id="p-snap">
+    <div class="legend"><b>Snapback</b> · F&amp;O undercuts a fresh 1M/3M/6M/1Y low then reclaims it within 2 sessions · signals from the last 5 days</div>
+    <div id="l-snap" class="empty">Loading…</div>
+  </div>
+  <div class="pane" id="p-move">
+    <div class="legend"><b>10% Move</b> · F&amp;O only · calibrated ignition candidates — READY means every condition lines up</div>
+    <div id="l-move" class="empty">Loading…</div>
+  </div>
+</main>
+
+<nav>
+  <button class="on" data-p="ep" onclick="show('ep')">⚡ EP</button>
+  <button data-p="vcp" onclick="show('vcp')">🎯 VCP</button>
+  <button data-p="snap" onclick="show('snap')">🪝 Snap</button>
+  <button data-p="move" onclick="show('move')">💥 10%</button>
+</nav>
+
+<script>
+const SB_URL = "https://lgsgcccasccxfofxsbge.supabase.co";
+const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxnc2djY2Nhc2NjeGZvZnhzYmdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5NTI5MjMsImV4cCI6MjA5NzUyODkyM30.mUk6etxWdkxttwoHnG9-F2axvj680XXOKWmjaSRYuTA";
+const sb = supabase.createClient(SB_URL, SB_KEY);
+
+const fmt=(v,d=2)=>v==null?"—":Number(v).toLocaleString("en-IN",{minimumFractionDigits:d,maximumFractionDigits:d});
+const dt=s=>{ if(!s) return ""; const d=new Date(s);
+  return isNaN(d)?"":d.toLocaleDateString("en-IN",{day:"numeric",month:"short"}); };
+const sgn=v=>v==null?"—":(v>=0?"+":"")+fmt(v,1)+"%";
+const cls=v=>(v??0)>=0?"pos":"neg";
+const kv=(k,v)=>`<span class="kv"><span class="k">${k}</span>${v}</span>`;
+
+function show(p){
+  document.querySelectorAll(".pane").forEach(e=>e.classList.toggle("on", e.id==="p-"+p));
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on", b.dataset.p===p));
+}
+document.addEventListener("click", e=>{
+  const r=e.target.closest(".row");
+  if(r&&r.dataset.sym) window.open("https://www.tradingview.com/chart/?symbol=NSE%3A"+encodeURIComponent(r.dataset.sym),"_blank");
+});
+
+let fno=null;   // F&O symbol set — every tab shows F&O stocks only
+async function loadFno(){
+  const { data } = await sb.from("stocks").select("symbol").eq("is_active",true).eq("is_fno",true);
+  fno=new Set((data||[]).map(r=>r.symbol));
+}
+async function latestDate(table){
+  const { data } = await sb.from(table).select("run_date").order("run_date",{ascending:false}).limit(1);
+  return data?.[0]?.run_date;
+}
+const row=(sym,l1,l2)=>`<div class="row" data-sym="${sym}"><div class="r1">${l1}</div><div class="r2">${l2}</div></div>`;
+
+async function loadEP(){
+  const { data:raw } = await sb.from("scanner_ep").select("*").order("rnk",{ascending:true}).limit(300);
+  const el=document.getElementById("l-ep");
+  const data=(raw||[]).filter(r=>fno.has(r.symbol)).slice(0,60);
+  if(!data.length){ el.innerHTML='<div class="empty">No signals</div>'; return 0; }
+  el.innerHTML=data.map(r=>{
+    const bull=r.ep_type==="BULLISH";
+    return row(r.symbol,
+      `<span class="rk">#${r.rnk??"—"}</span><span class="sym">${r.symbol}</span>`+
+      `<span class="tag ${bull?'up':'dn'}">${bull?'BULL':'BEAR'}</span>`+
+      `<span class="big ${cls(r.return_since_pivot)}">${sgn(r.return_since_pivot)}</span>`,
+      kv("pivot",`${dt(r.run_date)} @${fmt(r.close,1)}`)+kv("now",`<b>${fmt(r.last_close,1)}</b>`)+
+      kv("gap",`<span class="${cls(r.gap_pct)}">${sgn(r.gap_pct)}</span>`)+
+      kv("move",`<span class="${cls(r.move_pct)}">${sgn(r.move_pct)}</span>`)+
+      kv("vol",`<span class="amb">${fmt(r.vol_ratio,1)}×</span>`));
+  }).join("");
+  return data.length;
+}
+
+async function loadVCP(){
+  const d0=await latestDate("scanner_vcp");
+  const { data:raw } = await sb.from("scanner_vcp").select("*").eq("run_date",d0).order("range_15d_pct");
+  const el=document.getElementById("l-vcp");
+  const data=(raw||[]).filter(r=>fno.has(r.symbol));
+  if(!data.length){ el.innerHTML='<div class="empty">No signals</div>'; return 0; }
+  el.innerHTML=data.map(r=>row(r.symbol,
+    `<span class="sym">${r.symbol}</span>`+
+    `<span class="tag vio">${fmt(r.range_15d_pct,1)}% RANGE</span>`+
+    `<span class="big pos">+${fmt(r.return_3m,0)}% 3M</span>`,
+    kv("close",`<b>${fmt(r.close,1)}</b>`)+
+    kv("15d band",`${fmt(r.low_15d,1)} – ${fmt(r.high_15d,1)}`))).join("");
+  return data.length;
+}
+
+async function loadSnap(){
+  const { data } = await sb.from("scanner_snapback").select("*")
+    .order("score",{ascending:false}).order("low_date",{ascending:false});
+  const el=document.getElementById("l-snap");
+  if(!data||!data.length){ el.innerHTML='<div class="empty">No signals</div>'; return 0; }
+  el.innerHTML=data.map(r=>{
+    const sd=r.snap_type==="SAME_DAY";
+    return row(r.symbol,
+      `<span class="sym">${r.symbol}</span>`+
+      `<span class="tag ${["6M","1Y"].includes(r.low_window)?'hot':''}">${r.low_window} LOW</span>`+
+      `<span class="tag ${sd?'up':''}">${sd?'SAME-DAY':r.snap_type}</span>`+
+      `<span class="big ${cls(r.pct_off_low)}">${sgn(r.pct_off_low)}</span>`,
+      kv("low",`${dt(r.low_date)} @${fmt(r.extreme_low,1)}`)+
+      kv("level",fmt(r.broken_level,1))+kv("now",`<b>${fmt(r.last_close,1)}</b>`)+
+      kv("flush",`<span class="amb">${r.flush_vol_ratio==null?'—':fmt(r.flush_vol_ratio,1)+'×'}</span>`)+
+      kv("snap",`<span class="amb">${r.snap_vol_ratio==null?'—':fmt(r.snap_vol_ratio,1)+'×'}</span>`)+
+      `<span class="stars">${"★".repeat(r.score||0)}${"☆".repeat(4-(r.score||0))}</span>`);
+  }).join("");
+  return data.length;
+}
+
+async function loadMove(){
+  const { data } = await sb.from("scanner_move_alerts").select("*")
+    .order("run_date",{ascending:false}).order("score",{ascending:false}).limit(500);
+  const el=document.getElementById("l-move");
+  if(!data||!data.length){ el.innerHTML='<div class="empty">No signals</div>'; return 0; }
+  const latest=data[0].run_date;
+  const rows=data.filter(r=>r.run_date===latest && fno.has(r.symbol));
+  if(!rows.length){ el.innerHTML='<div class="empty">No F&O candidates today</div>'; return 0; }
+  el.innerHTML=rows.map(r=>row(r.symbol,
+    `<span class="sym">${r.symbol}</span>`+
+    `<span class="tag ${r.tier==='READY'?'hot':''}">${r.tier}</span>`+
+    `<span class="big amb">${r.score}</span>`+
+    `<span class="big ${cls(r.chg_pct)}">${sgn(r.chg_pct)}</span>`,
+    kv("close",`<b>${fmt(r.close,1)}</b>`)+
+    kv("rvol",`<span class="amb">${fmt(r.rvol,1)}×</span>`)+
+    kv("trigger",fmt(r.trigger_price,1))+
+    kv("target",`<span class="pos">${fmt(r.target_price,1)}</span>`)+
+    kv("stop",`<span class="neg">${fmt(r.stop_price,1)}</span>`))).join("");
+  return rows.length;
+}
+
+async function boot(){
+  const stat=document.getElementById("stat");
+  stat.innerHTML=`<span class="dot"></span>syncing…`;
+  try{
+    if(!fno) await loadFno();
+    const [ep,vcp,snap,mv]=await Promise.all([loadEP(),loadVCP(),loadSnap(),loadMove()]);
+    stat.innerHTML=`<span class="dot"></span>live data · EP ${ep} · VCP ${vcp} · Snap ${snap} · 10% ${mv} · `+
+      new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"});
+  }catch(e){
+    stat.innerHTML=`<span class="dot err"></span>feed error — ${String(e).slice(0,60)}`;
+  }
+}
+boot();
+</script>
+</body>
+</html>

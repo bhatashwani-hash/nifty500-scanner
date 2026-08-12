@@ -17,7 +17,7 @@ Run:
 import os
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, time as dtime, timedelta, timezone
 from pathlib import Path
 
 import psycopg2
@@ -48,12 +48,36 @@ ON CONFLICT (symbol) DO UPDATE SET
   chg_pct=EXCLUDED.chg_pct, vol=EXCLUDED.vol, ts=EXCLUDED.ts, updated_at=now()
 """
 
+# intraday sector series: one row per sector/index per minute (feeds the Sector Trend tab)
+HIST_SECS = 60
+HIST_UPSERT = """
+INSERT INTO sector_history (name, is_index, ts, chg_pct, ltp)
+VALUES %s
+ON CONFLICT (name, ts) DO UPDATE SET chg_pct=EXCLUDED.chg_pct, ltp=EXCLUDED.ltp
+"""
+IST = timezone(timedelta(hours=5, minutes=30))
+EOD_IST = dtime(15, 35)   # after close: wipe the day's 1-min bars and stop
+
+
+def clear_history(conn, before=None):
+    """Delete sector_history rows — all of them, or only those before `before`."""
+    with conn.cursor() as cur:
+        if before is None:
+            cur.execute("DELETE FROM sector_history")
+        else:
+            cur.execute("DELETE FROM sector_history WHERE ts < %s", (before,))
+        n = cur.rowcount
+    conn.commit()
+    if n:
+        print(f"Cleared {n} sector_history rows.")
+
 
 def build_token_maps(kite, conn):
     """Return token->(symbol, is_index) and the prev_close per symbol."""
     with conn.cursor() as cur:
-        cur.execute("SELECT symbol FROM stocks WHERE is_active AND is_fno")
-        fno = {r[0] for r in cur.fetchall()}
+        cur.execute("SELECT symbol, sector FROM stocks WHERE is_active AND is_fno")
+        sector_of = {r[0]: (r[1] or "Other") for r in cur.fetchall()}
+        fno = set(sector_of)
 
     nse = kite.instruments("NSE")          # all NSE instruments (equity + indices)
     by_tsym = {i["tradingsymbol"]: i for i in nse}
@@ -80,7 +104,7 @@ def build_token_maps(kite, conn):
             if sym and v.get("ohlc"):
                 prev_close[sym] = v["ohlc"].get("close")
         time.sleep(0.2)
-    return token_map, prev_close
+    return token_map, prev_close, sector_of
 
 
 def main():
@@ -88,17 +112,22 @@ def main():
     kite = KiteConnect(api_key=API_KEY)
     kite.set_access_token(ACCESS_TOKEN)
 
-    token_map, prev_close = build_token_maps(kite, conn)
+    # morning safety net: drop any bars left over from a previous session
+    session_start = datetime.now(IST).replace(hour=9, minute=15, second=0, microsecond=0)
+    clear_history(conn, before=session_start.astimezone(timezone.utc))
+
+    token_map, prev_close, sector_of = build_token_maps(kite, conn)
     tokens = list(token_map.keys())
     print(f"Subscribing to {len(tokens)} instruments "
           f"({sum(1 for v in token_map.values() if v[1])} indices)")
 
     latest = {}            # token -> (ltp, vol, ts)
     lock = threading.Lock()
-
-    kws = KiteTicker(API_KEY, ACCESS_TOKEN)
+    last_hist = 0.0        # last sector_history append (epoch secs)
+    state = {"last_rx": time.time()}   # last websocket tick receipt (watchdog)
 
     def on_ticks(ws, ticks):
+        state["last_rx"] = time.time()
         with lock:
             for t in ticks:
                 latest[t["instrument_token"]] = (
@@ -110,14 +139,44 @@ def main():
         ws.subscribe(tokens)
         ws.set_mode(ws.MODE_FULL, tokens)
 
-    kws.on_ticks = on_ticks
-    kws.on_connect = on_connect
-    kws.connect(threaded=True)
+    def on_close(ws, code, reason):
+        print(f"[ws closed] {code} {reason}")
 
+    def on_error(ws, code, reason):
+        print(f"[ws error] {code} {reason}")
+
+    def on_reconnect(ws, attempts):
+        print(f"[ws reconnecting] attempt {attempts}")
+
+    def make_ws():
+        w = KiteTicker(API_KEY, ACCESS_TOKEN)
+        w.on_ticks = on_ticks
+        w.on_connect = on_connect
+        w.on_close = on_close
+        w.on_error = on_error
+        w.on_reconnect = on_reconnect
+        w.connect(threaded=True)
+        return w
+
+    kws = make_ws()
     print("Ticker running. Ctrl+C to stop.")
     try:
         while True:
             time.sleep(FLUSH_SECS)
+            if datetime.now(IST).time() >= EOD_IST:
+                print("Market closed — removing the day's sector_history bars and stopping.")
+                clear_history(conn)
+                break
+            # watchdog: KiteTicker's auto-reconnect sometimes never fires after an unclean
+            # drop (code 1006) — if the feed goes silent, tear the socket down and rebuild it
+            if time.time() - state["last_rx"] > 60:
+                print("[watchdog] no ticks for 60s — rebuilding websocket")
+                try:
+                    kws.close()
+                except Exception:
+                    pass
+                state["last_rx"] = time.time()
+                kws = make_ws()
             with lock:
                 snap = dict(latest)
             rows = []
@@ -131,10 +190,37 @@ def main():
                 rows.append((sym, is_idx, round(float(ltp), 2),
                              round(float(pc), 2) if pc else None, chg,
                              int(vol) if vol else None, ts, now))
-            if rows:
-                with conn.cursor() as cur:
-                    execute_values(cur, UPSERT, rows, page_size=400)
-                conn.commit()
+            try:
+                if rows:
+                    with conn.cursor() as cur:
+                        execute_values(cur, UPSERT, rows, page_size=400)
+                    conn.commit()
+                if rows and time.time() - last_hist >= HIST_SECS:
+                    last_hist = time.time()
+                    ts_min = now.replace(second=0, microsecond=0)
+                    by_sec, hist = {}, []
+                    for (sym, is_idx, ltp, pc, chg, vol, ts, _n) in rows:
+                        if is_idx:
+                            hist.append((sym, True, ts_min, chg, ltp))
+                        elif chg is not None:
+                            by_sec.setdefault(sector_of.get(sym, "Other"), []).append(chg)
+                    for sec, vals in by_sec.items():
+                        hist.append((sec, False, ts_min, round(sum(vals) / len(vals), 3), None))
+                    with conn.cursor() as cur:
+                        execute_values(cur, HIST_UPSERT, hist, page_size=200)
+                    conn.commit()
+            except psycopg2.Error as e:
+                # Supabase dropped the connection (network blip) — reconnect and carry on
+                print(f"[db] write failed ({e.__class__.__name__}) — reconnecting")
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+                time.sleep(2)
+                try:
+                    conn = psycopg2.connect(DB_URL)
+                except Exception as e2:
+                    print(f"[db] reconnect failed: {e2} — will retry next flush")
     except KeyboardInterrupt:
         print("Stopping.")
     finally:
@@ -146,4 +232,13 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # supervisor: restart on any crash (network loss etc.); a normal return (EOD / Ctrl+C) exits
+    while True:
+        try:
+            main()
+            break
+        except KeyboardInterrupt:
+            break
+        except Exception as e:
+            print(f"[supervisor] crashed: {e.__class__.__name__}: {e} — restarting in 15s")
+            time.sleep(15)
