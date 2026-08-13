@@ -48,6 +48,15 @@ ON CONFLICT (symbol) DO UPDATE SET
   chg_pct=EXCLUDED.chg_pct, vol=EXCLUDED.vol, ts=EXCLUDED.ts, updated_at=now()
 """
 
+UPSERT_FUT = """
+INSERT INTO ticks_fut (symbol, tradingsymbol, expiry, ltp, prev_close, chg_pct, vol, oi, ts, updated_at)
+VALUES %s
+ON CONFLICT (symbol) DO UPDATE SET
+  tradingsymbol=EXCLUDED.tradingsymbol, expiry=EXCLUDED.expiry, ltp=EXCLUDED.ltp,
+  prev_close=COALESCE(EXCLUDED.prev_close, ticks_fut.prev_close),
+  chg_pct=EXCLUDED.chg_pct, vol=EXCLUDED.vol, oi=EXCLUDED.oi, ts=EXCLUDED.ts, updated_at=now()
+"""
+
 # intraday sector series: one row per sector/index per minute (feeds the Sector Trend tab)
 HIST_SECS = 60
 HIST_UPSERT = """
@@ -104,7 +113,34 @@ def build_token_maps(kite, conn):
             if sym and v.get("ohlc"):
                 prev_close[sym] = v["ohlc"].get("close")
         time.sleep(0.2)
-    return token_map, prev_close, sector_of
+
+    # current-month (front) futures contract per F&O underlying
+    today = datetime.now(IST).date()
+    best = {}
+    for i in kite.instruments("NFO"):
+        if i.get("instrument_type") != "FUT" or i.get("name") not in fno:
+            continue
+        exp = i.get("expiry")
+        exp = exp.date() if hasattr(exp, "date") else exp
+        if exp is None or exp < today:
+            continue
+        cur = best.get(i["name"])
+        if cur is None or exp < cur[0]:
+            best[i["name"]] = (exp, i)
+    fut_map = {i["instrument_token"]: (name, i["tradingsymbol"], exp)
+               for name, (exp, i) in best.items()}
+
+    fut_prev = {}
+    fut_keys = [f"NFO:{tsym}" for (_n, tsym, _e) in fut_map.values()]
+    fut_keymap = {f"NFO:{tsym}": name for (name, tsym, _e) in fut_map.values()}
+    for i in range(0, len(fut_keys), 250):
+        q = kite.quote(fut_keys[i:i + 250])
+        for k, v in q.items():
+            sym = fut_keymap.get(k)
+            if sym and v.get("ohlc"):
+                fut_prev[sym] = v["ohlc"].get("close")
+        time.sleep(0.2)
+    return token_map, prev_close, sector_of, fut_map, fut_prev
 
 
 def main():
@@ -116,12 +152,13 @@ def main():
     session_start = datetime.now(IST).replace(hour=9, minute=15, second=0, microsecond=0)
     clear_history(conn, before=session_start.astimezone(timezone.utc))
 
-    token_map, prev_close, sector_of = build_token_maps(kite, conn)
-    tokens = list(token_map.keys())
+    token_map, prev_close, sector_of, fut_map, fut_prev = build_token_maps(kite, conn)
+    tokens = list(token_map.keys()) + list(fut_map.keys())
     print(f"Subscribing to {len(tokens)} instruments "
-          f"({sum(1 for v in token_map.values() if v[1])} indices)")
+          f"({sum(1 for v in token_map.values() if v[1])} indices, "
+          f"{len(fut_map)} current-month futures)")
 
-    latest = {}            # token -> (ltp, vol, ts)
+    latest = {}            # token -> (ltp, vol, ts, oi)
     lock = threading.Lock()
     last_hist = 0.0        # last sector_history append (epoch secs)
     state = {"last_rx": time.time()}   # last websocket tick receipt (watchdog)
@@ -133,6 +170,7 @@ def main():
                 latest[t["instrument_token"]] = (
                     t.get("last_price"), t.get("volume_traded"),
                     t.get("exchange_timestamp") or datetime.now(timezone.utc),
+                    t.get("oi"),
                 )
 
     def on_connect(ws, response):
@@ -179,21 +217,34 @@ def main():
                 kws = make_ws()
             with lock:
                 snap = dict(latest)
-            rows = []
+            rows, fut_rows = [], []
             now = datetime.now(timezone.utc)
-            for tok, (ltp, vol, ts) in snap.items():
+            for tok, (ltp, vol, ts, oi) in snap.items():
                 if ltp is None:
                     continue
-                sym, is_idx = token_map[tok]
-                pc = prev_close.get(sym)
-                chg = round((ltp / pc - 1) * 100, 2) if pc else None
-                rows.append((sym, is_idx, round(float(ltp), 2),
-                             round(float(pc), 2) if pc else None, chg,
-                             int(vol) if vol else None, ts, now))
+                if tok in token_map:
+                    sym, is_idx = token_map[tok]
+                    pc = prev_close.get(sym)
+                    chg = round((ltp / pc - 1) * 100, 2) if pc else None
+                    rows.append((sym, is_idx, round(float(ltp), 2),
+                                 round(float(pc), 2) if pc else None, chg,
+                                 int(vol) if vol else None, ts, now))
+                else:
+                    sym, tsym, exp = fut_map[tok]
+                    pc = fut_prev.get(sym)
+                    chg = round((ltp / pc - 1) * 100, 2) if pc else None
+                    fut_rows.append((sym, tsym, exp, round(float(ltp), 2),
+                                     round(float(pc), 2) if pc else None, chg,
+                                     int(vol) if vol else None,
+                                     int(oi) if oi else None, ts, now))
             try:
                 if rows:
                     with conn.cursor() as cur:
                         execute_values(cur, UPSERT, rows, page_size=400)
+                    conn.commit()
+                if fut_rows:
+                    with conn.cursor() as cur:
+                        execute_values(cur, UPSERT_FUT, fut_rows, page_size=400)
                     conn.commit()
                 if rows and time.time() - last_hist >= HIST_SECS:
                     last_hist = time.time()
