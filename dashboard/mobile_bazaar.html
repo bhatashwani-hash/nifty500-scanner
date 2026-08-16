@@ -193,6 +193,9 @@
 const SB_URL = "https://lgsgcccasccxfofxsbge.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxnc2djY2Nhc2NjeGZvZnhzYmdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5NTI5MjMsImV4cCI6MjA5NzUyODkyM30.mUk6etxWdkxttwoHnG9-F2axvj680XXOKWmjaSRYuTA";
 const sb = supabase.createClient(SB_URL, SB_KEY);
+// anonymous visit ping — random device id only, no personal data
+try{ let dv=localStorage.getItem("mm_dev"); if(!dv){ dv=crypto.randomUUID(); localStorage.setItem("mm_dev",dv); }
+  sb.from("page_hits").insert({page:"manthan",device:dv}).then(()=>{}); }catch(e){}
 
 const fmt=(v,d=2)=>v==null?"—":Number(v).toLocaleString("en-IN",{minimumFractionDigits:d,maximumFractionDigits:d});
 const sgn=(v,d=1)=>v==null?"—":(v>=0?"+":"")+fmt(v,d)+"%";

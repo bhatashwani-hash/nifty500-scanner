@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>NSE-1500 TERMINAL</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet"/>
+<style>
+/* ─────────────────────────── terminal chrome ─────────────────────────── */
+:root{
+  --bg:#070a0f; --panel:#0b101a; --panel2:#0e1520; --line:#1a2432; --line2:#233145;
+  --ink:#d6e2f0; --muted:#7d90a6; --faint:#4a5b70;
+  --up:#26d07c; --dn:#ff4d5e; --warn:#ffb454; --cyan:#39c5ff; --vio:#b18cff;
+  --up-bg:rgba(38,208,124,.10); --dn-bg:rgba(255,77,94,.10);
+  --mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
+}
+*{ box-sizing:border-box; }
+html{ scroll-behavior:smooth; }
+body{ margin:0; background:var(--bg); color:var(--ink); font-family:var(--mono);
+  font-size:12.5px; line-height:1.45; }
+::selection{ background:var(--cyan); color:#04121c; }
+a{ color:inherit; }
+.pos{ color:var(--up); } .neg{ color:var(--dn); } .neu{ color:var(--muted); }
+.wrn{ color:var(--warn); } .cyn{ color:var(--cyan); }
+
+/* top bar + tape */
+#topbar{ position:sticky; top:0; z-index:90; background:#05080cf2; backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line); }
+.tb-row{ display:flex; align-items:center; gap:1.1rem; padding:.42rem 1rem; }
+.brand{ font-weight:800; letter-spacing:.1em; font-size:.85rem; white-space:nowrap; }
+.brand b{ color:var(--up); }
+.brand .cur{ animation:blink 1.1s steps(1) infinite; }
+@keyframes blink{ 50%{ opacity:0; } }
+#regime{ font-size:.66rem; font-weight:800; letter-spacing:.14em; padding:.14rem .55rem;
+  border:1px solid currentColor; white-space:nowrap; }
+#tape{ display:flex; gap:1.4rem; overflow-x:auto; scrollbar-width:none; flex:1; }
+#tape::-webkit-scrollbar{ display:none; }
+.tq{ white-space:nowrap; font-size:.74rem; }
+.tq .s{ color:var(--muted); font-weight:700; margin-right:.45rem; }
+#clock{ color:var(--faint); font-size:.7rem; white-space:nowrap; }
+.tb-nav{ display:flex; align-items:center; gap:.15rem; padding:0 .6rem; border-top:1px solid var(--line);
+  overflow-x:auto; scrollbar-width:none; }
+.tb-nav::-webkit-scrollbar{ display:none; }
+.tb-nav a{ text-decoration:none; color:var(--muted); font-size:.68rem; font-weight:700;
+  letter-spacing:.1em; padding:.42rem .7rem; white-space:nowrap; }
+.tb-nav a:hover, .tb-nav a.act{ color:var(--ink); background:var(--panel2); }
+.tb-nav a kbd{ color:var(--faint); font-weight:400; margin-right:.35rem; }
+#sym-search{ margin-left:auto; background:var(--panel); border:1px solid var(--line);
+  color:var(--ink); font-family:var(--mono); font-size:.72rem; padding:.3rem .6rem; width:150px; outline:none; }
+#sym-search:focus{ border-color:var(--cyan); }
+
+/* layout */
+main{ max-width:1720px; margin:0 auto; padding:.8rem 1rem 4rem;
+  display:grid; grid-template-columns:repeat(12,1fr); gap:.8rem; }
+.panel{ background:var(--panel); border:1px solid var(--line); min-width:0; }
+.ph{ display:flex; align-items:baseline; gap:.8rem; padding:.5rem .8rem; border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,var(--panel2),var(--panel)); flex-wrap:wrap; }
+.ph h2{ margin:0; font-size:.72rem; font-weight:800; letter-spacing:.18em; color:var(--ink); }
+.ph h2::before{ content:"▮ "; color:var(--up); }
+.ph .meta{ color:var(--faint); font-size:.66rem; letter-spacing:.05em; }
+.ph .spacer{ flex:1; }
+.pb{ padding:.55rem .8rem .8rem; overflow-x:auto; }
+.span12{ grid-column:span 12; } .span8{ grid-column:span 8; } .span4{ grid-column:span 4; }
+@media (max-width:1100px){ .span8,.span4{ grid-column:span 12; } }
+.anchor{ grid-column:span 12; height:0; scroll-margin-top:78px; }
+
+/* stat tiles */
+.tiles{ display:grid; grid-template-columns:repeat(auto-fit,minmax(105px,1fr)); gap:.5rem; }
+.tile{ background:var(--panel2); border:1px solid var(--line); padding:.5rem .6rem; }
+.tile .k{ font-size:.6rem; color:var(--faint); letter-spacing:.12em; font-weight:700; }
+.tile .v{ font-size:1.15rem; font-weight:800; margin-top:.1rem; }
+.tile .d{ font-size:.62rem; color:var(--muted); }
+
+/* tables */
+table{ width:100%; border-collapse:collapse; font-size:.74rem; }
+thead th{ text-align:right; font-size:.6rem; color:var(--faint); font-weight:700; letter-spacing:.1em;
+  padding:.32rem .5rem; border-bottom:1px solid var(--line2); white-space:nowrap; position:sticky; top:0;
+  background:var(--panel); cursor:default; }
+thead th:first-child, tbody td:first-child{ text-align:left; }
+tbody td{ padding:.3rem .5rem; border-bottom:1px solid #131c29; text-align:right; white-space:nowrap; }
+tbody tr:hover td{ background:#101827; }
+td.l, th.l{ text-align:left; }
+.tick{ color:var(--cyan); font-weight:700; cursor:pointer; }
+.tick:hover{ text-decoration:underline; }
+.nm{ color:var(--muted); font-size:.68rem; max-width:220px; overflow:hidden; text-overflow:ellipsis; }
+.heat{ font-weight:700; }
+.badge{ font-size:.6rem; font-weight:800; letter-spacing:.06em; padding:.1rem .38rem; white-space:nowrap; }
+.b-up{ background:var(--up-bg); color:var(--up); border:1px solid #1c5e40; }
+.b-dn{ background:var(--dn-bg); color:var(--dn); border:1px solid #6e2530; }
+.b-wa{ background:rgba(255,180,84,.1); color:var(--warn); border:1px solid #6e5122; }
+.b-nu{ background:rgba(125,144,166,.08); color:var(--muted); border:1px solid var(--line2); }
+.b-cy{ background:rgba(57,197,255,.08); color:var(--cyan); border:1px solid #1b5570; }
+.sub{ color:var(--faint); font-size:.64rem; }
+
+/* filter chips */
+.chips{ display:flex; gap:.35rem; flex-wrap:wrap; }
+.chip{ background:var(--panel2); border:1px solid var(--line); color:var(--muted); font-family:var(--mono);
+  font-size:.64rem; font-weight:700; letter-spacing:.08em; padding:.22rem .55rem; cursor:pointer; }
+.chip:hover{ color:var(--ink); }
+.chip.on{ color:var(--up); border-color:var(--up); background:var(--up-bg); }
+.livedot{ display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--up);
+  box-shadow:0 0 8px var(--up); animation:pulse 1.6s infinite; vertical-align:1px; margin-right:.35rem; }
+.livedot.stale{ background:var(--dn); box-shadow:0 0 8px var(--dn); animation:none; }
+@keyframes pulse{ 0%,100%{ opacity:1 } 50%{ opacity:.35 } }
+
+/* charts */
+#breadth-chart{ width:100%; height:330px; }
+.legend{ font-size:.62rem; color:var(--faint); display:flex; gap:1rem; flex-wrap:wrap; padding:.2rem 0 0; }
+.legend i{ font-style:normal; }
+
+/* modal */
+#modal{ position:fixed; inset:0; background:rgba(3,6,10,.82); z-index:200; display:none;
+  align-items:center; justify-content:center; padding:2rem; }
+#modal.open{ display:flex; }
+#modal .box{ background:var(--panel); border:1px solid var(--line2); width:min(1000px,96vw); }
+#modal .bh{ display:flex; align-items:center; gap:1rem; padding:.6rem .9rem; border-bottom:1px solid var(--line); }
+#modal .bh b{ color:var(--cyan); font-size:.95rem; }
+#modal .bh .x{ margin-left:auto; cursor:pointer; color:var(--muted); font-size:1rem; padding:.1rem .5rem; }
+#modal .bh .x:hover{ color:var(--dn); }
+#mchart{ width:100%; height:440px; }
+#loadbar{ position:fixed; top:0; left:0; height:2px; background:var(--up); width:0; z-index:300; transition:width .3s; }
+.err{ color:var(--dn); font-size:.72rem; padding:.6rem 0; }
+</style>
+</head>
+<body>
+<div id="loadbar"></div>
+
+<header id="topbar">
+  <div class="tb-row">
+    <span class="brand">NSE-1500<b>_</b>TERMINAL<span class="cur">▍</span></span>
+    <span id="regime" class="neu">·····</span>
+    <div id="tape"><span class="tq neu">loading tape …</span></div>
+    <span id="clock"></span>
+  </div>
+  <nav class="tb-nav">
+    <a href="#s-market" class="act"><kbd>1</kbd>MARKET</a>
+    <a href="#s-live"><kbd>2</kbd>LIVE TICKS</a>
+    <a href="#s-vcp"><kbd>3</kbd>VCP</a>
+    <a href="#s-manas"><kbd>4</kbd>MANAS</a>
+    <a href="#s-snap"><kbd>5</kbd>SNAPBACK</a>
+    <input id="sym-search" placeholder="SYMBOL ⏎ chart" autocomplete="off" spellcheck="false"/>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ══ 1 · MARKET ══ -->
+  <div class="anchor" id="s-market"></div>
+  <div class="panel span8">
+    <div class="ph"><h2>MARKET BREADTH — NIFTY × SCAN UNIVERSE</h2>
+      <span class="spacer"></span><span class="meta" id="br-meta">…</span></div>
+    <div class="pb">
+      <div id="breadth-chart"></div>
+      <div class="legend">
+        <i class="pos">▮ up ≥4% day</i><i class="neg">▮ down ≥4% day</i>
+        <i class="cyn">— % above 200-DMA (left)</i><i class="neu">candles: NIFTY 50 (right)</i>
+      </div>
+    </div>
+  </div>
+  <div class="panel span4">
+    <div class="ph"><h2>TAPE STATS</h2><span class="spacer"></span><span class="meta" id="ts-meta"></span></div>
+    <div class="pb">
+      <div class="tiles">
+        <div class="tile"><div class="k">UP ≥4%</div><div class="v pos" id="t-up4">—</div><div class="d">today</div></div>
+        <div class="tile"><div class="k">DOWN ≥4%</div><div class="v neg" id="t-dn4">—</div><div class="d">today</div></div>
+        <div class="tile"><div class="k">5D RATIO</div><div class="v" id="t-r5">—</div><div class="d">up4 ÷ dn4</div></div>
+        <div class="tile"><div class="k">10D RATIO</div><div class="v" id="t-r10">—</div><div class="d">up4 ÷ dn4</div></div>
+        <div class="tile"><div class="k">&gt;200-DMA</div><div class="v" id="t-t2107">—</div><div class="d">of universe</div></div>
+        <div class="tile"><div class="k">UNIVERSE</div><div class="v neu" id="t-uni">—</div><div class="d">stocks scanned</div></div>
+      </div>
+      <table style="margin-top:.7rem">
+        <thead><tr><th class="l">INDEX</th><th>LAST</th><th>1D%</th><th>1W%</th><th>1M%</th></tr></thead>
+        <tbody id="idx-body"><tr><td class="l neu" colspan="5">…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══ 2 · LIVE TICKS ══ -->
+  <div class="anchor" id="s-live"></div>
+  <div class="panel span12">
+    <div class="ph"><h2>LIVE TICKS — F&amp;O UNIVERSE</h2>
+      <div class="chips" id="live-chips">
+        <span class="chip on" data-m="eq">EQUITY (F&amp;O)</span>
+        <span class="chip" data-m="fut">FUTURES (FRONT MONTH)</span>
+      </div>
+      <span class="spacer"></span>
+      <span class="meta" id="live-meta"><span class="livedot stale"></span>connecting…</span></div>
+    <div class="pb" style="max-height:560px;overflow-y:auto">
+      <table id="tbl-live">
+        <thead id="live-head"></thead>
+        <tbody id="live-body"><tr><td class="l neu" colspan="8">waiting for ticks — streamer runs 9:15–15:30 IST…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══ 3 · VCP ══ -->
+  <div class="anchor" id="s-vcp"></div>
+  <div class="panel span12">
+    <div class="ph"><h2>VCP — VOLATILITY CONTRACTION</h2>
+      <span class="meta">3M ≥ +25% · 15-day range &lt; 15% · tightest first · top-1500 by mcap</span>
+      <span class="spacer"></span>
+      <span class="chip" data-copy="vcp-body">⧉ COPY</span>
+      <span class="meta" id="vcp-meta">…</span></div>
+    <div class="pb">
+      <table>
+        <thead><tr><th class="l">SYMBOL</th><th class="l">NAME · SECTOR</th><th>CLOSE</th>
+          <th>3M%</th><th>15D RANGE</th><th>BAND LO–HI</th><th>F&amp;O</th></tr></thead>
+        <tbody id="vcp-body"><tr><td class="l neu" colspan="7">loading …</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══ 4 · MANAS ══ -->
+  <div class="anchor" id="s-manas"></div>
+  <div class="panel span12">
+    <div class="ph"><h2>MANAS SCAN — MOMENTUM PULLBACK</h2>
+      <div class="chips" id="manas-chips">
+        <span class="chip on" data-f="all">ALL</span>
+        <span class="chip" data-f="ready">SETUP-READY</span>
+      </div>
+      <span class="spacer"></span>
+      <span class="chip" data-copy="manas-body">⧉ COPY</span>
+      <span class="meta" id="manas-meta">…</span></div>
+    <div class="pb">
+      <table>
+        <thead><tr><th class="l">SYMBOL</th><th class="l">NAME · SECTOR</th><th>CLOSE</th>
+          <th>%OFF HI</th><th>vs EMA21</th><th>PRIOR MOVE</th><th>5D RANGE</th><th>VOL×</th>
+          <th>FLAGS</th><th>SCORE</th></tr></thead>
+        <tbody id="manas-body"><tr><td class="l neu" colspan="10">loading …</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══ 5 · SNAPBACK ══ -->
+  <div class="anchor" id="s-snap"></div>
+  <div class="panel span12">
+    <div class="ph"><h2>SNAPBACK — UNDERCUT &amp; RALLY</h2>
+      <span class="meta">fresh 1M/3M/6M/1Y low reclaimed ≤ 2 sessions · F&amp;O · last 5 days</span>
+      <span class="spacer"></span>
+      <span class="chip" data-copy="snap-body">⧉ COPY</span>
+      <span class="meta" id="snap-meta">…</span></div>
+    <div class="pb">
+      <table>
+        <thead><tr><th class="l">SYMBOL</th><th>WINDOW</th><th>LOW DATE</th><th>LOW</th><th>BROKEN LVL</th>
+          <th>SNAP</th><th>SNAP CLOSE</th><th>LAST</th><th>%OFF LOW</th><th>FLUSH×</th><th>SNAP×</th><th>SCORE</th></tr></thead>
+        <tbody id="snap-body"><tr><td class="l neu" colspan="12">loading …</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<div id="modal"><div class="box">
+  <div class="bh"><b id="m-sym">—</b><span class="meta" id="m-name"></span><span class="x" onclick="closeModal()">✕</span></div>
+  <div id="mchart"></div>
+</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<script>
+const SUPABASE_URL = "https://lgsgcccasccxfofxsbge.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxnc2djY2Nhc2NjeGZvZnhzYmdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5NTI5MjMsImV4cCI6MjA5NzUyODkyM30.mUk6etxWdkxttwoHnG9-F2axvj680XXOKWmjaSRYuTA";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ── helpers ── */
+const $id = i => document.getElementById(i);
+const fmt = (v,d=2) => (v==null||isNaN(v)) ? "—" : Number(v).toLocaleString("en-IN",{minimumFractionDigits:d,maximumFractionDigits:d});
+const sgn = (v,d=2) => (v==null||isNaN(v)) ? "—" : (v>0?"+":"") + fmt(v,d);
+const cls = v => v==null ? "neu" : v>0 ? "pos" : v<0 ? "neg" : "neu";
+const tk  = s => `<span class="tick" data-sym="${s}">${s}</span>`;
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const dstr = s => { if(!s) return "—"; const d=new Date(s);
+  return isNaN(d) ? "—" : d.toLocaleDateString("en-IN",{day:"numeric",month:"short"}); };
+function heat(v, cap){
+  if(v==null||isNaN(v)) return `<td class="neu">—</td>`;
+  const a = Math.min(Math.abs(v)/cap, 1) * .34;
+  const bg = v>=0 ? `rgba(38,208,124,${a})` : `rgba(255,77,94,${a})`;
+  return `<td class="heat ${cls(v)}" style="background:${bg}">${sgn(v,1)}</td>`;
+}
+const volFmt = v => v==null ? "—" : v>=1e7 ? fmt(v/1e7,2)+"Cr" : v>=1e5 ? fmt(v/1e5,1)+"L" : fmt(v,0);
+let prog=0; const bump=()=>{ prog+=15; $id("loadbar").style.width=Math.min(prog,96)+"%";
+  if(prog>=96) setTimeout(()=>$id("loadbar").style.width="0",700); };
+
+/* ── clock (IST) ── */
+setInterval(()=>{ $id("clock").textContent =
+  new Date().toLocaleString("en-IN",{timeZone:"Asia/Kolkata",weekday:"short",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}) + " IST";
+},1000);
+
+/* ── state ── */
+let stockMap={};          // symbol -> {name, sector, market_cap} for the TOP-1500 universe
+let liveMode="eq", liveTimer=null;
+let manasRows=[], manasFilter="all";
+
+/* ── stocks meta: top 1500 by market cap ── */
+async function loadStocks(){
+  const { data } = await sb.from("stocks").select("symbol,name,sector,market_cap,is_fno")
+    .eq("is_active",true).not("market_cap","is",null)
+    .order("market_cap",{ascending:false}).range(0,1499);
+  (data||[]).forEach(r=>{ r.name=(r.name||"").replace(/ Limited$| Ltd\.?$/i,""); stockMap[r.symbol]=r; });
+  bump();
+}
+const inUni = s => !!stockMap[s];
+const nmCell = s => { const m=stockMap[s]||{};
+  return `<td class="l nm">${m.name||""}${m.sector?" · "+m.sector:""}</td>`; };
+const fnoBadge = s => (stockMap[s]||{}).is_fno ? `<span class="badge b-cy">F&O</span>` : "";
+
+/* ── tape (live indices w/ EOD fallback) + regime ── */
+const IDX_NAMES={"^NSEI":"NIFTY","^NSEBANK":"BANK","NIFTY_FIN_SERVICE.NS":"FINNIFTY","^CNXIT":"IT",
+  "^CNXAUTO":"AUTO","^CNXPHARMA":"PHARMA","^CNXFMCG":"FMCG","^CNXMETAL":"METAL","^CNXENERGY":"ENERGY",
+  "^CNXREALTY":"REALTY","^CNXPSUBANK":"PSUBANK","^CRSLDX":"NIFTY500","^NSMIDCP":"NEXT50"};
+let eodTape=null;   // EOD fallback for the tape when live ticks are cleared (after hours)
+async function loadTape(){
+  const { data } = await sb.from("ticks").select("symbol,ltp,chg_pct,updated_at").eq("is_index",true);
+  if(data?.length){
+    const order=Object.keys(IDX_NAMES);
+    $id("tape").innerHTML = order.map(s=>{
+      const r=data.find(x=>x.symbol===s); if(!r) return "";
+      return `<span class="tq"><span class="s">${IDX_NAMES[s]}</span><b>${fmt(r.ltp,0)}</b>
+        <span class="${cls(r.chg_pct)}">${sgn(r.chg_pct,2)}%</span></span>`; }).join("");
+    return;
+  }
+  if(!eodTape){
+    const { data: eod } = await sb.from("index_ohlcv").select("symbol,time,close")
+      .in("symbol",Object.keys(IDX_NAMES)).order("time",{ascending:false}).limit(60);
+    const by={};
+    (eod||[]).forEach(r=>{ (by[r.symbol]=by[r.symbol]||[]).push(+r.close); });
+    eodTape=Object.keys(IDX_NAMES).map(s=>{
+      const c=by[s]||[]; if(!c.length) return "";
+      const chg=c.length>1?(c[0]/c[1]-1)*100:null;
+      return `<span class="tq"><span class="s">${IDX_NAMES[s]}</span><b>${fmt(c[0],0)}</b>
+        <span class="${cls(chg)}">${sgn(chg,2)}%</span></span>`; }).join("")
+      + `<span class="tq neu">· EOD</span>`;
+  }
+  $id("tape").innerHTML=eodTape;
+}
+async function loadIdxTable(){
+  const IDX=[["^NSEI","NIFTY 50"],["^NSEBANK","BANK NIFTY"],["^CNXIT","NIFTY IT"],["^CRSLDX","NIFTY 500"],["^NSMIDCP","NEXT 50"]];
+  const { data } = await sb.from("index_ohlcv").select("symbol,time,close")
+    .in("symbol", IDX.map(x=>x[0])).order("time",{ascending:false}).limit(1200);
+  const by={};
+  (data||[]).forEach(r=>{ (by[r.symbol]=by[r.symbol]||[]).push(+r.close); });
+  $id("idx-body").innerHTML = IDX.map(([sym,lab])=>{
+    const c=by[sym]||[]; if(!c.length) return "";
+    const r=k=> c.length>k ? (c[0]/c[k]-1)*100 : null;
+    return `<tr><td class="l"><b>${lab}</b></td><td>${fmt(c[0],0)}</td>
+      <td class="${cls(r(1))}">${sgn(r(1),1)}</td><td class="${cls(r(5))}">${sgn(r(5),1)}</td>
+      <td class="${cls(r(21))}">${sgn(r(21),1)}</td></tr>`;
+  }).join("");
+  // regime off NIFTY closes: above 10&20 = TEZI side, below 100 = MANDI
+  const c=by["^NSEI"]||[];
+  if(c.length>=20){
+    const ma=n=> c.length>=n ? c.slice(0,n).reduce((a,b)=>a+b,0)/n : null;
+    const last=c[0], m10=ma(10), m20=ma(20), m50=ma(50), m200=ma(200);
+    const above=[m10,m20,m50,m200].filter(m=>m!=null&&last>=m).length;
+    const known=[m10,m20,m50,m200].filter(m=>m!=null).length;
+    const el=$id("regime");
+    if(known>=3 && above===known){ el.textContent="REGIME: SUPER BULL"; el.className="pos"; }
+    else if(m10!=null&&m20!=null&&last>=m10&&last>=m20){ el.textContent="REGIME: BULL"; el.className="pos"; }
+    else if(m50!=null&&last<m50 && m200!=null&&last<m200){ el.textContent="REGIME: BEAR"; el.className="neg"; }
+    else { el.textContent="REGIME: MIXED"; el.className="wrn"; }
+  }
+  bump();
+}
+
+/* ── breadth ── */
+let bChart=null;
+async function loadBreadth(){
+  const { data } = await sb.from("scanner_breadth").select("*")
+    .order("date",{ascending:false}).limit(140);
+  if(!data?.length){ $id("br-meta").textContent="no breadth data"; bump(); return; }
+  const d0=data[0];
+  $id("t-up4").textContent=d0.up_4pct; $id("t-dn4").textContent=d0.down_4pct;
+  $id("t-r5").textContent=fmt(d0.ratio_5d,2); $id("t-r10").textContent=fmt(d0.ratio_10d,2);
+  $id("t-r5").className="v "+(d0.ratio_5d>=1?"pos":"neg");
+  $id("t-r10").className="v "+(d0.ratio_10d>=1?"pos":"neg");
+  const t=$id("t-t2107"); t.textContent=d0.pct_above_200ma!=null?fmt(d0.pct_above_200ma,1)+"%":"—";
+  t.className="v "+(d0.pct_above_200ma>=60?"pos":d0.pct_above_200ma<=40?"neg":"wrn");
+  $id("t-uni").textContent=d0.universe??"—";
+  $id("br-meta").textContent="last session "+d0.date;
+  $id("ts-meta").textContent=d0.date;
+
+  const rows=[...data].reverse();
+  const el=$id("breadth-chart"); el.innerHTML="";
+  if(bChart){ bChart.remove(); bChart=null; }
+  const { data: nifty } = await sb.from("index_ohlcv").select("time,open,high,low,close")
+    .eq("symbol","^NSEI").order("time",{ascending:false}).limit(140);
+  bChart = LightweightCharts.createChart(el,{
+    layout:{ background:{type:"solid",color:"transparent"}, textColor:cssVar("--muted"), fontFamily:"JetBrains Mono", fontSize:10 },
+    grid:{ vertLines:{color:"#111a26"}, horzLines:{color:"#111a26"} },
+    width:el.clientWidth, height:el.clientHeight,
+    rightPriceScale:{visible:true,borderColor:"#1a2432"}, leftPriceScale:{visible:true,borderColor:"#1a2432"},
+    timeScale:{borderColor:"#1a2432"}, crosshair:{mode:0} });
+  if(nifty?.length){
+    const cs=bChart.addCandlestickSeries({ upColor:cssVar("--up"), downColor:cssVar("--dn"),
+      borderVisible:false, wickUpColor:cssVar("--up"), wickDownColor:cssVar("--dn"), priceScaleId:"right" });
+    cs.setData(nifty.reverse().map(b=>({time:b.time.slice(0,10),open:+b.open,high:+b.high,low:+b.low,close:+b.close})));
+  }
+  const up=bChart.addHistogramSeries({ color:"rgba(38,208,124,.5)", priceScaleId:"vol" });
+  const dn=bChart.addHistogramSeries({ color:"rgba(255,77,94,.5)", priceScaleId:"vol" });
+  bChart.priceScale("vol").applyOptions({ scaleMargins:{top:.78,bottom:0} });
+  up.setData(rows.map(r=>({time:r.date,value:+r.up_4pct})));
+  dn.setData(rows.map(r=>({time:r.date,value:-r.down_4pct})));
+  const t21=bChart.addLineSeries({ color:cssVar("--cyan"), lineWidth:1.5, priceScaleId:"left", priceLineVisible:false });
+  t21.setData(rows.filter(r=>r.pct_above_200ma!=null).map(r=>({time:r.date,value:+r.pct_above_200ma})));
+  bChart.timeScale().fitContent();
+  new ResizeObserver(()=>{ if(bChart) bChart.applyOptions({width:el.clientWidth,height:el.clientHeight}); }).observe(el);
+  bump();
+}
+
+/* ── LIVE TICKS: equity (ticks) ⇄ futures (ticks_fut) toggle ── */
+const EQ_HEAD=`<tr><th class="l">SYMBOL</th><th class="l">NAME · SECTOR</th>
+  <th>LTP</th><th>CHG%</th><th>PREV CLOSE</th><th>VOLUME</th></tr>`;
+const FUT_HEAD=`<tr><th class="l">UNDERLYING</th><th class="l">CONTRACT</th><th>EXPIRY</th>
+  <th>LTP</th><th>CHG%</th><th>VOLUME</th><th>OI</th></tr>`;
+async function loadLive(){
+  const meta=$id("live-meta"), body=$id("live-body");
+  if(liveMode==="eq"){
+    $id("live-head").innerHTML=EQ_HEAD;
+    const { data } = await sb.from("ticks")
+      .select("symbol,is_index,ltp,prev_close,chg_pct,vol,updated_at").eq("is_index",false);
+    if(!data?.length){ meta.innerHTML=`<span class="livedot stale"></span>no ticks — streamer offline`; return; }
+    const rows=[...data].sort((a,b)=>(b.chg_pct??-1e9)-(a.chg_pct??-1e9));
+    let newest=0; data.forEach(r=>{ const t=new Date(r.updated_at).getTime(); if(t>newest) newest=t; });
+    const age=Math.round((Date.now()-newest)/1000);
+    meta.innerHTML=`<span class="livedot ${age>60?'stale':''}"></span>${age>60?`stale ${age>3600?Math.round(age/3600)+"h":age+"s"}`:`LIVE · ${age}s`} · ${rows.length} eq`;
+    body.innerHTML=rows.map(r=>`<tr><td class="l">${tk(r.symbol)}</td>${nmCell(r.symbol)}
+      <td><b>${fmt(r.ltp,2)}</b></td>${heat(r.chg_pct,4)}<td class="sub">${fmt(r.prev_close,2)}</td>
+      <td>${volFmt(r.vol)}</td></tr>`).join("");
+  }else{
+    $id("live-head").innerHTML=FUT_HEAD;
+    const { data } = await sb.from("ticks_fut")
+      .select("symbol,tradingsymbol,expiry,ltp,prev_close,chg_pct,vol,oi,updated_at");
+    if(!data?.length){ meta.innerHTML=`<span class="livedot stale"></span>no futures ticks — streamer offline`; return; }
+    const rows=[...data].sort((a,b)=>(b.chg_pct??-1e9)-(a.chg_pct??-1e9));
+    let newest=0; data.forEach(r=>{ const t=new Date(r.updated_at).getTime(); if(t>newest) newest=t; });
+    const age=Math.round((Date.now()-newest)/1000);
+    meta.innerHTML=`<span class="livedot ${age>60?'stale':''}"></span>${age>60?`stale ${age>3600?Math.round(age/3600)+"h":age+"s"}`:`LIVE · ${age}s`} · ${rows.length} fut`;
+    body.innerHTML=rows.map(r=>`<tr><td class="l">${tk(r.symbol)}</td>
+      <td class="l nm">${r.tradingsymbol||""}</td><td class="sub">${dstr(r.expiry)}</td>
+      <td><b>${fmt(r.ltp,2)}</b></td>${heat(r.chg_pct,4)}<td>${volFmt(r.vol)}</td>
+      <td>${volFmt(r.oi)}</td></tr>`).join("");
+  }
+}
+function startLive(){ loadLive(); loadTape();
+  if(liveTimer) clearInterval(liveTimer);
+  liveTimer=setInterval(()=>{ loadLive(); loadTape(); }, 3000); }
+$id("live-chips").addEventListener("click", e=>{
+  const c=e.target.closest(".chip"); if(!c) return;
+  liveMode=c.dataset.m;
+  document.querySelectorAll("#live-chips .chip").forEach(x=>x.classList.toggle("on",x===c));
+  loadLive();
+});
+
+/* ── VCP (top-1500) ── */
+async function loadVCP(){
+  const { data: rd } = await sb.from("scanner_vcp").select("run_date").order("run_date",{ascending:false}).limit(1);
+  const latest=rd?.[0]?.run_date;
+  const { data } = await sb.from("scanner_vcp").select("*").eq("run_date",latest).order("range_15d_pct");
+  const rows=(data||[]).filter(r=>inUni(r.symbol));
+  $id("vcp-meta").textContent=`${rows.length} coils · ${latest??""}`;
+  $id("vcp-body").innerHTML = rows.length ? rows.map(r=>`<tr>
+    <td class="l">${tk(r.symbol)}</td>${nmCell(r.symbol)}
+    <td><b>${fmt(r.close,2)}</b></td><td class="pos">+${fmt(r.return_3m,0)}%</td>
+    <td class="cyn">${fmt(r.range_15d_pct,1)}%</td>
+    <td class="sub">${fmt(r.low_15d,1)} – ${fmt(r.high_15d,1)}</td>
+    <td class="l">${fnoBadge(r.symbol)}</td></tr>`).join("")
+    : `<tr><td class="l neu" colspan="7">no VCP setups in the top-1500 today</td></tr>`;
+  bump();
+}
+
+/* ── MANAS (top-1500) ── */
+async function loadManas(){
+  const { data: rd } = await sb.from("scanner_manas").select("run_date").order("run_date",{ascending:false}).limit(1);
+  const latest=rd?.[0]?.run_date;
+  const { data } = await sb.from("scanner_manas").select("*").eq("run_date",latest)
+    .order("setup_score",{ascending:false});
+  manasRows=(data||[]).filter(r=>inUni(r.symbol));
+  $id("manas-meta").textContent=`${manasRows.length} candidates · ${manasRows.filter(r=>r.setup_ready).length} ready · ${latest??""}`;
+  renderManas(); bump();
+}
+function renderManas(){
+  const rows = manasFilter==="ready" ? manasRows.filter(r=>r.setup_ready) : manasRows;
+  $id("manas-body").innerHTML = rows.length ? rows.map(r=>{
+    const flags=[ r.setup_ready?`<span class="badge b-up">READY</span>`:"",
+      r.inside_bar?`<span class="badge b-cy">IB</span>`:"",
+      r.fast_mover?`<span class="badge b-wa">FAST</span>`:"" ].filter(Boolean).join(" ");
+    return `<tr><td class="l">${tk(r.symbol)}</td>${nmCell(r.symbol)}
+      <td><b>${fmt(r.close,2)}</b></td><td class="${cls(-(r.pct_from_high??0))}">${fmt(r.pct_from_high,1)}%</td>
+      <td class="${cls(r.pct_above_ema)}">${sgn(r.pct_above_ema,1)}%</td>
+      <td class="pos">+${fmt(r.prior_move_pct,0)}%</td>
+      <td>${fmt(r.range_5d_pct,1)}%</td><td class="wrn">${fmt(r.vol_ratio,1)}×</td>
+      <td class="l">${flags}</td><td><b>${r.setup_score}</b>/5</td></tr>`;}).join("")
+    : `<tr><td class="l neu" colspan="10">nothing matches</td></tr>`;
+}
+$id("manas-chips").addEventListener("click", e=>{
+  const c=e.target.closest(".chip"); if(!c) return;
+  manasFilter=c.dataset.f;
+  document.querySelectorAll("#manas-chips .chip").forEach(x=>x.classList.toggle("on",x===c));
+  renderManas();
+});
+
+/* ── SNAPBACK (F&O by construction) ── */
+async function loadSnap(){
+  const { data } = await sb.from("scanner_snapback").select("*")
+    .order("score",{ascending:false}).order("low_date",{ascending:false});
+  const rows=data||[];
+  $id("snap-meta").textContent=`${rows.length} springs · ${rows[0]?.run_date??""}`;
+  $id("snap-body").innerHTML = rows.length ? rows.map(r=>{
+    const sd=r.snap_type==="SAME_DAY";
+    return `<tr><td class="l">${tk(r.symbol)}</td>
+      <td><span class="badge ${["6M","1Y"].includes(r.low_window)?'b-wa':'b-nu'}">${r.low_window} LOW</span></td>
+      <td class="sub">${dstr(r.low_date)}</td><td>${fmt(r.extreme_low,2)}</td><td class="sub">${fmt(r.broken_level,2)}</td>
+      <td><span class="badge ${sd?'b-up':'b-cy'}">${sd?'SAME-DAY':r.snap_type}</span></td>
+      <td>${fmt(r.snap_close,2)}</td><td><b>${fmt(r.last_close,2)}</b></td>
+      ${heat(r.pct_off_low,8)}
+      <td class="wrn">${r.flush_vol_ratio==null?"—":fmt(r.flush_vol_ratio,1)+"×"}</td>
+      <td class="wrn">${r.snap_vol_ratio==null?"—":fmt(r.snap_vol_ratio,1)+"×"}</td>
+      <td><b>${r.score}</b>/4</td></tr>`;}).join("")
+    : `<tr><td class="l neu" colspan="12">no snapbacks in the last 5 sessions</td></tr>`;
+  bump();
+}
+
+/* ── chart modal ── */
+let mChart=null;
+async function openChart(sym){
+  $id("m-sym").textContent=sym;
+  const m=stockMap[sym]||{}; $id("m-name").textContent=(m.name||"")+(m.sector?" · "+m.sector:"");
+  $id("modal").classList.add("open");
+  const { data } = await sb.from("ohlcv").select("time,open,high,low,close")
+    .eq("symbol",sym).order("time",{ascending:false}).limit(280);
+  const el=$id("mchart"); el.innerHTML="";
+  if(mChart){ mChart.remove(); mChart=null; }
+  if(!data?.length){ el.innerHTML=`<div class="err" style="padding:1rem">no price history</div>`; return; }
+  mChart=LightweightCharts.createChart(el,{
+    layout:{ background:{type:"solid",color:"transparent"}, textColor:cssVar("--muted"), fontFamily:"JetBrains Mono", fontSize:10 },
+    grid:{ vertLines:{color:"#111a26"}, horzLines:{color:"#111a26"} },
+    width:el.clientWidth, height:el.clientHeight, timeScale:{borderColor:"#1a2432"}, rightPriceScale:{borderColor:"#1a2432"} });
+  const cs=mChart.addCandlestickSeries({ upColor:cssVar("--up"), downColor:cssVar("--dn"),
+    borderVisible:false, wickUpColor:cssVar("--up"), wickDownColor:cssVar("--dn") });
+  const bars=data.reverse().map(b=>({time:b.time.slice(0,10),open:+b.open,high:+b.high,low:+b.low,close:+b.close}));
+  cs.setData(bars);
+  const closes=bars.map(b=>b.close);
+  const sma=(n,i)=> i>=n-1 ? closes.slice(i-n+1,i+1).reduce((a,b)=>a+b,0)/n : null;
+  const mk=n=> bars.map((b,i)=>({time:b.time,value:sma(n,i)})).filter(p=>p.value!=null);
+  mChart.addLineSeries({ color:cssVar("--cyan"), lineWidth:1, priceLineVisible:false }).setData(mk(50));
+  mChart.addLineSeries({ color:cssVar("--vio"), lineWidth:1, priceLineVisible:false }).setData(mk(200));
+  mChart.timeScale().fitContent();
+}
+function closeModal(){ $id("modal").classList.remove("open"); if(mChart){ mChart.remove(); mChart=null; } }
+$id("modal").addEventListener("click", e=>{ if(e.target.id==="modal") closeModal(); });
+
+/* ── copy tickers ── */
+async function copyTickers(bodyId, btn){
+  const syms=[...document.querySelectorAll(`#${bodyId} .tick`)].map(t=>"NSE:"+t.dataset.sym);
+  const uniq=[...new Set(syms)];
+  try{ await navigator.clipboard.writeText(uniq.join(",")); btn.textContent="✓ "+uniq.length; }
+  catch(e){ btn.textContent="✗"; }
+  setTimeout(()=>{ btn.textContent="⧉ COPY"; },1500);
+}
+
+/* ── global click / keys ── */
+document.body.addEventListener("click", e=>{
+  const t=e.target.closest(".tick"); if(t){ openChart(t.dataset.sym); return; }
+  const c=e.target.closest("[data-copy]"); if(c){ copyTickers(c.dataset.copy, c); return; }
+});
+$id("sym-search").addEventListener("keydown", e=>{
+  if(e.key==="Enter" && e.target.value.trim()) openChart(e.target.value.trim().toUpperCase());
+});
+document.addEventListener("keydown", e=>{
+  if(e.target.tagName==="INPUT") { if(e.key==="Escape") e.target.blur(); return; }
+  if(e.key==="Escape") closeModal();
+  const map={ "1":"s-market","2":"s-live","3":"s-vcp","4":"s-manas","5":"s-snap" };
+  if(map[e.key]) document.getElementById(map[e.key]).scrollIntoView();
+});
+// nav highlight on scroll
+const navLinks=[...document.querySelectorAll(".tb-nav a")];
+addEventListener("scroll", ()=>{
+  const y=scrollY+120;
+  let cur=navLinks[0];
+  navLinks.forEach(a=>{ const el=document.querySelector(a.getAttribute("href")); if(el&&el.offsetTop<=y) cur=a; });
+  navLinks.forEach(a=>a.classList.toggle("act",a===cur));
+},{passive:true});
+
+/* ── boot ── */
+(async ()=>{
+  await loadStocks();
+  await Promise.all([loadIdxTable(), loadBreadth(), loadVCP(), loadManas(), loadSnap()]);
+  startLive();
+})();
+</script>
+</body>
+</html>
