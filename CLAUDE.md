@@ -25,7 +25,7 @@ NSE stock market daily scanner pipeline. Fetches OHLCV from Yahoo Finance, runs 
 ### Source data — SCANNER UNIVERSE (what scanners read)
 | Table | Description |
 |---|---|
-| `stocks` | ~2,349 NSE equities (the scanner universe). PK `symbol`. Cols: `symbol`, `name`, `sector`, `market_cap` (yfinance), `is_fno` (NSE F&O list, 211 flagged), `is_active`. Filter `is_active = true`. |
+| `stocks` | ~2,349 NSE equities (the scanner universe). PK `symbol`. Cols: `symbol`, `name`, `sector`, `market_cap` (yfinance), `is_fno` (NSE F&O list, 211 flagged), `is_active`, `is_liquid` (added 2026-07-20: liquidity gate = median 20d turnover ≥ ₹5 Cr AND traded ≥ 90% of sessions AND < 3 circuit-locked days; refreshed at the start of each `scan_all.py` run; ~987 pass). Signal scanners (breakouts, ep, vcp, vcp_pro, vcp_bear, manas, move, rvol, screens) filter `is_active AND is_liquid`; breadth + sectors deliberately stay full-universe (market internals); snapback is F&O-only (all F&O are liquid). |
 | `ohlcv` | Daily OHLCV for the 500, PK `(symbol, time)`. ~5yr history. Cols: `time`, `symbol`, `open/high/low/close`, `volume`. |
 | `indices` | Tracked indices, PK `symbol`. NIFTY 50 = `^NSEI`. |
 | `index_ohlcv` | Daily OHLCV for indices. `^NSEI` feeds breadth `nifty50_close`. |

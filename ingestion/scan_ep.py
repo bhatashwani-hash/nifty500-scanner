@@ -59,7 +59,7 @@ def run(conn, run_date: date | None = None):
         SELECT o.symbol, o.time::date AS date, o.open, o.close, o.volume
         FROM ohlcv o
         JOIN stocks s ON o.symbol = s.symbol
-        WHERE s.is_active = true
+        WHERE s.is_active = true AND s.is_liquid = true
         ORDER BY date
         """,
         conn, parse_dates=["date"],

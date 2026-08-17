@@ -257,7 +257,7 @@ def run(conn, run_date: date | None = None):
                   o.high, o.low, o.close, o.volume
            FROM ohlcv o
            JOIN stocks s ON o.symbol = s.symbol
-           WHERE s.is_active = true AND o.time >= now() - interval '420 days'
+           WHERE s.is_active = true AND s.is_liquid = true AND o.time >= now() - interval '420 days'
            ORDER BY o.symbol, date""",
         conn, parse_dates=["date"],
     )

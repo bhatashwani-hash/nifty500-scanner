@@ -75,6 +75,43 @@ def main():
     total_start = time.time()
     results = {}
 
+    # Refresh the liquidity gate before scanning: median 20d turnover >= 5 Cr,
+    # traded >= 90% of sessions, < 3 circuit-locked (high = low) days.
+    # Signal scanners filter on stocks.is_liquid; breadth/sectors stay full-universe.
+    LIQUIDITY_SQL = """
+        WITH win AS (
+          SELECT COUNT(DISTINCT time::date) AS tot_days
+          FROM ohlcv WHERE time >= CURRENT_DATE - INTERVAL '35 days'
+        ),
+        m AS (
+          SELECT symbol,
+                 PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY close * volume) AS med_turnover,
+                 COUNT(*) AS days,
+                 SUM(CASE WHEN high = low THEN 1 ELSE 0 END) AS locked
+          FROM ohlcv
+          WHERE time >= CURRENT_DATE - INTERVAL '35 days'
+          GROUP BY symbol
+        )
+        UPDATE stocks s
+        SET is_liquid = COALESCE(
+              m.med_turnover >= 5e7
+              AND m.days >= (SELECT tot_days FROM win) * 0.9
+              AND m.locked < 3, false)
+        FROM stocks base
+        LEFT JOIN m ON m.symbol = base.symbol
+        WHERE s.symbol = base.symbol
+    """
+    try:
+        with conn.cursor() as cur:
+            cur.execute(LIQUIDITY_SQL)
+            cur.execute("SELECT COUNT(*) FROM stocks WHERE is_liquid")
+            n_liquid = cur.fetchone()[0]
+        conn.commit()
+        log.info("Liquidity gate refreshed: %d liquid symbols", n_liquid)
+    except Exception as e:
+        conn.rollback()
+        log.warning("Liquidity refresh failed (scanners use previous flags): %s", e)
+
     try:
         for name, fn in scanners:
             if name in skip_set:

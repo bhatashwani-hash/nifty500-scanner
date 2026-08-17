@@ -53,7 +53,7 @@ def run(conn, run_date: date | None = None):
         """SELECT o.symbol, o.time::date AS date, o.high, o.low, o.close, o.volume
            FROM ohlcv o
            JOIN stocks s ON o.symbol = s.symbol
-           WHERE s.is_active = true AND o.time >= now() - interval '200 days'
+           WHERE s.is_active = true AND s.is_liquid = true AND o.time >= now() - interval '200 days'
            ORDER BY date""",
         conn, parse_dates=["date"],
     )

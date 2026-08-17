@@ -55,7 +55,7 @@ def run(conn, run_date: date | None = None):
     df = pd.read_sql(
         """SELECT o.symbol, o.time::date AS date, o.close, o.high, o.low, o.volume
            FROM ohlcv o JOIN stocks s ON o.symbol = s.symbol
-           WHERE s.is_active AND o.time >= now() - interval '480 days'
+           WHERE s.is_active AND s.is_liquid AND o.time >= now() - interval '480 days'
            ORDER BY o.symbol, date""",
         conn, parse_dates=["date"],
     )
