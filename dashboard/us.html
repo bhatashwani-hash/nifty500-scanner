@@ -252,18 +252,25 @@ tr.grp td{ background:var(--panel2); color:var(--cyan); font-weight:800; letter-
   <!-- ══ 5 · VCP ══ -->
   <div class="anchor" id="s-vcp"></div>
   <div class="panel span12">
-    <div class="ph"><h2>VCP — VOLATILITY CONTRACTION</h2>
-      <span class="meta">3M return ≥25% · 15-day range &lt;15% · tightest first</span>
+    <div class="ph"><h2>VCP — QULLAMAGGIE × MANAS ARORA CONTRACTIONS</h2>
+      <span class="meta">momentum leg → tightening base on the 20-EMA · BULL = buy pivot break · BEAR = short pivot break</span>
+      <div class="chips" id="vcp-chips">
+        <span class="chip on" data-side="all">ALL</span>
+        <span class="chip" data-side="BULL">▲ BULL</span>
+        <span class="chip" data-side="BEAR">▼ BEAR</span>
+      </div>
       <span class="spacer"></span>
       <span class="chip" onclick="copyTickers('vcp-body',this)" title="Copy the symbols, comma-separated — paste into a TradingView watchlist">⧉ TV LIST</span>
       <span class="meta" id="vcp-meta">…</span></div>
     <div class="pb" style="max-height:520px; overflow-y:auto;">
       <table id="tbl-vcp">
         <thead><tr>
-          <th class="l">SYM</th><th class="l">NAME</th><th class="l">SECTOR</th><th>CLOSE</th>
-          <th>3M%</th><th>15D HI</th><th>15D LO</th><th>RANGE%</th><th>PIVOT BUY&gt;</th>
+          <th class="l">SYM</th><th class="l">NAME</th><th>SIDE</th><th>CLOSE</th>
+          <th>3M%</th><th>OFF 52W</th><th>5D RNG</th><th>15D RNG</th><th>CONTR</th>
+          <th>vs 20EMA</th><th>VOL DRY</th><th>FALL VOL×</th>
+          <th>PIVOT</th><th>STOP</th><th>TO PIVOT</th><th>SCORE</th>
         </tr></thead>
-        <tbody id="vcp-body"><tr><td class="l neu" colspan="9">loading …</td></tr></tbody>
+        <tbody id="vcp-body"><tr><td class="l neu" colspan="16">loading …</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -546,28 +553,49 @@ $id("ep-chips").addEventListener("click", e=>{
 });
 
 /* ── VCP ── */
+let vcpRows=[], vcpSide="all";
 async function loadVCP(){
-  const { data: rd } = await sb.from("scanner_us_vcp").select("run_date")
+  const { data: rd } = await sb.from("scanner_us_vcp2").select("run_date")
     .order("run_date",{ascending:false}).limit(1);
   const latest=rd?.[0]?.run_date;
-  let data=[];
   if(latest){
-    const res = await sb.from("scanner_us_vcp").select("*").eq("run_date",latest).order("range_15d_pct");
-    data=res.data||[];
+    const res = await sb.from("scanner_us_vcp2").select("*").eq("run_date",latest)
+      .order("score",{ascending:false}).order("range_15d_pct");
+    vcpRows=res.data||[];
   }
-  $id("vcp-meta").textContent = data.length ? `${data.length} setups · scan ${latest}` : "no setups";
-  $id("vcp-body").innerHTML = data.map(r=>`<tr>
+  const b=vcpRows.filter(r=>r.side==="BULL").length, s=vcpRows.length-b;
+  $id("vcp-meta").textContent = vcpRows.length ? `${b} bull · ${s} bear · scan ${latest}` : "no setups";
+  renderVCP(); bump();
+}
+function renderVCP(){
+  const rows = vcpSide==="all" ? vcpRows : vcpRows.filter(r=>r.side===vcpSide);
+  $id("vcp-body").innerHTML = rows.map(r=>{
+    const bull=r.side==="BULL";
+    return `<tr>
     <td class="l">${tk(r.symbol)}</td>
     <td class="l nm">${stockMap[r.symbol]?.name??""}</td>
-    <td class="l sub">${stockMap[r.symbol]?.sector??""}</td>
+    <td><span class="badge ${bull?'b-up':'b-dn'}">${bull?'▲ BULL':'▼ BEAR'}</span></td>
     <td>${fmt(r.close,2)}</td>
-    <td class="pos"><b>+${fmt(r.return_3m,1)}</b></td>
-    <td>${fmt(r.high_15d,2)}</td><td>${fmt(r.low_15d,2)}</td>
+    <td class="${cls(r.move_3m_pct)}"><b>${sgn(r.move_3m_pct,0)}</b></td>
+    <td class="${cls(r.off_52w_pct)}">${fmt(r.off_52w_pct,0)}%</td>
+    <td class="cyn">${fmt(r.range_5d_pct,1)}%</td>
     <td class="cyn">${fmt(r.range_15d_pct,1)}%</td>
-    <td class="wrn">${fmt(r.high_15d,2)}</td></tr>`).join("")
-    || `<tr><td class="l neu" colspan="9">no VCP setups in the latest scan</td></tr>`;
-  bump();
+    <td class="sub">${fmt(r.contraction,2)}×</td>
+    <td class="${cls(r.ema20_dist_pct)}">${sgn(r.ema20_dist_pct,1)}%</td>
+    <td class="${r.vol_dryup!=null&&r.vol_dryup<=0.85?'pos':'neu'}">${r.vol_dryup==null?"—":fmt(r.vol_dryup,2)+"×"}</td>
+    <td class="wrn">${r.fall_volx==null?"—":fmt(r.fall_volx,1)+"×"}</td>
+    <td class="wrn"><b>${fmt(r.pivot,2)}</b></td>
+    <td class="neg">${fmt(r.stop,2)}</td>
+    <td>${fmt(r.pct_to_pivot,1)}%</td>
+    <td><b>${r.score}</b>/6</td></tr>`;}).join("")
+    || `<tr><td class="l neu" colspan="16">nothing on this side today</td></tr>`;
 }
+$id("vcp-chips").addEventListener("click", e=>{
+  const c=e.target.closest(".chip[data-side]"); if(!c) return;
+  vcpSide=c.dataset.side;
+  document.querySelectorAll("#vcp-chips .chip").forEach(x=>x.classList.toggle("on",x===c));
+  renderVCP();
+});
 
 /* ── snapback ── */
 let snapData=[], snapF={type:"all", win:false, score:false, trend:false}, snapSort=null;

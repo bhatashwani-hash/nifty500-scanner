@@ -281,32 +281,138 @@ def scan_ep(conn):
     return len(rows)
 
 
-# ── VCP ──────────────────────────────────────────────────────────────────────
+# ── VCP v2 — Qullamaggie / Manas Arora dual-sided contraction setups ─────────
+#
+# BULL (breakout long — Qullamaggie momentum burst + Minervini/Manas trend):
+#   hard: prior leg 3M >= +30% or 1M >= +25%; close above a RISING 20-EMA
+#         (>= 0.97x, "surfing"); close > 50-SMA; 15d range < 15% AND
+#         15d range < 0.75x 30d range (successive contraction)
+#   score +1 each: 5d range < 8% (final tightness) · volume dry-up 5d<=0.85x50d
+#         · within 25% of 52w high · within 3% of pivot (30d high)
+#         · 3M leg >= +50% · 50-SMA rising with 50>200 stack
+#   pivot = 30d high (buy the break) · stop = 15d low
+#
+# BEAR (breakdown short — inverted VCP / bear flag into falling key averages):
+#   hard: damage 3M <= -20% or >= 30% off 52w high; close BELOW a FALLING
+#         20-EMA; close < 50-SMA; 15d range < 15% AND < 0.75x 30d range;
+#         15d high tags the falling 20-EMA from below (>= 0.97x)
+#   score +1 each: 5d range < 8% · down-leg volume (top-3 down days >= 1.5x 50d)
+#         · rally volume dry (5d <= 0.9x 50d) · within 3% of pivot (15d low)
+#         · 3M <= -30% · 50-SMA below 200-SMA
+#   pivot = 15d low (short the break) · stop = 15d high
 def scan_vcp(conn):
-    df = _load(conn, "close, high, low")
-    c, h, l = _pivot(df, "close"), _pivot(df, "high"), _pivot(df, "low")
-    if len(c) < 64:
+    df = _load(conn, "close, high, low, volume")
+    c, h, l, v = _pivot(df, "close"), _pivot(df, "high"), _pivot(df, "low"), _pivot(df, "volume")
+    n = len(c)
+    if n < 70:
         return 0
     run_date = c.index[-1].date()
-    c0, c63 = c.iloc[-1], c.iloc[-64]
-    h15, l15 = h.iloc[-15:].max(), l.iloc[-15:].min()
-    rng = (h15 - l15) / l15.replace(0, np.nan)
+
+    ema20  = c.ewm(span=20, adjust=False).mean()
+    sma50  = c.rolling(50,  min_periods=40).mean()
+    sma200 = c.rolling(200, min_periods=150).mean()
+    v50    = v.rolling(50, min_periods=25).mean()
+    v5     = v.rolling(5).mean()
+    hi252  = h.rolling(252, min_periods=120).max()
+
+    def wnd(k):
+        hh = h.iloc[-k:].max(); ll = l.iloc[-k:].min()
+        return hh, ll, (hh - ll) / ll.replace(0, np.nan) * 100
+    h5, l5, r5 = wnd(5); h15, l15, r15 = wnd(15); h30, l30, r30 = wnd(30)
+
+    c0  = c.iloc[-1]
+    m1  = (c0 / c.iloc[-22] - 1) * 100
+    m3  = (c0 / c.iloc[-64] - 1) * 100
+    e0, e10  = ema20.iloc[-1], ema20.iloc[-11]
+    f0, f10  = sma50.iloc[-1], sma50.iloc[-11]
+    s2       = sma200.iloc[-1]
+    off52    = (c0 / hi252.iloc[-1] - 1) * 100
+    dry      = v5.iloc[-1] / v50.iloc[-1]
+
+    def fall_volx(s):
+        """top-3 down-day volumes of the 3M leg vs the 50d average"""
+        seg_c, seg_v = c[s].values[-64:], v[s].values[-64:]
+        dn = seg_v[1:][np.diff(seg_c) < 0]
+        dn = dn[~np.isnan(dn)]
+        a = v50[s].values[-1]
+        if len(dn) < 3 or not a or np.isnan(a) or a <= 0:
+            return None
+        return float(np.sort(dn)[-3:].mean() / a)
+
     rows = []
     for s in c.columns:
-        cl, cb, hh, ll, r = c0.get(s), c63.get(s), h15.get(s), l15.get(s), rng.get(s)
-        if any(pd.isna(x) for x in (cl, cb, hh, ll, r)) or cb <= 0:
+        cl, e, ep = c0.get(s), e0.get(s), e10.get(s)
+        R5, R15, R30 = r5.get(s), r15.get(s), r30.get(s)
+        if any(pd.isna(x) for x in (cl, e, ep, R5, R15, R30, m3.get(s))):
             continue
-        ret3 = (cl - cb) / cb
-        if ret3 >= 0.25 and r < 0.15:
-            rows.append((run_date, s, round(float(cl), 2), round(float(ret3) * 100, 2),
-                         round(float(hh), 2), round(float(ll), 2), round(float(r) * 100, 2)))
+        contr = float(R15 / R30) if R30 and not pd.isna(R30) and R30 > 0 else None
+        tight = R15 < 15 and contr is not None and contr < 0.75
+        if not tight:
+            continue
+        cl, e, ep = float(cl), float(e), float(ep)
+        M1 = float(m1.get(s)) if not pd.isna(m1.get(s)) else None
+        M3, O52 = float(m3.get(s)), (float(off52.get(s)) if not pd.isna(off52.get(s)) else None)
+        F0  = float(f0.get(s))  if not pd.isna(f0.get(s))  else None
+        F10 = float(f10.get(s)) if not pd.isna(f10.get(s)) else None
+        S2  = float(s2.get(s))  if not pd.isna(s2.get(s))  else None
+        DRY = float(dry.get(s)) if not pd.isna(dry.get(s)) else None
+        H15v, L15v, H30v = float(h15.get(s)), float(l15.get(s)), float(h30.get(s))
+
+        # ── BULL side ──
+        if ((M3 >= 30 or (M1 is not None and M1 >= 25))
+                and e > ep and cl >= e * 0.97
+                and (F0 is None or cl > F0)):
+            pivot, stop = H30v, L15v
+            to_piv = (pivot / cl - 1) * 100
+            score = (int(R5 < 8)
+                     + int(bool(DRY is not None and DRY <= 0.85))
+                     + int(bool(O52 is not None and O52 >= -25))
+                     + int(to_piv <= 3)
+                     + int(M3 >= 50)
+                     + int(bool(F0 is not None and F10 is not None and F0 > F10
+                                and (S2 is None or F0 > S2))))
+            rows.append((run_date, s, "BULL", round(cl, 2), round(M3, 2),
+                         None if M1 is None else round(M1, 2),
+                         None if O52 is None else round(O52, 2),
+                         round(float(R5), 2), round(float(R15), 2), round(contr, 2),
+                         round((cl / e - 1) * 100, 2),
+                         None if DRY is None else round(DRY, 2), None,
+                         round(pivot, 2), round(stop, 2), round(to_piv, 2), score))
+
+        # ── BEAR side ──
+        elif ((M3 <= -20 or (O52 is not None and O52 <= -30))
+                and e < ep and cl < e
+                and (F0 is None or cl < F0)
+                and H15v >= e * 0.97):
+            fx = fall_volx(s)
+            pivot, stop = L15v, H15v
+            to_piv = (cl / pivot - 1) * 100
+            score = (int(R5 < 8)
+                     + int(bool(fx is not None and fx >= 1.5))
+                     + int(bool(DRY is not None and DRY <= 0.9))
+                     + int(to_piv <= 3)
+                     + int(M3 <= -30)
+                     + int(bool(F0 is not None and S2 is not None and F0 < S2)))
+            rows.append((run_date, s, "BEAR", round(cl, 2), round(M3, 2),
+                         None if M1 is None else round(M1, 2),
+                         None if O52 is None else round(O52, 2),
+                         round(float(R5), 2), round(float(R15), 2), round(contr, 2),
+                         round((cl / e - 1) * 100, 2),
+                         None if DRY is None else round(DRY, 2),
+                         None if fx is None else round(fx, 2),
+                         round(pivot, 2), round(stop, 2), round(to_piv, 2), score))
+
     with conn.cursor() as cur:
-        cur.execute("DELETE FROM scanner_us_vcp WHERE run_date=%s", (run_date,))
+        cur.execute("DELETE FROM scanner_us_vcp2 WHERE run_date=%s", (run_date,))
         if rows:
             psycopg2.extras.execute_values(cur, """
-                INSERT INTO scanner_us_vcp (run_date, symbol, close, return_3m, high_15d, low_15d, range_15d_pct)
+                INSERT INTO scanner_us_vcp2 (run_date, symbol, side, close, move_3m_pct,
+                  move_1m_pct, off_52w_pct, range_5d_pct, range_15d_pct, contraction,
+                  ema20_dist_pct, vol_dryup, fall_volx, pivot, stop, pct_to_pivot, score)
                 VALUES %s ON CONFLICT DO NOTHING""", rows, page_size=500)
     conn.commit()
+    log.info("vcp2: %d setups (%d bull / %d bear)", len(rows),
+             sum(1 for r in rows if r[2] == "BULL"), sum(1 for r in rows if r[2] == "BEAR"))
     return len(rows)
 
 
