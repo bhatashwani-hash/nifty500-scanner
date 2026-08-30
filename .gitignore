@@ -7,3 +7,6 @@ enrich_progress.json
 commit.bat
 commit.ps1
 .claude/
+
+trading/state_*.json
+trading/KILL

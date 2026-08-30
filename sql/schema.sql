@@ -388,3 +388,54 @@ CREATE TABLE IF NOT EXISTS scanner_breadth (
   pct_above_200ma NUMERIC,
   nifty50_close   NUMERIC
 );
+
+-- Intraday trend-day scanner: identifies stocks building a +6-10% trend day
+-- from the hourly bars, scored at 10:15 and re-scored each subsequent hour.
+-- One row per symbol for the current session; rewritten by every hourly run.
+-- Written by ingestion/scan_trendday.py (called from fetch_hourly.py).
+CREATE TABLE IF NOT EXISTS scanner_trendday (
+  symbol        TEXT PRIMARY KEY REFERENCES stocks(symbol),
+  trade_date    DATE,
+  last_ts       TIMESTAMPTZ,
+  slot_no       INTEGER,      -- 1 = 09:15 bar, 2 = 10:15, ... 7 = 15:15
+  prev_close    NUMERIC,
+  day_open      NUMERIC,
+  last_close    NUMERIC,
+  day_high      NUMERIC,
+  day_low       NUMERIC,
+  gap_pct       NUMERIC,      -- open vs prev close
+  cum_pct       NUMERIC,      -- last close vs prev close (move so far)
+  h1_ret        NUMERIC,      -- return at the 10:15 bar close vs prev close
+  h1_rvol       NUMERIC,      -- first-hour volume / that stock's 10d avg first-hour volume
+  h1_pos        NUMERIC,      -- close position within the first-hour range (0-1)
+  h1_range      NUMERIC,      -- first-hour range as % of prev close
+  h2_bar        NUMERIC,      -- 10:15-11:15 bar return (null before 11:15)
+  v2_v1         NUMERIC,      -- hour-2 volume / hour-1 volume
+  open_vs_low   NUMERIC,      -- where the open sits in the day range (0 = open is the low)
+  held_open     BOOLEAN,      -- has never closed an hourly bar below the open
+  score         NUMERIC,      -- modelled P(day closes >= +6%), percent
+  stage         TEXT,         -- WATCH | SETUP | CONFIRMED | FADING
+  updated_at    TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_trendday_score ON scanner_trendday (score DESC);
+ALTER TABLE scanner_trendday ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS anon_read_scanner_trendday ON scanner_trendday;
+CREATE POLICY anon_read_scanner_trendday ON scanner_trendday FOR SELECT TO anon USING (true);
+
+-- 5-minute intraday bars (added 2026-08-30). Yahoo serves ~60 days of 5m data;
+-- backfilled 30 trading sessions for the top 1000 by market cap via
+-- ingestion/backfill_intraday.py.
+CREATE TABLE IF NOT EXISTS ohlcv_5min (
+  symbol  TEXT   NOT NULL REFERENCES stocks(symbol),
+  ts      TIMESTAMPTZ NOT NULL,
+  open    NUMERIC,
+  high    NUMERIC,
+  low     NUMERIC,
+  close   NUMERIC,
+  volume  BIGINT,
+  PRIMARY KEY (symbol, ts)
+);
+CREATE INDEX IF NOT EXISTS idx_ohlcv_5min_ts ON ohlcv_5min (ts);
+ALTER TABLE ohlcv_5min ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS anon_read_ohlcv_5min ON ohlcv_5min;
+CREATE POLICY anon_read_ohlcv_5min ON ohlcv_5min FOR SELECT TO anon USING (true);

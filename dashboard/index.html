@@ -491,6 +491,7 @@
     <div class="kpi k-up"><div class="kpi-label">VCP Pro Active</div><div class="kpi-val up" id="kpi-vcppro">—</div></div>
     <div class="kpi k-up"><div class="kpi-label">Manas Ready</div><div class="kpi-val up" id="kpi-manas">—</div></div>
     <div class="kpi k-up"><div class="kpi-label">10% Move Ready</div><div class="kpi-val up" id="kpi-move">—</div></div>
+    <div class="kpi k-up"><div class="kpi-label">Trend Day Live</div><div class="kpi-val up" id="kpi-trend">—</div></div>
   </div>
   </div><!-- /#dash-top -->
 
@@ -507,6 +508,7 @@
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-sentiment">🐂 Sentiment</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-sectors">🌐 Sectors</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-hourly">⏱ Hourly F&O</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-trendday">🔥 Trend Day</a></li>
     <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-fno">⭐ F&O Sectors</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-livesec">📈 Sector Trend</a></li>
     <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-ticks">⚡ Ticks</a></li>
@@ -845,6 +847,50 @@
       </div>
     </div>
 
+    <!-- TREND DAY TAB -->
+    <div class="tab-pane fade" id="tab-trendday">
+      <div class="manas-legend">
+        <strong>Trend Day</strong> — stocks building a +6% to +10% day, scored live from the
+        hourly bars. <b>Score</b> is modelled P(the stock closes ≥ +6%) and is set from the
+        <b>10:15 bar only</b>, then re-weighted once the <b>11:15</b> bar lands — it never uses
+        anything later, so it stays a forecast all day. <b>Stage</b> is the live state:
+        <span class="tag tag-bull">CONFIRMED</span> already ≥ +6% ·
+        <span class="tag" style="background:rgba(230,180,60,.15);color:var(--warn)">SETUP</span> scoring ≥ 20%, still holding ·
+        <span class="tag">WATCH</span> in range but unconvincing ·
+        <span class="tag tag-bear">FADING</span> gave back half the first-hour gain or lost the open.
+        <br><span style="color:var(--muted)">Calibrated on 16,434 stock-days (top 500, 33 sessions to 2026-08-26;
+        base rate 1.05%). Key drivers: the 10:15 return, first-hour RVOL vs the stock's own
+        first-hour norm, and whether hour 2 is green. In-sample — read the ordering, not the absolute %.</span>
+      </div>
+      <div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
+        <select id="td-stage-filter" class="control" onchange="filterTrendDay()">
+          <option value="live">Live candidates (excl. faded)</option>
+          <option value="">All candidates</option>
+          <option value="CONFIRMED">Confirmed only</option>
+          <option value="SETUP">Setups only</option>
+          <option value="FADING">Faded only</option>
+        </select>
+        <select id="td-score-filter" class="control" onchange="filterTrendDay()">
+          <option value="0">Any score</option>
+          <option value="10">Score ≥ 10%</option>
+          <option value="20" selected>Score ≥ 20%</option>
+          <option value="40">Score ≥ 40%</option>
+        </select>
+        <span class="live-tag" id="td-tag"></span>
+      </div>
+      <div class="panel"><div class="panel-head"><h2>Trend Day Candidates</h2>
+        <span class="count" id="td-count"></span>
+        <button class="control copy-btn" onclick="copyTableSymbols('tbl-trendday')" title="Copy filtered symbols as NSE:SYMBOL — paste into a TradingView watchlist">⧉ Copy</button></div>
+        <div class="p-1"><table id="tbl-trendday" class="table mb-0" style="width:100%">
+          <thead><tr>
+            <th>Symbol</th><th>Stage</th><th>Score</th><th>Now %</th>
+            <th>10:15 %</th><th>H1 RVOL</th><th>H2 bar %</th><th>Gap %</th>
+            <th>Last</th><th>Open=Low</th><th>Bar</th>
+          </tr></thead>
+          <tbody id="td-body"></tbody></table></div>
+      </div>
+    </div>
+
     <!-- F&O SECTORS TAB -->
     <div class="tab-pane fade show active" id="tab-fno">
       <div class="d-flex gap-2 mb-3 align-items-center flex-wrap">
@@ -959,9 +1005,11 @@ async function loadAll(){
   const btn = document.getElementById("refresh-btn"); btn.classList.add("spin");
   toast("Refreshing…");
   await loadFNO();   // hourly + F&O filters need the F&O symbol list first
-  await Promise.all([loadIndices(), loadBreadth(), loadBreakouts(), loadSnapback(), loadRVOL(), loadHourly(), loadEP(), loadVCP(), loadVCPPro(), loadManas(), loadMove(), loadSentiment(), loadSectors(), loadFNOSectors()]);
+  await Promise.all([loadIndices(), loadBreadth(), loadBreakouts(), loadSnapback(), loadRVOL(), loadHourly(), loadTrendDay(), loadEP(), loadVCP(), loadVCPPro(), loadManas(), loadMove(), loadSentiment(), loadSectors(), loadFNOSectors()]);
   if(hourlyTimer) clearInterval(hourlyTimer);
   hourlyTimer = setInterval(loadHourly, 300000);   // refresh hourly feed every 5 min
+  if(trendTimer) clearInterval(trendTimer);
+  trendTimer = setInterval(loadTrendDay, 300000);  // trend-day rescores on each hourly ingest
   if(fnoStocks.length){
     document.getElementById("fno-sectors").dataset.built="";   // force full rebuild so scan-hit badges land
     renderFNOSectors();
@@ -1516,6 +1564,66 @@ function renderHourly(data){
   dtHourly = $("#tbl-hourly").DataTable(dtOpts({ order:[], columnDefs:[{ orderable:false, targets:[4] }] }));
 }
 function filterHourly(){ renderHourly(applyHourlyFilters(hourlyData)); }
+
+// ---- Trend Day: intraday +6-10% builders, scored off the 10:15 / 11:15 bars ----
+let trendData = [], dtTrend = null, trendTimer = null;
+const TD_STAGE_TAG = {
+  CONFIRMED: '<span class="tag tag-bull">CONFIRMED</span>',
+  SETUP:     '<span class="tag" style="background:rgba(230,180,60,.15);color:var(--warn)">SETUP</span>',
+  WATCH:     '<span class="tag">WATCH</span>',
+  FADING:    '<span class="tag tag-bear">FADING</span>',
+};
+async function loadTrendDay(){
+  const { data, error } = await sb.from("scanner_trendday").select("*")
+    .order("score", { ascending:false, nullsFirst:false });
+  const tag = document.getElementById("td-tag");
+  if(error || !data || !data.length){
+    if(tag) tag.textContent = "no candidates yet — populates during market hours (hourly ingest)";
+    trendData = []; renderTrendDay([]); return;
+  }
+  trendData = data;
+  const live = data.filter(r => r.stage === "CONFIRMED" || r.stage === "SETUP").length;
+  const kpi = document.getElementById("kpi-trend");
+  if(kpi) kpi.textContent = live;
+  const t = data.reduce((a,r)=> r.updated_at>a ? r.updated_at : a, data[0].updated_at);
+  if(tag) tag.innerHTML = `<span class="live-dot"></span>${data[0].trade_date} · bar ${data[0].slot_no}/7 · updated ${new Date(t).toLocaleTimeString("en-IN",{hour:'2-digit',minute:'2-digit'})}`;
+  renderTrendDay(applyTrendFilters(data));
+}
+function applyTrendFilters(data){
+  const s = document.getElementById("td-stage-filter"), m = document.getElementById("td-score-filter");
+  const sv = s ? s.value : "live";
+  if(sv === "live")      data = data.filter(r => r.stage !== "FADING");
+  else if(sv)            data = data.filter(r => r.stage === sv);
+  const min = m ? Number(m.value) : 0;
+  if(min > 0) data = data.filter(r => (r.score ?? 0) >= min);
+  return data;
+}
+function renderTrendDay(data){
+  if(dtTrend){ dtTrend.destroy(); dtTrend = null; }
+  const conf = data.filter(r => r.stage === "CONFIRMED").length;
+  const setup = data.filter(r => r.stage === "SETUP").length;
+  document.getElementById("td-count").textContent =
+    data.length ? `${data.length} candidates · ${conf} confirmed · ${setup} setups` : "";
+  document.getElementById("td-body").innerHTML = data.map(r => {
+    const up = (r.cum_pct ?? 0) >= 0;
+    const scoreCol = (r.score ?? 0) >= 40 ? "var(--up)" : (r.score ?? 0) >= 20 ? "var(--warn)" : "var(--muted)";
+    const h2 = r.h2_bar;
+    return `<tr>
+      <td>${tk(r.symbol)}</td>
+      <td>${TD_STAGE_TAG[r.stage] || r.stage || "—"}</td>
+      <td style="color:${scoreCol}"><b>${r.score != null ? fmt(r.score,1)+"%" : "—"}</b></td>
+      <td class="${up?'pos':'neg'}"><b>${up?'+':''}${fmt(r.cum_pct,2)}%</b></td>
+      <td class="${(r.h1_ret??0)>=0?'pos':'neg'}">${(r.h1_ret??0)>=0?'+':''}${fmt(r.h1_ret,2)}%</td>
+      <td style="color:var(--warn)"><b>${r.h1_rvol != null ? fmt(r.h1_rvol,1)+"×" : "—"}</b></td>
+      <td class="${h2 == null ? '' : (h2>=0?'pos':'neg')}">${h2 == null ? "—" : (h2>=0?'+':'')+fmt(h2,2)+"%"}</td>
+      <td>${(r.gap_pct??0)>=0?'+':''}${fmt(r.gap_pct,2)}%</td>
+      <td>${fmt(r.last_close,2)}</td>
+      <td style="color:${(r.open_vs_low??1) <= 0.15 ? 'var(--up)' : 'var(--muted)'}">${fmt(r.open_vs_low,2)}</td>
+      <td style="color:var(--muted)">${r.slot_no ?? "—"}/7</td></tr>`;
+  }).join("");
+  dtTrend = $("#tbl-trendday").DataTable(dtOpts({ order:[], columnDefs:[{ orderable:false, targets:[1] }] }));
+}
+function filterTrendDay(){ renderTrendDay(applyTrendFilters(trendData)); }
 
 const AAII_AVG = { bull:37.5, neu:31.5, bear:31.0 };
 async function loadSentiment(){

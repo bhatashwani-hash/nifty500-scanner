@@ -193,6 +193,16 @@ def main():
         m = rebuild_feed(conn, bars, trade_date)
         log.info("upserted %d hourly bars, refreshed feed for %d symbols (%s)",
                  n, m, trade_date)
+
+        # Re-score the intraday trend-day scanner off the bars we just wrote.
+        # Non-fatal: a failure here must not lose the ingest above.
+        try:
+            from scan_trendday import run as run_trendday
+            k = run_trendday(conn, run_date=trade_date)
+            log.info("trend-day scanner: %d candidates", k)
+        except Exception as e:
+            conn.rollback()
+            log.warning("trend-day scanner failed (bars still ingested): %s", e)
     finally:
         conn.close()
 
