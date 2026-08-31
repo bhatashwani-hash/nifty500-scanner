@@ -883,7 +883,7 @@
         <button class="control copy-btn" onclick="copyTableSymbols('tbl-trendday')" title="Copy filtered symbols as NSE:SYMBOL — paste into a TradingView watchlist">⧉ Copy</button></div>
         <div class="p-1"><table id="tbl-trendday" class="table mb-0" style="width:100%">
           <thead><tr>
-            <th>Symbol</th><th>Stage</th><th>Score</th><th>Now %</th>
+            <th>Symbol</th><th>Stage</th><th>Triggered</th><th>Score</th><th>Now %</th>
             <th>10:15 %</th><th>H1 RVOL</th><th>H2 bar %</th><th>Gap %</th>
             <th>Last</th><th>Open=Low</th><th>Bar</th>
           </tr></thead>
@@ -1608,9 +1608,14 @@ function renderTrendDay(data){
     const up = (r.cum_pct ?? 0) >= 0;
     const scoreCol = (r.score ?? 0) >= 40 ? "var(--up)" : (r.score ?? 0) >= 20 ? "var(--warn)" : "var(--muted)";
     const h2 = r.h2_bar;
+    const trig = r.triggered_at
+      ? `${new Date(r.triggered_at).toLocaleDateString("en-IN",{day:'2-digit',month:'short'})}
+         <span style="color:var(--muted)">${new Date(r.triggered_at).toLocaleTimeString("en-IN",{hour:'2-digit',minute:'2-digit'})}</span>`
+      : '<span style="color:var(--muted)">—</span>';
     return `<tr>
       <td>${tk(r.symbol)}</td>
       <td>${TD_STAGE_TAG[r.stage] || r.stage || "—"}</td>
+      <td style="white-space:nowrap">${trig}</td>
       <td style="color:${scoreCol}"><b>${r.score != null ? fmt(r.score,1)+"%" : "—"}</b></td>
       <td class="${up?'pos':'neg'}"><b>${up?'+':''}${fmt(r.cum_pct,2)}%</b></td>
       <td class="${(r.h1_ret??0)>=0?'pos':'neg'}">${(r.h1_ret??0)>=0?'+':''}${fmt(r.h1_ret,2)}%</td>

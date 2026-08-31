@@ -41,7 +41,7 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time as dtime, timedelta, timezone
 from pathlib import Path
 
 import numpy as np
@@ -61,12 +61,16 @@ BASE = [(.06, 76.0), (.04, 23.6), (.03, 6.6), (.02, 3.7), (.015, 1.0)]
 RVOL_MULT = [(10, 1.86), (5, 1.51), (3, 0.76), (1.5, 0.54), (0, 0.43)]
 H2_MULT = [(.01, 3.34), (.005, 1.23), (-.005, 0.68), (-9, 0.43)]
 SCORE_CAP = 85.0            # top band measured 75% actual vs 95% modelled
+H2_CLOSE_IST = dtime(11, 15)   # the 10:15 hourly bar closes here; before this
+                               # the hour-2 confirmation is only partial
+TRIGGER_STAGES = ("SETUP", "CONFIRMED")   # what counts as the setup firing
 
 INSERT_SQL = """
 INSERT INTO scanner_trendday
     (symbol, trade_date, last_ts, slot_no, prev_close, day_open, last_close,
      day_high, day_low, gap_pct, cum_pct, h1_ret, h1_rvol, h1_pos, h1_range,
-     h2_bar, v2_v1, open_vs_low, held_open, score, stage, updated_at)
+     h2_bar, v2_v1, open_vs_low, held_open, score, stage,
+     triggered_at, trigger_stage, trigger_slot, updated_at)
 VALUES %s
 ON CONFLICT (symbol) DO UPDATE SET
     trade_date=EXCLUDED.trade_date, last_ts=EXCLUDED.last_ts,
@@ -77,7 +81,13 @@ ON CONFLICT (symbol) DO UPDATE SET
     h1_ret=EXCLUDED.h1_ret, h1_rvol=EXCLUDED.h1_rvol, h1_pos=EXCLUDED.h1_pos,
     h1_range=EXCLUDED.h1_range, h2_bar=EXCLUDED.h2_bar, v2_v1=EXCLUDED.v2_v1,
     open_vs_low=EXCLUDED.open_vs_low, held_open=EXCLUDED.held_open,
-    score=EXCLUDED.score, stage=EXCLUDED.stage, updated_at=now()
+    score=EXCLUDED.score, stage=EXCLUDED.stage,
+    -- stamp the trigger once and never overwrite it: the point of the column
+    -- is when the setup FIRST fired, not when it was last re-scored
+    triggered_at  = COALESCE(scanner_trendday.triggered_at,  EXCLUDED.triggered_at),
+    trigger_stage = COALESCE(scanner_trendday.trigger_stage, EXCLUDED.trigger_stage),
+    trigger_slot  = COALESCE(scanner_trendday.trigger_slot,  EXCLUDED.trigger_slot),
+    updated_at=now()
 """
 
 
@@ -89,7 +99,13 @@ def _pick(table, value, default=1.0):
 
 
 def score_row(h1_ret, h1_rvol, h2_bar=None):
-    """Modelled P(day closes >= +6%), in percent. 0 = not a candidate."""
+    """Modelled P(day closes >= +6%), in percent. 0 = not a candidate.
+
+    Pass h2_bar=None until the hour-2 bar has actually CLOSED. The multiplier
+    was fitted on complete 10:15-11:15 bars; a partial one has had less time to
+    move, so it lands in the 'flat' or 'red' bucket and drags the score down by
+    a factor of 0.43-0.68 for no reason. At the 10:30 scan only hour 1 is done.
+    """
     if h1_ret is None or not np.isfinite(h1_ret) or h1_ret < MIN_H1_RET:
         return 0.0
     p = _pick(BASE, h1_ret, 0.0)
@@ -97,6 +113,14 @@ def score_row(h1_ret, h1_rvol, h2_bar=None):
     if h2_bar is not None and np.isfinite(h2_bar):
         p *= _pick(H2_MULT, h2_bar, 0.43)
     return round(min(SCORE_CAP, max(0.2, p)), 1)
+
+
+def h2_is_closed(session, now_ist=None):
+    """True once the 10:15-11:15 bar has finished (or the session is historical)."""
+    now = now_ist or datetime.now(IST)
+    if session != now.date():
+        return True
+    return now.time() >= H2_CLOSE_IST
 
 
 def classify(score, h1_ret, h2_bar, held_open, cum_pct):
@@ -159,6 +183,19 @@ def run(conn, run_date: date | None = None):
         conn, params=(session,),
     ).set_index("symbol").prev_close
 
+    # Symbols already carrying a row for this session: keep re-scoring them even
+    # if they drop below the listing threshold, so a name that triggered at
+    # 10:30 and then died still shows its trigger stamp and its live stage
+    # instead of freezing at whatever it looked like when it last qualified.
+    with conn.cursor() as cur:
+        cur.execute("SELECT symbol FROM scanner_trendday WHERE trade_date = %s", (session,))
+        carried = {r[0] for r in cur.fetchall()}
+
+    h2_ready = h2_is_closed(session)
+    now_ist = datetime.now(IST)
+    if not h2_ready:
+        log.info("scan_trendday: hour-2 bar still forming — scoring on hour 1 only")
+
     rows = []
     for sym, g in today.groupby("symbol"):
         g = g.sort_values("slot")
@@ -182,12 +219,14 @@ def run(conn, run_date: date | None = None):
         h1_rvol = float(b1.volume) / av1 if av1 and np.isfinite(av1) and av1 > 0 else np.nan
 
         b2 = by_slot.get(2)
-        h2_bar = (float(b2.close) / float(b1.close) - 1) if b2 is not None else None
+        h2_raw = (float(b2.close) / float(b1.close) - 1) if b2 is not None else None
+        # only let hour 2 influence the score once its bar has actually closed
+        h2_bar = h2_raw if h2_ready else None
         v2_v1 = (float(b2.volume) / float(b1.volume)
                  if b2 is not None and float(b1.volume) > 0 else None)
 
         sc = score_row(h1_ret, h1_rvol, h2_bar)
-        if sc <= 0:
+        if sc <= 0 and sym not in carried:
             continue
 
         rngd = day_high - day_low
@@ -195,7 +234,11 @@ def run(conn, run_date: date | None = None):
         held_open = bool((g.close >= day_open * 0.998).all())
         cum_pct = (last_close / float(pc) - 1) * 100
         gap_pct = (day_open / float(pc) - 1) * 100
+        stage = classify(sc, h1_ret, h2_bar, held_open, cum_pct)
 
+        # Stamp the trigger the first time this name reaches SETUP/CONFIRMED.
+        # The upsert COALESCEs, so an existing stamp is never overwritten.
+        fired = stage in TRIGGER_STAGES
         rows.append((
             sym, session, last.ts.to_pydatetime(), int(last.slot),
             round(float(pc), 2), round(day_open, 2), round(last_close, 2),
@@ -204,15 +247,20 @@ def run(conn, run_date: date | None = None):
             round(h1_ret * 100, 2),
             round(float(h1_rvol), 2) if np.isfinite(h1_rvol) else None,
             round(h1_pos, 2), round(h1_range * 100, 2),
-            round(h2_bar * 100, 2) if h2_bar is not None else None,
+            round(h2_raw * 100, 2) if h2_raw is not None else None,
             round(v2_v1, 2) if v2_v1 is not None else None,
-            round(open_vs_low, 2), held_open, sc,
-            classify(sc, h1_ret, h2_bar, held_open, cum_pct),
-            datetime.now(IST),
+            round(open_vs_low, 2), held_open, sc, stage,
+            now_ist if fired else None,
+            stage if fired else None,
+            int(last.slot) if fired else None,
+            now_ist,
         ))
 
     with conn.cursor() as cur:
-        cur.execute("DELETE FROM scanner_trendday")
+        # only clear prior sessions — wiping the table each run would destroy
+        # today's triggered_at stamps on the very next hourly re-score
+        cur.execute("DELETE FROM scanner_trendday WHERE trade_date IS DISTINCT FROM %s",
+                    (session,))
         if rows:
             execute_values(cur, INSERT_SQL, rows, page_size=500)
     conn.commit()

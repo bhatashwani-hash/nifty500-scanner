@@ -415,9 +415,16 @@ CREATE TABLE IF NOT EXISTS scanner_trendday (
   held_open     BOOLEAN,      -- has never closed an hourly bar below the open
   score         NUMERIC,      -- modelled P(day closes >= +6%), percent
   stage         TEXT,         -- WATCH | SETUP | CONFIRMED | FADING
+  -- when the setup FIRST reached SETUP/CONFIRMED. Stamped once and preserved
+  -- across every later re-score (COALESCE in the upsert), so it records the
+  -- trigger moment rather than the last time the row was touched.
+  triggered_at  TIMESTAMPTZ,
+  trigger_stage TEXT,
+  trigger_slot  INTEGER,
   updated_at    TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_trendday_score ON scanner_trendday (score DESC);
+CREATE INDEX IF NOT EXISTS idx_trendday_triggered ON scanner_trendday (triggered_at DESC);
 ALTER TABLE scanner_trendday ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS anon_read_scanner_trendday ON scanner_trendday;
 CREATE POLICY anon_read_scanner_trendday ON scanner_trendday FOR SELECT TO anon USING (true);

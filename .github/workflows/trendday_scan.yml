@@ -1,0 +1,109 @@
+name: Trend Day scan — 10:30 IST daily
+
+# The setup list for the day, produced once the first hourly bar has closed.
+#
+# Timing: the 09:15 hourly bar covers 09:15-10:15 IST, so it is only complete
+# after 10:15 (04:45 UTC). We fire from 05:02 UTC = 10:32 IST.
+#
+# Why four slots and a gate, not one cron: GitHub's scheduler is best-effort
+# and routinely drops slots — hourly_ingest.yml documents observing only 2-3 of
+# 7 fire per day. A single "0 5 * * 1-5" would silently skip whole sessions.
+# So we schedule four attempts across 10:32-11:02 IST and gate on whether the
+# scan has already produced today's rows; the first one to land does the work
+# and the rest exit in seconds.
+#
+# scan_trendday scores on hour 1 only until the 10:15 bar closes at 11:15 IST
+# (see h2_is_closed) — the hour-2 multiplier is calibrated on complete bars.
+# The later hourly_ingest runs re-score and add that confirmation.
+on:
+  schedule:
+    - cron: "2,12,22,32 5 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Run even if today's scan already exists"
+        type: boolean
+        default: true
+
+# shared with hourly_ingest.yml: both call fetch_hourly.py, and two concurrent
+# Yahoo pulls writing the same tables would race
+concurrency:
+  group: hourly-ingest
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    name: Trend Day setup scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Gate — skip if today's scan already ran
+        id: gate
+        env:
+          SUPABASE_URL: https://lgsgcccasccxfofxsbge.supabase.co
+          # anon key (public by design, read-only via RLS)
+          ANON: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxnc2djY2Nhc2NjeGZvZnhzYmdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5NTI5MjMsImV4cCI6MjA5NzUyODkyM30.mUk6etxWdkxttwoHnG9-F2axvj680XXOKWmjaSRYuTA
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.force }}" != "false" ]; then
+            echo "manual run — skipping gate"; echo "run=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          today=$(TZ=Asia/Kolkata date +%F)
+          last=$(curl -sf "$SUPABASE_URL/rest/v1/scanner_trendday?select=updated_at,trade_date&order=updated_at.desc&limit=1" \
+                   -H "apikey: $ANON" -H "Authorization: Bearer $ANON" \
+                 | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['updated_at'] if d else '')" || true)
+          if [ -z "$last" ]; then
+            echo "no rows / check failed — running"; echo "run=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          last_ist=$(TZ=Asia/Kolkata date -d "$last" +%F)
+          last_hm=$(TZ=Asia/Kolkata date -d "$last" +%H%M)
+          echo "last scan: $last (IST date $last_ist $last_hm), today IST: $today"
+          # already scanned today at or after 10:15 IST -> nothing to do
+          if [ "$last_ist" = "$today" ] && [ "$last_hm" -ge 1015 ]; then
+            echo "today's scan already present — skip"; echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "no scan yet today — running"; echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout repo
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        if: steps.gate.outputs.run == 'true'
+        run: pip install -r requirements.txt
+
+      # fetch_hourly.py ingests the bars and then calls scan_trendday itself,
+      # so this one step produces both fresh bars and the scored setup list
+      - name: Ingest hourly bars + score the trend-day setups
+        if: steps.gate.outputs.run == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -o pipefail
+          python ingestion/fetch_hourly.py 2>&1 | tee ingestion/trendday_scan.log
+
+      - name: Summarise today's setups
+        if: steps.gate.outputs.run == 'true'
+        env:
+          SUPABASE_URL: https://lgsgcccasccxfofxsbge.supabase.co
+          ANON: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxnc2djY2Nhc2NjeGZvZnhzYmdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5NTI5MjMsImV4cCI6MjA5NzUyODkyM30.mUk6etxWdkxttwoHnG9-F2axvj680XXOKWmjaSRYuTA
+        run: |
+          curl -sf "$SUPABASE_URL/rest/v1/scanner_trendday?select=symbol,stage,score,cum_pct,h1_rvol,triggered_at&triggered_at=not.is.null&order=score.desc&limit=20" \
+            -H "apikey: $ANON" -H "Authorization: Bearer $ANON" -o setups.json || echo '[]' > setups.json
+          python3 -c "import json; rows=json.load(open('setups.json')); print('## Trend Day setups —', len(rows), 'triggered'); print(); print('| Symbol | Stage | Score | Now % | H1 RVOL |'); print('|---|---|---|---|---|'); [print('|', r['symbol'], '|', r['stage'], '|', r['score'], '|', r['cum_pct'], '|', r['h1_rvol'], '|') for r in rows]" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload log
+        if: always() && steps.gate.outputs.run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: trendday-scan-log-${{ github.run_id }}
+          path: ingestion/trendday_scan.log
+          retention-days: 5
