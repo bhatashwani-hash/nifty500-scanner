@@ -206,9 +206,11 @@ def main():
                 clear_history(conn)
                 break
             # watchdog: KiteTicker's auto-reconnect sometimes never fires after an unclean
-            # drop (code 1006) — if the feed goes silent, tear the socket down and rebuild it
-            if time.time() - state["last_rx"] > 60:
-                print("[watchdog] no ticks for 60s — rebuilding websocket")
+            # drop (code 1006) — if the feed goes silent, tear the socket down and rebuild it.
+            # 25s (was 60s): the machine's network blips several times a session and every
+            # extra second of silence is lost intraday bars; a false-positive rebuild is harmless.
+            if time.time() - state["last_rx"] > 25:
+                print("[watchdog] no ticks for 25s — rebuilding websocket")
                 try:
                     kws.close()
                 except Exception:
