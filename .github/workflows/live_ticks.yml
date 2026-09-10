@@ -1,0 +1,46 @@
+name: Live Ticks — Yahoo fallback feeder → ticks
+
+# Cloud fallback for ingestion/kite_ticks.py: keeps the dashboard's Ticks tab
+# live (~40-60s cadence) when the Kite streamer isn't running on the trading PC.
+# Two shifts per trading day because one GitHub job can't span the full
+# 9:15–15:30 IST session:
+#   morning   03:40 UTC = 9:10 AM IST  (runs ~3.5h)
+#   afternoon 07:10 UTC = 12:40 PM IST (runs until close)
+# The feeder itself exits at 15:35 IST or when RUN_MINUTES is up.
+# Only one feeder runs at a time (concurrency group); a manual dispatch
+# replaces whichever shift is running.
+on:
+  schedule:
+    - cron: "40 3 * * 1-5"
+    - cron: "10 7 * * 1-5"
+  workflow_dispatch:
+
+concurrency:
+  group: live-ticks
+  cancel-in-progress: true
+
+jobs:
+  feed:
+    name: Yahoo tick feeder (stocks + indices → ticks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 225
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install yfinance pandas psycopg2-binary python-dotenv
+
+      - name: Run feeder
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          POLL_SECS: "40"
+          RUN_MINUTES: "210"
+        run: python ingestion/yahoo_ticks.py
