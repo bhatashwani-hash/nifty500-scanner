@@ -157,7 +157,9 @@ def main():
                 n = 0
             et = datetime.now(ET)
             print(f"{et:%H:%M:%S} ET · {n} symbols · {time.time()-t0:.1f}s")
-            if et.time() >= EOD_ET:
+            # outside the session window in EITHER direction: also catches the
+            # machine sleeping through the close and waking after midnight ET
+            if not (SOD_ET <= et.time() < EOD_ET):
                 print("US market closed — stopping.")
                 break
             time.sleep(max(1, POLL_SECS - (time.time() - t0)))

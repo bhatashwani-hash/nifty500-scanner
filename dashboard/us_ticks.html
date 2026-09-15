@@ -19,64 +19,58 @@
   body{ background:var(--bg); color:var(--text); font-family:'Inter',system-ui,sans-serif;
     padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 
-  header{ position:sticky; top:0; z-index:20; background:rgba(245,246,248,.88);
+  header{ position:sticky; top:0; z-index:20; background:rgba(245,246,248,.9);
     backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
-    padding:.8rem .9rem .55rem; border-bottom:1px solid var(--border); }
-  .hrow{ display:flex; align-items:center; gap:.6rem; }
-  h1{ font-size:1.02rem; font-weight:800; letter-spacing:-.3px; }
-  .live-pill{ margin-left:auto; font-family:var(--mono); font-size:.68rem; color:#475569;
-    background:var(--card); border:1px solid var(--border); border-radius:999px; padding:.22rem .6rem;
-    display:inline-flex; align-items:center; gap:.35rem; box-shadow:0 1px 2px rgba(16,24,40,.05); white-space:nowrap; }
+    padding:.45rem .7rem .4rem; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; gap:.7rem; flex-wrap:wrap; }
+  h1{ font-size:.92rem; font-weight:800; letter-spacing:-.3px; white-space:nowrap; }
+  .sub{ font-size:.64rem; color:var(--faint); font-family:var(--mono); }
+  .sub b.pos{ color:var(--up); } .sub b.neg{ color:var(--down); }
+  .live-pill{ margin-left:auto; font-family:var(--mono); font-size:.66rem; color:#475569;
+    background:var(--card); border:1px solid var(--border); border-radius:999px; padding:.18rem .55rem;
+    display:inline-flex; align-items:center; gap:.35rem; white-space:nowrap; }
   .dot{ width:7px; height:7px; border-radius:50%; background:var(--up); animation:pulse 1.6s infinite; }
   .dot.stale{ background:var(--down); animation:none; }
   @keyframes pulse{ 0%,100%{ opacity:1 } 50%{ opacity:.35 } }
-  .sub{ font-size:.68rem; color:var(--faint); margin-top:.3rem; font-family:var(--mono); }
-  .sub b.pos{ color:var(--up); } .sub b.neg{ color:var(--down); }
 
-  .idx{ display:flex; gap:.45rem; overflow-x:auto; padding:.6rem .9rem .2rem; scrollbar-width:none; }
+  /* slim index strip inside the header */
+  .idx{ display:flex; gap:.35rem; overflow-x:auto; scrollbar-width:none; }
   .idx::-webkit-scrollbar{ display:none; }
-  .lc{ flex:0 0 auto; min-width:118px; background:var(--card); border:1px solid var(--border);
-    border-radius:12px; padding:.45rem .65rem; box-shadow:0 1px 2px rgba(16,24,40,.04); }
-  .lc .n{ font-size:.55rem; font-weight:700; letter-spacing:.8px; color:var(--faint); text-transform:uppercase; white-space:nowrap; }
-  .lc .v{ font-family:var(--mono); font-size:1.04rem; font-weight:700; letter-spacing:-.3px; }
-  .lc .c{ font-family:var(--mono); font-size:.72rem; font-weight:700; }
+  .lc{ flex:0 0 auto; display:flex; align-items:baseline; gap:.35rem;
+    background:var(--card); border:1px solid var(--border); border-radius:8px; padding:.16rem .5rem; }
+  .lc .n{ font-size:.55rem; font-weight:700; letter-spacing:.5px; color:var(--faint); white-space:nowrap; }
+  .lc .v{ font-family:var(--mono); font-size:.72rem; font-weight:700; }
+  .lc .c{ font-family:var(--mono); font-size:.64rem; font-weight:700; }
   .lc .c.pos{ color:var(--up); } .lc .c.neg{ color:var(--down); }
-  .lc.hi .n,.lc.hi .v,.lc.hi .c{ color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.25); }
 
-  main{ padding:.5rem .6rem 2.5rem; }
-  .sector{ background:var(--card); border:1px solid var(--border); border-radius:14px;
-    box-shadow:0 1px 2px rgba(16,24,40,.04), 0 8px 22px rgba(16,24,40,.05); margin-bottom:.65rem; }
-  .shead{ position:sticky; top:0; z-index:10; display:flex; align-items:center; gap:.5rem;
-    padding:.55rem .75rem .5rem .85rem; border-bottom:1px solid #eef0f4; border-radius:14px 14px 0 0;
-    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
-  .sector.up  .shead{ background:linear-gradient(180deg, rgba(22,163,74,.09), rgba(255,255,255,.96) 75%); }
-  .sector.down .shead{ background:linear-gradient(180deg, rgba(220,38,38,.09), rgba(255,255,255,.96) 75%); }
-  .sname{ font-weight:800; font-size:.84rem; letter-spacing:-.1px; white-space:nowrap;
+  /* matrix: sector cards packed into responsive columns */
+  main{ padding:.4rem .45rem 1.2rem; columns:5 300px; column-gap:.45rem; }
+  @media (max-width:1500px){ main{ columns:4 300px; } }
+  @media (max-width:1200px){ main{ columns:3 300px; } }
+  .sector{ break-inside:avoid; background:var(--card); border:1px solid var(--border);
+    border-radius:10px; margin-bottom:.45rem; overflow:hidden;
+    box-shadow:0 1px 2px rgba(16,24,40,.04); }
+  .shead{ display:flex; align-items:center; gap:.4rem; padding:.3rem .5rem .26rem; border-bottom:1px solid #eef0f4; }
+  .sector.up  .shead{ background:linear-gradient(180deg, rgba(22,163,74,.08), rgba(255,255,255,.95) 80%); }
+  .sector.down .shead{ background:linear-gradient(180deg, rgba(220,38,38,.08), rgba(255,255,255,.95) 80%); }
+  .sname{ font-weight:800; font-size:.68rem; letter-spacing:-.1px; white-space:nowrap;
     overflow:hidden; text-overflow:ellipsis; min-width:0; flex:1; }
-  .savg{ font-family:var(--mono); font-weight:800; font-size:.78rem; padding:.14rem .5rem; border-radius:999px; }
+  .savg{ font-family:var(--mono); font-weight:800; font-size:.62rem; padding:.06rem .35rem; border-radius:999px; }
   .savg.pos{ color:var(--up); background:rgba(22,163,74,.1); }
   .savg.neg{ color:var(--down); background:rgba(220,38,38,.1); }
-  .scnt{ font-family:var(--mono); font-size:.64rem; color:var(--faint); white-space:nowrap; }
-  .chips{ padding:.3rem .35rem .4rem; }
-  .chip{ display:flex; flex-wrap:wrap; align-items:center; gap:.45rem;
-    padding:.44rem .65rem; border-radius:9px; margin:.06rem 0; cursor:pointer; }
-  .chip:active{ filter:brightness(.95); }
-  .sym{ font-family:var(--mono); font-weight:650; font-size:.98rem; }
-  .px{ margin-left:auto; font-family:var(--mono); font-size:.8rem; color:var(--muted); }
-  .ret{ font-family:var(--mono); font-weight:700; font-size:.98rem; min-width:4.2rem; text-align:right; }
-  .ret.pos{ color:var(--up); } .ret.neg{ color:var(--down); }
-  .chip.hi .sym,.chip.hi .px,.chip.hi .ret{ color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.25); }
-  .chip.flash{ animation:fl .7s ease; }
-  @keyframes fl{ 0%{ filter:brightness(1.3);} 100%{ filter:brightness(1);} }
-  .chip.hl-spk{ box-shadow:inset 0 0 0 1.5px rgba(124,92,252,.65); }
-  .tags{ flex-basis:100%; display:flex; flex-wrap:wrap; gap:.25rem; padding:.06rem 0 0; }
-  .tags:empty{ display:none; }
-  .pill{ font-size:.6rem; font-weight:700; letter-spacing:.3px; padding:.08rem .38rem;
-    border-radius:5px; white-space:nowrap; font-family:'Inter'; }
-  .pill.su{ background:rgba(22,163,74,.12); color:var(--up); }
-  .pill.sd{ background:rgba(220,38,38,.12); color:var(--down); }
-  .chip.hi .pill{ background:rgba(255,255,255,.22); color:#fff; }
-  .empty{ text-align:center; color:var(--faint); font-size:.82rem; padding:3rem 1rem; line-height:1.6; }
+  .scnt{ font-family:var(--mono); font-size:.56rem; color:var(--faint); white-space:nowrap; }
+  .tiles{ display:grid; grid-template-columns:repeat(auto-fill,minmax(54px,1fr)); gap:2px; padding:3px; }
+  .tile{ text-align:center; border-radius:4px; padding:.16rem .05rem .12rem; cursor:pointer; line-height:1.15; }
+  .tile:hover{ filter:brightness(.93); }
+  .tile .s{ font-family:var(--mono); font-weight:700; font-size:.58rem; letter-spacing:-.2px;
+    white-space:nowrap; overflow:hidden; }
+  .tile .r{ font-family:var(--mono); font-weight:700; font-size:.56rem; }
+  .tile .r.pos{ color:#0b6e35; } .tile .r.neg{ color:#a31220; }
+  .tile.hi .s,.tile.hi .r{ color:#fff; text-shadow:0 1px 1px rgba(0,0,0,.28); }
+  .tile.flash{ animation:fl .7s ease; }
+  @keyframes fl{ 0%{ filter:brightness(1.35);} 100%{ filter:brightness(1);} }
+  .tile.hl-spk{ box-shadow:inset 0 0 0 1.5px rgba(124,92,252,.8); }
+  .empty{ text-align:center; color:var(--faint); font-size:.82rem; padding:3rem 1rem; line-height:1.6; column-span:all; }
   .empty code{ font-family:var(--mono); background:var(--card); border:1px solid var(--border);
     border-radius:6px; padding:.1rem .4rem; }
 </style>
@@ -84,14 +78,12 @@
 <body>
 
 <header>
-  <div class="hrow">
-    <h1>🇺🇸 S&amp;P 500 Live</h1>
-    <span class="live-pill"><span class="dot" id="dot"></span><span id="stat">connecting…</span></span>
-  </div>
-  <div class="sub" id="sub">S&amp;P 500 · sector heat-board · ~20s Yahoo refresh</div>
+  <h1>🇺🇸 S&amp;P 500 Live</h1>
+  <span class="sub" id="sub">matrix heat-board · ~20s Yahoo refresh</span>
+  <div class="idx" id="idx"></div>
+  <span class="live-pill"><span class="dot" id="dot"></span><span id="stat">connecting…</span></span>
 </header>
 
-<div class="idx" id="idx"></div>
 <main id="board"><div class="empty">Loading live board…</div></main>
 
 <script>
@@ -99,13 +91,13 @@ const SB_URL  = "https://lgsgcccasccxfofxsbge.supabase.co";
 const SB_KEY  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxnc2djY2Nhc2NjeGZvZnhzYmdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE5NTI5MjMsImV4cCI6MjA5NzUyODkyM30.mUk6etxWdkxttwoHnG9-F2axvj680XXOKWmjaSRYuTA";
 const sb = supabase.createClient(SB_URL, SB_KEY);
 
-const IDX_NAMES={"^GSPC":"S&P 500","^NDX":"NASDAQ 100","^DJI":"DOW","^RUT":"RUSSELL 2K","^VIX":"VIX"};
+const IDX_NAMES={"^GSPC":"SPX","^NDX":"NDX","^DJI":"DOW","^RUT":"RUT","^VIX":"VIX"};
 const IDX_ORDER=["^GSPC","^NDX","^DJI","^RUT","^VIX"];
-const STALE_SECS=120;   // poller cadence is ~20-40s
+const STALE_SECS=120;
 
 const fmt=(v,d=2)=>v==null?"—":Number(v).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
-const heat=(v,cap=3)=>{ if(v==null) return "";
-  const a=.08+.72*Math.min(Math.abs(v)/cap,1);
+const heat=(v,cap=3)=>{ if(v==null) return "#f1f3f6";
+  const a=.10+.75*Math.min(Math.abs(v)/cap,1);
   return v>=0?`rgba(16,150,72,${a.toFixed(2)})`:`rgba(222,52,64,${a.toFixed(2)})`; };
 const heatHi=(v,t=1.2)=>v!=null&&Math.abs(v)>=t;
 
@@ -122,18 +114,18 @@ async function loadMeta(){
   sectorOf={}; all.forEach(r=>{ sectorOf[r.symbol]=r.sector||"Other"; });
 }
 
-function deco(r,nowMs){
+function spk(r,nowMs){
   const p=prev[r.symbol];
   if(p!=null&&r.ltp!=null&&p>0){ const j=(r.ltp-p)/p*100;
     if(Math.abs(j)>=1) spikes[r.symbol]={pct:j,until:nowMs+300000}; }
   if(spikes[r.symbol]&&spikes[r.symbol].until<nowMs) delete spikes[r.symbol];
-  const sp=spikes[r.symbol];
-  return { tags: sp?`<span class="pill ${sp.pct>=0?'su':'sd'}">${sp.pct>=0?'▲':'▼'} ${Math.abs(sp.pct).toFixed(1)}% MOVE</span>`:"",
-           spk:!!sp };
+  return !!spikes[r.symbol];
 }
 
+const tileTitle=r=>`${r.symbol}  ${fmt(r.ltp)}  ${r.chg_pct==null?"":(r.chg_pct>=0?"+":"")+fmt(r.chg_pct)+"%"}`;
+
 async function tick(){
-  const { data, error } = await sb.from("us_ticks").select("symbol,is_index,ltp,chg_pct,vol,updated_at");
+  const { data, error } = await sb.from("us_ticks").select("symbol,is_index,ltp,chg_pct,updated_at");
   const dot=document.getElementById("dot"), stat=document.getElementById("stat"),
         board=document.getElementById("board"), idxEl=document.getElementById("idx");
   if(error||!data||!data.length){
@@ -151,14 +143,13 @@ async function tick(){
   const pidx=IDX_ORDER.map(s=>idx.find(x=>x.symbol===s)).filter(Boolean);
   if(idxEl.children.length!==pidx.length){
     idxEl.innerHTML=pidx.map(r=>{const up=(r.chg_pct||0)>=0;
-      return `<div class="lc${heatHi(r.chg_pct,.8)?' hi':''}" data-sym="${r.symbol}" style="background:${heat(r.chg_pct,1.5)}">
-        <div class="n">${IDX_NAMES[r.symbol]||r.symbol}</div><div class="v">${fmt(r.ltp)}</div>
-        <div class="c ${up?'pos':'neg'}">${r.chg_pct==null?'—':(up?'+':'')+fmt(r.chg_pct)}%</div></div>`;}).join("");
+      return `<div class="lc" data-sym="${r.symbol}"><span class="n">${IDX_NAMES[r.symbol]||r.symbol}</span>
+        <span class="v">${fmt(r.ltp,r.symbol==="^VIX"?2:0)}</span>
+        <span class="c ${up?'pos':'neg'}">${r.chg_pct==null?'—':(up?'+':'')+fmt(r.chg_pct)}%</span></div>`;}).join("");
   }else pidx.forEach(r=>{
     const el=idxEl.querySelector(`[data-sym="${CSS.escape(r.symbol)}"]`); if(!el) return;
     const up=(r.chg_pct||0)>=0;
-    el.style.background=heat(r.chg_pct,1.5); el.classList.toggle("hi",heatHi(r.chg_pct,.8));
-    el.querySelector(".v").textContent=fmt(r.ltp);
+    el.querySelector(".v").textContent=fmt(r.ltp,r.symbol==="^VIX"?2:0);
     const c=el.querySelector(".c");
     c.textContent=(r.chg_pct==null?"—":(up?"+":"")+fmt(r.chg_pct))+"%";
     c.classList.toggle("pos",up); c.classList.toggle("neg",!up);
@@ -175,24 +166,23 @@ async function tick(){
   }).sort((a,b)=>b.avg-a.avg);
   const adv=st.filter(r=>(r.chg_pct||0)>0).length, dec=st.filter(r=>(r.chg_pct||0)<0).length;
   document.getElementById("sub").innerHTML=
-    `${st.length} S&amp;P 500 · ${secs.length} sectors · <b class="pos">${adv} ▲</b> · <b class="neg">${dec} ▼</b>`;
+    `${st.length} names · <b class="pos">${adv} ▲</b> · <b class="neg">${dec} ▼</b>`;
 
-  const same = board.querySelectorAll(".chip").length===st.length &&
-               st.every(r=>board.querySelector(`.chip[data-sym="${CSS.escape(r.symbol)}"]`));
+  const same = board.querySelectorAll(".tile").length===st.length &&
+               st.every(r=>board.querySelector(`.tile[data-sym="${CSS.escape(r.symbol)}"]`));
   if(!same){
     board.innerHTML=secs.map(({sec,arr,avg})=>{
       const aup=avg>=0;
-      const chips=arr.map(r=>{const up=(r.chg_pct||0)>=0, dd=deco(r,nowMs);
-        return `<div class="chip${heatHi(r.chg_pct)?' hi':''}${dd.spk?' hl-spk':''}"
-          data-sym="${r.symbol}" style="background:${heat(r.chg_pct)}">
-          <span class="sym">${r.symbol}</span><span class="px">${fmt(r.ltp)}</span>
-          <span class="ret ${up?'pos':'neg'}">${r.chg_pct==null?'—':(up?'+':'')+fmt(r.chg_pct)}%</span>
-          <span class="tags">${dd.tags}</span></div>`;}).join("");
+      const tiles=arr.map(r=>{const up=(r.chg_pct||0)>=0;
+        return `<div class="tile${heatHi(r.chg_pct)?' hi':''}${spk(r,nowMs)?' hl-spk':''}"
+          data-sym="${r.symbol}" title="${tileTitle(r)}" style="background:${heat(r.chg_pct)}">
+          <div class="s">${r.symbol}</div>
+          <div class="r ${up?'pos':'neg'}">${r.chg_pct==null?'—':(up?'+':'')+fmt(r.chg_pct,1)}</div></div>`;}).join("");
       return `<section class="sector ${aup?'up':'down'}" data-sec="${sec}">
         <div class="shead"><span class="sname">${sec}</span>
           <span class="savg ${aup?'pos':'neg'}">${aup?'+':''}${fmt(avg)}%</span>
-          <span class="scnt">${arr.filter(r=>(r.chg_pct||0)>0).length}▲ ${arr.filter(r=>(r.chg_pct||0)<0).length}▼</span></div>
-        <div class="chips">${chips}</div></section>`;}).join("");
+          <span class="scnt">${arr.filter(r=>(r.chg_pct||0)>0).length}▲${arr.filter(r=>(r.chg_pct||0)<0).length}▼</span></div>
+        <div class="tiles">${tiles}</div></section>`;}).join("");
   }else{
     const rowsBySym={}; st.forEach(r=>{ rowsBySym[r.symbol]=r; });
     const agg={}; secs.forEach(s=>{ agg[s.sec]=s; });
@@ -204,23 +194,22 @@ async function tick(){
       av.textContent=(aup?"+":"")+fmt(s.avg)+"%";
       av.classList.toggle("pos",aup); av.classList.toggle("neg",!aup);
       card.querySelector(".scnt").textContent=
-        `${s.arr.filter(r=>(r.chg_pct||0)>0).length}▲ ${s.arr.filter(r=>(r.chg_pct||0)<0).length}▼`;
-      const box=card.querySelector(".chips");
-      const items=[...box.querySelectorAll(".chip")].map(ch=>({ch,r:rowsBySym[ch.dataset.sym]})).filter(x=>x.r);
-      items.forEach(({ch,r})=>{
-        const up=(r.chg_pct||0)>=0, dd=deco(r,nowMs);
-        if(prev[r.symbol]!=null&&prev[r.symbol]!==r.ltp){ ch.classList.remove("flash"); void ch.offsetWidth; ch.classList.add("flash"); }
-        ch.style.background=heat(r.chg_pct);
-        ch.classList.toggle("hi",heatHi(r.chg_pct));
-        ch.classList.toggle("hl-spk",dd.spk);
-        ch.querySelector(".px").textContent=fmt(r.ltp);
-        const ret=ch.querySelector(".ret");
-        ret.textContent=(r.chg_pct==null?"—":(up?"+":"")+fmt(r.chg_pct))+"%";
-        ret.classList.toggle("pos",up); ret.classList.toggle("neg",!up);
-        const tg=ch.querySelector(".tags"); if(tg.innerHTML!==dd.tags) tg.innerHTML=dd.tags;
+        `${s.arr.filter(r=>(r.chg_pct||0)>0).length}▲${s.arr.filter(r=>(r.chg_pct||0)<0).length}▼`;
+      const box=card.querySelector(".tiles");
+      const items=[...box.querySelectorAll(".tile")].map(el=>({el,r:rowsBySym[el.dataset.sym]})).filter(x=>x.r);
+      items.forEach(({el,r})=>{
+        const up=(r.chg_pct||0)>=0;
+        if(prev[r.symbol]!=null&&prev[r.symbol]!==r.ltp){ el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); }
+        el.style.background=heat(r.chg_pct);
+        el.title=tileTitle(r);
+        el.classList.toggle("hi",heatHi(r.chg_pct));
+        el.classList.toggle("hl-spk",spk(r,nowMs));
+        const rr=el.querySelector(".r");
+        rr.textContent=r.chg_pct==null?"—":(up?"+":"")+fmt(r.chg_pct,1);
+        rr.classList.toggle("pos",up); rr.classList.toggle("neg",!up);
       });
       items.sort((a,b)=>(b.r.chg_pct??-1e9)-(a.r.chg_pct??-1e9));
-      items.forEach(({ch})=>box.appendChild(ch));
+      items.forEach(({el})=>box.appendChild(el));
     });
   }
   prevSet(st);
@@ -228,8 +217,8 @@ async function tick(){
 function prevSet(st){ st.forEach(r=>{ prev[r.symbol]=r.ltp; }); }
 
 document.addEventListener("click",e=>{
-  const ch=e.target.closest(".chip");
-  if(ch) window.open("https://www.tradingview.com/chart/?symbol="+encodeURIComponent(ch.dataset.sym),"_blank");
+  const t=e.target.closest(".tile");
+  if(t) window.open("https://www.tradingview.com/chart/?symbol="+encodeURIComponent(t.dataset.sym),"_blank");
 });
 
 loadMeta().then(tick);
