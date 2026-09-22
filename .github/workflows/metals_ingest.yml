@@ -1,0 +1,31 @@
+name: Metals Ingestion — gold / silver / DXY / 10Y → metals_ohlcv
+
+# COMEX gold and silver trade ~23h a day on Globex (Sun 18:00 – Fri 17:00 ET),
+# so this runs around the clock Sunday through Friday, not just NSE hours.
+# Two slots an hour because GitHub drops cron slots; each run is idempotent
+# (COPY + ON CONFLICT upsert, ~25s) so a doubled hour costs nothing.
+on:
+  schedule:
+    - cron: "8,38 * * * 0-5"
+  workflow_dispatch:
+
+concurrency:
+  group: metals-ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    name: Metals bars (1d / 1h / 5m)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - run: pip install -r requirements.txt
+      - name: Fetch and upsert
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python ingestion/fetch_metals.py
