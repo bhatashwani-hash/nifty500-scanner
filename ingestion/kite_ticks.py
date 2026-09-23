@@ -84,7 +84,8 @@ def clear_history(conn, before=None):
 def build_token_maps(kite, conn):
     """Return token->(symbol, is_index) and the prev_close per symbol."""
     with conn.cursor() as cur:
-        cur.execute("SELECT symbol, sector FROM stocks WHERE is_active AND is_fno")
+        # full NSE 500 universe (+ any F&O names outside it) — sectors drive the heat-board
+        cur.execute("SELECT symbol, sector FROM stocks WHERE is_active AND (is_n500 OR is_fno)")
         sector_of = {r[0]: (r[1] or "Other") for r in cur.fetchall()}
         fno = set(sector_of)
 

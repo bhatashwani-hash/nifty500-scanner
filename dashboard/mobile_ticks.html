@@ -92,7 +92,7 @@
       background:var(--card);border:1px solid var(--border);border-radius:999px;padding:.22rem .6rem;white-space:nowrap;">🔮 FUT</a>
     <span class="live-pill"><span class="dot" id="dot"></span><span id="stat">connecting…</span></span>
   </div>
-  <div class="sub" id="sub">F&amp;O universe · sector heat-board · 3s refresh</div>
+  <div class="sub" id="sub">NSE 500 universe · sector heat-board · 3s refresh</div>
 </header>
 
 <div class="idx" id="idx"></div>
@@ -119,7 +119,8 @@ let sectorOf=null, avgVol=null, prev={}, spikes={};
 
 async function loadMeta(){
   const [{data:st},{data:rv}] = await Promise.all([
-    sb.from("stocks").select("symbol,sector").eq("is_active",true).eq("is_fno",true),
+    sb.from("stocks").select("symbol,sector").eq("is_active",true)
+      .or("is_n500.eq.true,is_fno.eq.true").range(0,999),
     sb.from("scanner_rvol").select("run_date").order("run_date",{ascending:false}).limit(1)
   ]);
   sectorOf={}; (st||[]).forEach(r=>{ sectorOf[r.symbol]=r.sector||"Other"; });
@@ -193,7 +194,7 @@ async function tick(){
   }).sort((a,b)=>b.avg-a.avg);
   const adv=st.filter(r=>(r.chg_pct||0)>0).length, dec=st.filter(r=>(r.chg_pct||0)<0).length;
   document.getElementById("sub").innerHTML=
-    `${st.length} F&amp;O · ${secs.length} sectors · <b class="pos">${adv} ▲</b> · <b class="neg">${dec} ▼</b>`;
+    `${st.length} NSE 500 · ${secs.length} sectors · <b class="pos">${adv} ▲</b> · <b class="neg">${dec} ▼</b>`;
 
   const same = board.querySelectorAll(".chip").length===st.length &&
                st.every(r=>board.querySelector(`.chip[data-sym="${CSS.escape(r.symbol)}"]`));
