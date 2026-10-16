@@ -203,9 +203,22 @@ def main():
         while True:
             time.sleep(FLUSH_SECS)
             if datetime.now(IST).time() >= EOD_IST:
-                print("Market closed — removing the day's sector_history bars and stopping.")
-                clear_history(conn)
-                break
+                # the local clock has fired false "market closed" exits mid-session
+                # (clock jumps after wake/NTP resync) — confirm against the DB clock
+                # before stopping; if the DB can't be reached, don't stop (retry next loop)
+                db_ist = None
+                try:
+                    with conn.cursor() as cur:
+                        cur.execute("SELECT now()")
+                        db_ist = cur.fetchone()[0].astimezone(IST)
+                except Exception:
+                    pass
+                if db_ist is not None and db_ist.time() >= EOD_IST:
+                    print("Market closed — removing the day's sector_history bars and stopping.")
+                    clear_history(conn)
+                    break
+                print(f"[clock] local clock says past close but DB clock disagrees "
+                      f"(db={db_ist}) — ignoring")
             # watchdog: KiteTicker's auto-reconnect sometimes never fires after an unclean
             # drop (code 1006) — if the feed goes silent, tear the socket down and rebuild it.
             # 25s (was 60s): the machine's network blips several times a session and every
